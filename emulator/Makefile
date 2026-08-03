@@ -1,16 +1,49 @@
 
 LOG_LEVEL ?= LOG_LEVEL_DEBUG
 
-INCLUDE_DIRS := $(shell find . -type d)
-CFLAGS := $(addprefix -I,$(INCLUDE_DIRS))
-CFLAGS += -DLOG_LEVEL=$(LOG_LEVEL)
-CFLAGS += -Wall -Wextra -Wpedantic
+CC       := gcc
+CPPFLAGS := -Iinclude
+CPPFLAGS += -DLOG_LEVEL=$(LOG_LEVEL)
+CFLAGS 	 := -std=c99 -Wall -Wextra -Wpedantic -Wshadow -Wformat=2 -Wconversion -MMD -MP
+LDFLAGS  :=
+LDLIBS   :=
 
+TOP := rvemu
+OUTPUT := build
 
-all: rvemu
+SOURCES := src/cpu/cpu.c
+SOURCES += src/memory/memory.c
+SOURCES += src/main.c
 
-rvemu: src/main.c src/cpu/cpu.c src/memory/memory.c
-	gcc $(CFLAGS) -o $@ $^
+OBJECTS := $(patsubst src/%.c,$(OUTPUT)/%.o,$(SOURCES))
+DEPS	:= $(OBJECTS:.o=.d)
+
+.PHONY: build clean sanity run_sanity_test
+
+build: $(TOP)
+
+#-------------------------------------------------
+# Run sanity test
+#-------------------------------------------------
+
+run_sanity_test: sanity $(TOP)
+	./rvemu tests/sanity/build/rv64i.bin
+
+sanity:
+	$(MAKE) -C tests/sanity all
+
+#-------------------------------------------------
+# Build emulator
+#-------------------------------------------------
+
+$(TOP): $(OBJECTS)
+	$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
+
+$(OUTPUT)/%.o: src/%.c
+	mkdir -p $(@D)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
+
+-include $(DEPS)
 
 clean:
-	rm -rf rvemu
+	rm -rf $(TOP) $(OUTPUT)

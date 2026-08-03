@@ -20,9 +20,10 @@ static void decode(uint32_t inst, inst_dec_t* inst_dec) {
     uint8_t opcode;
     opcode = inst & 0x7F;
     inst_dec->opcode = opcode;
-    inst_dec->rd  = (inst >> 7)  & 0x1F;
     inst_dec->rs1 = (inst >> 15) & 0x1F;
     inst_dec->rs2 = (inst >> 20) & 0x1F;
+    inst_dec->rd  = (inst >> 7)  & 0x1F;
+    inst_dec->imm = 0;
 
     switch(opcode) {
         case(0x13): {inst_dec->imm = (inst >> 20) & 0xFFF;} // I-type immediate
@@ -33,7 +34,7 @@ static void decode(uint32_t inst, inst_dec_t* inst_dec) {
 /**
  * Convert the pattern to mask
  */
-void parse_pattern(char* pattern, uint32_t* mask, uint32_t* golden) {
+static int parse_pattern(const char* pattern, uint32_t* mask, uint32_t* golden) {
     uint32_t _mask = 0;
     uint32_t _golden = 0;
     for (; *pattern != '\0'; pattern++) {
@@ -57,22 +58,27 @@ void parse_pattern(char* pattern, uint32_t* mask, uint32_t* golden) {
             }
             default: {
                 LOG_ERROR("Incorrect pattern: %s", pattern);
+                return -1;
             }
         }
     }
     *mask = _mask;
     *golden = _golden;
+    return 0;
 }
 
 // Macro to add the new instruction, use in the big switch/case statement
 #define ADD_INST(name, pattern, op)                 \
     do {                                            \
         uint32_t mask, golden;                      \
-        parse_pattern(pattern, &mask, &golden);     \
+        if (parse_pattern(pattern, &mask, &golden) != 0) { \
+            return -1;                              \
+        }                                           \
         if ((mask & inst) == golden) {              \
             LOG_DEBUG("EXECUTE %s: PC=%lx INST=%08x", name, cpu->pc, inst); \
             op;                                     \
-            return;                                 \
+            cpu->regs[0] = 0;                       \
+            return 0;                               \
         }                                           \
     } while(0)
 
@@ -89,14 +95,18 @@ void parse_pattern(char* pattern, uint32_t* mask, uint32_t* golden) {
 void init_cpu(cpu_t* cpu) {
     cpu->halted = false;
     cpu->pc = RST_VEC;
-    cpu->regs[0] = 0;
+
+    // initialize all the register to 0 to make sure the emulator is deterministic
+    for (int i = 0; i < 32; i++) {
+        cpu->regs[i] = 0;
+    }
     LOG_INFO("Initialize CPU done");
 }
 
 /**
  * Execute a single instruction
  */
-void execute(uint32_t inst, cpu_t* cpu, memory_t* memory) {
+int execute(uint32_t inst, cpu_t* cpu, memory_t* memory) {
     inst_dec_t inst_dec;
     // decode the instruction
     decode(inst, &inst_dec);
@@ -107,6 +117,8 @@ void execute(uint32_t inst, cpu_t* cpu, memory_t* memory) {
     // check for ebreak. Currently using ebreak as a signal to stop the emulator
     ADD_INST("ebreak", "0000_0000_0001_0000_0000_0000_0111_0011", cpu->halted = true);
 
-    // invalid instruction
+    // if program execute to this point, then we hit an invalid instruction
+    cpu->halted = true;
     LOG_ERROR("EXECUTE: Invalid instruction at address: %lx, instruction: %x", cpu->pc, inst);
+    return -1;
 }

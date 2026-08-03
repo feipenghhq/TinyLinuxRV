@@ -13,22 +13,34 @@
 #endif
 
 #if LOG_LEVEL >= LOG_LEVEL_ERROR
-#define LOG_ERROR(fmt, ...) \
-    fprintf(stderr, "[ERROR] %s:%d: " fmt "\n", __FILE__, __LINE__, ##__VA_ARGS__);
+#define LOG_ERROR(...) \
+    do {                               \
+        fprintf(stderr, "[ERROR] ");   \
+        fprintf(stderr, __VA_ARGS__);   \
+        fprintf(stderr, "\n");          \
+    } while (0)
 #else
 #define LOG_ERROR(...) ((void)0)
 #endif
 
 #if LOG_LEVEL >= LOG_LEVEL_INFO
-#define LOG_INFO(fmt, ...) \
-    fprintf(stderr, "[INFO] %s:%d: " fmt "\n", __FILE__, __LINE__, ##__VA_ARGS__);
+#define LOG_INFO(...) \
+    do {                               \
+        fprintf(stderr, "[INFO] ");    \
+        fprintf(stderr, __VA_ARGS__);  \
+        fprintf(stderr, "\n");         \
+    } while (0)
 #else
 #define LOG_INFO(...) ((void)0)
 #endif
 
 #if LOG_LEVEL >= LOG_LEVEL_DEBUG
-#define LOG_DEBUG(fmt, ...) \
-    fprintf(stderr, "[DEBUG] %s:%d: " fmt "\n", __FILE__, __LINE__, ##__VA_ARGS__);
+#define LOG_DEBUG(...) \
+    do {                               \
+        fprintf(stderr, "[DEBUG] ");   \
+        fprintf(stderr, __VA_ARGS__);  \
+        fprintf(stderr, "\n");         \
+    } while (0)
 #else
 #define LOG_DEBUG(...) ((void)0)
 #endif

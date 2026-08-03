@@ -1,29 +1,35 @@
 # Make file for the tool-chain rv64i check
 
+ARCH  = rv64i
+ABI   = lp64
+
+START ?= 0x80000000
+
 CROSS_COMPILE = riscv64-linux-gnu-
-ARCH = rv64i
-ABI = lp64
+ASFLAGS := -march=$(ARCH) -mabi=$(ABI)
+LDFLAGS := -e _start -Ttext $(START)
 
-BUILD_DIR = build
+OUTPUT := build
 
-.PHONY: all disasm clean
+SOURCES := rv64i.S
+OBJECTS := $(patsubst %.S,$(OUTPUT)/%.o,   $(SOURCES))
+ELFS 	:= $(patsubst %.S,$(OUTPUT)/%.elf, $(SOURCES))
+BINS	:= $(patsubst %.S,$(OUTPUT)/%.bin, $(SOURCES))
 
-all: $(BUILD_DIR)/rv64i.bin
 
-disasm: $(BUILD_DIR)/rv64i.elf
-	$(CROSS_COMPILE)objdump -d -M no-aliases $<
+.PHONY: all clean
 
-$(BUILD_DIR)/rv64i.bin: $(BUILD_DIR)/rv64i.elf
-	$(CROSS_COMPILE)objcopy $< -O binary $(BUILD_DIR)/rv64i.bin
+all: $(OBJECTS) $(ELFS) $(BINS)
 
-$(BUILD_DIR)/rv64i.elf: $(BUILD_DIR)/rv64i.o
-	$(CROSS_COMPILE)ld -e _start -Ttext 0x80000000 -o $(BUILD_DIR)/rv64i.elf $<
+$(OUTPUT)/%.bin: $(OUTPUT)/%.elf
+	$(CROSS_COMPILE)objcopy $< -O binary $@
 
-$(BUILD_DIR)/rv64i.o: rv64i.S | $(BUILD_DIR)
-	$(CROSS_COMPILE)as -march=$(ARCH) -mabi=$(ABI) -o $(BUILD_DIR)/rv64i.o $<
+$(OUTPUT)/%.elf: $(OUTPUT)/%.o
+	$(CROSS_COMPILE)ld $(LDFLAGS) $< -o $@
 
-$(BUILD_DIR):
-	mkdir -p $@
+$(OUTPUT)/%.o: %.S
+	mkdir -p $(@D)
+	$(CROSS_COMPILE)as $(ASFLAGS) $< -o $@
 
 clean:
-	rm -rf $(BUILD_DIR)
+	rm -rf $(OUTPUT)
