@@ -1,5 +1,3 @@
-
-
 #include "cpu.h"
 #include "memory.h"
 #include "log.h"
@@ -14,9 +12,9 @@ typedef struct {
 } inst_dec_t;
 
 /**
- * Decode an instruction to different field
+ * Decode an instruction to different fields
  */
-static void decode(uint32_t inst, inst_dec_t* inst_dec) {
+static void decode(uint32_t inst, inst_dec_t *inst_dec) {
     uint8_t opcode;
     opcode = inst & 0x7F;
     inst_dec->opcode = opcode;
@@ -26,34 +24,37 @@ static void decode(uint32_t inst, inst_dec_t* inst_dec) {
     inst_dec->imm = 0;
 
     switch(opcode) {
-        case(0x13): {inst_dec->imm = (inst >> 20) & 0xFFF;} // I-type immediate
+        case(0x13): { // I-type immediate
+            inst_dec->imm = (inst >> 20) & 0xFFF;
+            break;
+        }
         // TBD
     }
 }
 
 /**
- * Convert the pattern to mask
+ * Convert the instruction pattern to mask
  */
-static int parse_pattern(const char* pattern, uint32_t* mask, uint32_t* golden) {
-    uint32_t _mask = 0;
-    uint32_t _golden = 0;
+static int parse_pattern(const char *pattern, uint32_t *mask, uint32_t *golden) {
+    *mask = 0;
+    *golden = 0;
     for (; *pattern != '\0'; pattern++) {
         switch (*pattern) {
-            case(' '):  // fall-through case
-            case('_'):  break;   // skip space and _
-            case('?'): {
-                _mask = (_mask << 1) | 0;
-                _golden = (_golden << 1) | 0;
+            case ' ':  // fall-through case
+            case '_':  break;   // skip space and _
+            case '?': {
+                *mask = *mask << 1;
+                *golden = *golden << 1;
                 break;
             }
-            case('0'): {
-                _mask = (_mask << 1) | 1;
-                _golden = (_golden << 1) | 0;
+            case '0': {
+                *mask = (*mask << 1) | 1;
+                *golden = *golden << 1;
                 break;
             }
-            case('1'): {
-                _mask = (_mask << 1) | 1;
-                _golden = (_golden << 1) | 1;
+            case '1': {
+                *mask = (*mask << 1) | 1;
+                *golden = (*golden << 1) | 1;
                 break;
             }
             default: {
@@ -62,12 +63,10 @@ static int parse_pattern(const char* pattern, uint32_t* mask, uint32_t* golden) 
             }
         }
     }
-    *mask = _mask;
-    *golden = _golden;
     return 0;
 }
 
-// Macro to add the new instruction, use in the big switch/case statement
+// Macro to add the new instruction, use to execute an instruction
 #define ADD_INST(name, pattern, op)                 \
     do {                                            \
         uint32_t mask, golden;                      \
@@ -82,17 +81,17 @@ static int parse_pattern(const char* pattern, uint32_t* mask, uint32_t* golden) 
         }                                           \
     } while(0)
 
-// Macro to complete cpu operation for non-branch instruction
-#define NON_BRANCH_OP(op) op; cpu->pc += 4
+#define NON_BRANCH_OP(op) do {op; cpu->pc += 4;} while(0)
 
 #define RD()  cpu->regs[inst_dec.rd]
 #define RS1() cpu->regs[inst_dec.rs1]
 #define RS2() cpu->regs[inst_dec.rs2]
 
 /**
- * init the cpu
+ * Initialize the CPU state to deterministic state.
+ * Set PC to reset vector and clear registers to 0. Set halted to false.
  */
-void init_cpu(cpu_t* cpu) {
+void cpu_init(cpu_t *cpu) {
     cpu->halted = false;
     cpu->pc = RST_VEC;
 
@@ -106,18 +105,18 @@ void init_cpu(cpu_t* cpu) {
 /**
  * Execute a single instruction
  */
-int execute(uint32_t inst, cpu_t* cpu, memory_t* memory) {
+int cpu_execute(cpu_t *cpu, uint32_t inst, memory_t *memory) {
     inst_dec_t inst_dec;
-    // decode the instruction
+    // Decode the instruction
     decode(inst, &inst_dec);
 
     // R-type instruction
     ADD_INST("add", "0000_000?_????_????_?000_????_?011_0011", NON_BRANCH_OP(RD() = RS1() + RS2()));
 
-    // check for ebreak. Currently using ebreak as a signal to stop the emulator
+    // Treat ebreak as the temporary Phase 1 halt convention
     ADD_INST("ebreak", "0000_0000_0001_0000_0000_0000_0111_0011", cpu->halted = true);
 
-    // if program execute to this point, then we hit an invalid instruction
+    // Hit an invalid instruction if program execute this point.
     cpu->halted = true;
     LOG_ERROR("EXECUTE: Invalid instruction at address: %lx, instruction: %x", cpu->pc, inst);
     return -1;

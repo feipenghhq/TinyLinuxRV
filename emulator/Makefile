@@ -4,30 +4,34 @@ LOG_LEVEL ?= LOG_LEVEL_DEBUG
 CC       := gcc
 CPPFLAGS := -Iinclude
 CPPFLAGS += -DLOG_LEVEL=$(LOG_LEVEL)
-CFLAGS 	 := -std=c99 -Wall -Wextra -Wpedantic -Wshadow -Wformat=2 -Wconversion -MMD -MP
+CFLAGS 	 := -std=c99 -Wall -Wextra -Wpedantic -Wshadow -Wformat=2 -Wconversion
+DEPFLAGS := -MMD -MP
 LDFLAGS  :=
 LDLIBS   :=
 
-TOP := rvemu
-OUTPUT := build
+EMULATOR := rvemu
+
+BUILD_DIR := build
 
 SOURCES := src/cpu/cpu.c
 SOURCES += src/memory/memory.c
 SOURCES += src/main.c
 
-OBJECTS := $(patsubst src/%.c,$(OUTPUT)/%.o,$(SOURCES))
+OBJECTS := $(patsubst src/%.c,$(BUILD_DIR)/%.o,$(SOURCES))
 DEPS	:= $(OBJECTS:.o=.d)
 
-.PHONY: build clean sanity run_sanity_test
+.PHONY: build clean sanity sanity-test
 
-build: $(TOP)
+build: $(EMULATOR)
 
 #-------------------------------------------------
 # Run sanity test
 #-------------------------------------------------
 
-run_sanity_test: sanity $(TOP)
-	./rvemu tests/sanity/build/rv64i.bin
+SANITY_DIR := tests/sanity/build
+
+sanity-test: sanity $(EMULATOR)
+	./$(EMULATOR) $(SANITY_DIR)/rv64i.bin
 
 sanity:
 	$(MAKE) -C tests/sanity all
@@ -36,14 +40,14 @@ sanity:
 # Build emulator
 #-------------------------------------------------
 
-$(TOP): $(OBJECTS)
+$(EMULATOR): $(OBJECTS)
 	$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
-$(OUTPUT)/%.o: src/%.c
+$(BUILD_DIR)/%.o: src/%.c
 	mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(DEPFLAGS) -c $< -o $@
 
 -include $(DEPS)
 
 clean:
-	rm -rf $(TOP) $(OUTPUT)
+	rm -rf $(EMULATOR) $(BUILD_DIR)

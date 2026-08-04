@@ -55,7 +55,7 @@ See [PLAN_emulator.md](PLAN_emulator.md) for the detailed emulator roadmap.
 
 ### Emulator
 
-- Written in C11.
+- Written in C99.
 - RV64IMA.
 - `Zicsr` and `Zifencei`.
 - Machine, supervisor, and user privilege modes.

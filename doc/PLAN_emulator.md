@@ -72,7 +72,7 @@ Create a reproducible development environment that supports both the emulator an
 ### Tasks
 
 - Install and document the RV64 cross-compilation toolchain.
-- Use C11 and Make for the emulator.
+- Use C99 and Make for the emulator.
 - Use SystemVerilog and Verilator for the later RTL implementation.
 - Add a small RV64 assembly toolchain smoke test.
 

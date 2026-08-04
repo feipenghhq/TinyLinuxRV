@@ -17,10 +17,10 @@ typedef struct {
 } memory_t;
 
 
-int init_memory(memory_t*);
-void free_memory(memory_t*);
-int load_bin(memory_t* , const char*);
-void mem_print32(memory_t*, uint64_t, size_t);
-int mem_read32(memory_t*, uint64_t, uint32_t*);
+int memory_init(memory_t *memory);
+void memory_free(memory_t *memory);
+int memory_load_binary(memory_t *memory, const char *bin);
+void memory_print32(const memory_t *memory, uint64_t start, size_t size);
+int memory_read32(const memory_t *memory, uint64_t addr, uint32_t *data);
 
 #endif

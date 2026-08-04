@@ -5,31 +5,31 @@ ABI   = lp64
 
 START ?= 0x80000000
 
-CROSS_COMPILE = riscv64-linux-gnu-
+CROSS_COMPILE := riscv64-linux-gnu-
 ASFLAGS := -march=$(ARCH) -mabi=$(ABI)
 LDFLAGS := -e _start -Ttext $(START)
 
-OUTPUT := build
+BUILD_DIR := build
 
 SOURCES := rv64i.S
-OBJECTS := $(patsubst %.S,$(OUTPUT)/%.o,   $(SOURCES))
-ELFS 	:= $(patsubst %.S,$(OUTPUT)/%.elf, $(SOURCES))
-BINS	:= $(patsubst %.S,$(OUTPUT)/%.bin, $(SOURCES))
+OBJECTS := $(patsubst %.S,$(BUILD_DIR)/%.o,   $(SOURCES))
+ELFS    := $(patsubst %.S,$(BUILD_DIR)/%.elf, $(SOURCES))
+BINS    := $(patsubst %.S,$(BUILD_DIR)/%.bin, $(SOURCES))
 
 
 .PHONY: all clean
 
 all: $(OBJECTS) $(ELFS) $(BINS)
 
-$(OUTPUT)/%.bin: $(OUTPUT)/%.elf
+$(BUILD_DIR)/%.bin: $(BUILD_DIR)/%.elf
 	$(CROSS_COMPILE)objcopy $< -O binary $@
 
-$(OUTPUT)/%.elf: $(OUTPUT)/%.o
+$(BUILD_DIR)/%.elf: $(BUILD_DIR)/%.o
 	$(CROSS_COMPILE)ld $(LDFLAGS) $< -o $@
 
-$(OUTPUT)/%.o: %.S
+$(BUILD_DIR)/%.o: %.S
 	mkdir -p $(@D)
 	$(CROSS_COMPILE)as $(ASFLAGS) $< -o $@
 
 clean:
-	rm -rf $(OUTPUT)
+	rm -rf $(BUILD_DIR)

@@ -1,4 +1,3 @@
-
 #include <stdio.h>
 #include <stdlib.h>
 #include "cpu.h"
@@ -13,46 +12,45 @@ int main(int argc, char **argv) {
     cpu_t    cpu;
     memory_t memory;
     uint32_t inst;
-    char     *bin;
+    const char *bin;
 
     // process the argument
     if (argc < 2) {
         LOG_ERROR("Please provide the binary file to be loaded");
         return EXIT_FAILURE;
-    } else {
-        bin = argv[1];
     }
+    bin = argv[1];
 
     LOG_INFO("Running: %s", bin);
 
     // initialize cpu and memory
-    init_cpu(&cpu);
-    if (init_memory(&memory) != 0) {
+    cpu_init(&cpu);
+    if (memory_init(&memory) != 0) {
         return EXIT_FAILURE;
     }
 
     // load the binary file
     LOG_INFO("Loading binary file: %s", bin);
-    if (load_bin(&memory, bin) != 0) {
-        free_memory(&memory);
+    if (memory_load_binary(&memory, bin) != 0) {
+        memory_free(&memory);
         return EXIT_FAILURE;
     }
 
     // execute instruction
-    while(!cpu.halted) {
-        if (mem_read32(&memory, cpu.pc, &inst) != 0) {
-            LOG_ERROR("Test FAILED");
-            free_memory(&memory);
+    while (!cpu.halted) {
+        if (memory_read32(&memory, cpu.pc, &inst) != 0) {
+            LOG_ERROR("Memory read failed. Unable to fetch instruction");
+            memory_free(&memory);
             return EXIT_FAILURE;
         }
-        if (execute(inst, &cpu, &memory) != 0) {
-            free_memory(&memory);
-            LOG_ERROR("Test FAILED");
+        if (cpu_execute(&cpu, inst, &memory) != 0) {
+            memory_free(&memory);
+            LOG_ERROR("CPU execution failed");
             return EXIT_FAILURE;
         }
     }
 
-    LOG_INFO("Test PASSED");
-    free_memory(&memory);
-    return 0;
+    LOG_INFO("CPU execution halted normally");
+    memory_free(&memory);
+    return EXIT_SUCCESS;
 }
