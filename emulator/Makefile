@@ -4,7 +4,7 @@ LOG_LEVEL ?= LOG_LEVEL_DEBUG
 CC       := gcc
 CPPFLAGS := -Iinclude
 CPPFLAGS += -DLOG_LEVEL=$(LOG_LEVEL)
-CFLAGS 	 := -std=c99 -Wall -Wextra -Wpedantic -Wshadow -Wformat=2 -Wconversion
+CFLAGS 	 := -std=c99 -Wall -Wextra -Wpedantic -Wshadow -Wformat=2 -Wconversion -O2
 DEPFLAGS := -MMD -MP
 LDFLAGS  :=
 LDLIBS   :=

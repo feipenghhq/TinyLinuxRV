@@ -90,7 +90,7 @@ void memory_print32(const memory_t *memory, uint64_t start, size_t size) {
 static inline bool memory_access_check(const memory_t *memory, uint64_t addr, size_t size) {
     // check size
     if (size != 1 && size != 2 && size != 4 && size != 8) {
-        LOG_ERROR("Unsupported memory access size: %ld", size);
+        LOG_ERROR("Unsupported memory access size: %zu", size);
         return false;
     }
     // check alignment
