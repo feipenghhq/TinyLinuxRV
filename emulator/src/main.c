@@ -38,7 +38,7 @@ int main(int argc, char **argv) {
 
     // execute instruction
     while (!cpu.halted) {
-        if (memory_read32(&memory, cpu.pc, &inst) != 0) {
+        if (memory_read(&memory, cpu.pc, 4, &inst) != 0) {
             LOG_ERROR("Memory read failed. Unable to fetch instruction");
             memory_free(&memory);
             return EXIT_FAILURE;

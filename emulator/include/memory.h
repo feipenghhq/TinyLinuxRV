@@ -21,6 +21,7 @@ int memory_init(memory_t *memory);
 void memory_free(memory_t *memory);
 int memory_load_binary(memory_t *memory, const char *bin);
 void memory_print32(const memory_t *memory, uint64_t start, size_t size);
-int memory_read32(const memory_t *memory, uint64_t addr, uint32_t *data);
+int memory_read(const memory_t *memory, uint64_t addr, size_t size, void *data);
+int memory_write(memory_t *memory, uint64_t addr, size_t size, const void *data);
 
 #endif

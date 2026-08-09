@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
+#include <stdbool.h>
 
 #include "memory.h"
 #include "log.h"
@@ -77,7 +78,7 @@ int memory_load_binary(memory_t *memory, const char *bin) {
 void memory_print32(const memory_t *memory, uint64_t start, size_t size) {
     uint32_t data;
     for (uint64_t addr = start; addr < start + size; addr += 4) {
-        if (memory_read32(memory, addr, &data) == 0) {
+        if (memory_read(memory, addr, 4, &data) == 0) {
             printf("Memory content at addr %lx is %08x\n", addr, data);
         } else {
             LOG_ERROR("Failed to read memory");
@@ -85,25 +86,58 @@ void memory_print32(const memory_t *memory, uint64_t start, size_t size) {
     }
 }
 
-/**
- * Read one by 32-bit word from memory. Address must be aligned to boundary
- */
-int memory_read32(const memory_t *memory, uint64_t addr, uint32_t *data) {
-    uint64_t offset = addr - memory->base;
-
-    // addr must be aligned to 32 bit
-    if ((addr & 0x3) != 0) {
-        LOG_ERROR("Reading 32 bit data from memory but address it not aligned: %lx", addr);
-        return -1;
+// Check whether the memory access meets size, alignment, and range requirements.
+static inline bool memory_access_check(const memory_t *memory, uint64_t addr, size_t size) {
+    // check size
+    if (size != 1 && size != 2 && size != 4 && size != 8) {
+        LOG_ERROR("Unsupported memory access size: %ld", size);
+        return false;
     }
-    if (addr >= memory->base && addr < memory->end) {
-        *data = memory->data[offset];
-        *data = *data | ((uint32_t) memory->data[offset+1] << 8);
-        *data = *data | ((uint32_t) memory->data[offset+2] << 16);
-        *data = *data | ((uint32_t) memory->data[offset+3] << 24);
-        return 0;
-    } else {
+    // check alignment
+    if ((addr & (size-1)) != 0) {
+        LOG_ERROR("Access %ld-bit data at unaligned address: %lx", size * 8, addr);
+        return false;
+    }
+    // check address range
+    if (addr < memory->base || addr > memory->end - size) {
         LOG_ERROR("Address out of memory range: %lx", addr);
+        return false;
+    }
+    return true;
+}
+
+// Common helper function to read from memory.
+// Supporting different size:
+// - 1:  8 bits
+// - 2: 16 bits
+// - 4: 32 bits
+// - 8: 64 bits
+int memory_read(const memory_t *memory, uint64_t addr, size_t size, void *data) {
+    uint64_t offset;
+    if (!memory_access_check(memory, addr, size)) {
         return -1;
     }
+    // RISC-V memory is little-endian.
+    // memcpy preserves byte order, so this currently assumes a little-endian host.
+    offset = addr - memory->base;
+    memcpy(data, &memory->data[offset], size);
+    return 0;
+}
+
+// Common helper function to store data to memory.
+// Supporting different size:
+// - 1:  8 bits
+// - 2: 16 bits
+// - 4: 32 bits
+// - 8: 64 bits
+int memory_write(memory_t *memory, uint64_t addr, size_t size, const void *data) {
+    uint64_t offset;
+    if (!memory_access_check(memory, addr, size)) {
+        return -1;
+    }
+    // RISC-V memory is little-endian.
+    // memcpy preserves byte order, so this currently assumes a little-endian host.
+    offset = addr - memory->base;
+    memcpy(&memory->data[offset], data, size);
+    return 0;
 }
