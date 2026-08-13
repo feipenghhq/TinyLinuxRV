@@ -68,12 +68,13 @@ include $(addsuffix /Makefrag,$(addprefix $(ISA_DIR)/,$(SUITES)))
 # $@ and $< until the generated rule is evaluated.
 define SUITE_template
 
-$(1)_NAMES   := $$($(1)_sc_tests)
-$(1)_OBJECTS := $$(addprefix $(BUILD_DIR)/$(1)/,$$(addsuffix .o,$$($(1)_NAMES)))
-$(1)_ELFS    := $$(addprefix $(BUILD_DIR)/$(1)/,$$(addsuffix .elf,$$($(1)_NAMES)))
-$(1)_BINS    := $$(addprefix $(BUILD_DIR)/$(1)/,$$(addsuffix .bin,$$($(1)_NAMES)))
+$(1)_NAMES    := $$($(1)_sc_tests)
+$(1)_OBJECTS  := $$(addprefix $(BUILD_DIR)/$(1)/,$$(addsuffix .o,$$($(1)_NAMES)))
+$(1)_ELFS     := $$(addprefix $(BUILD_DIR)/$(1)/,$$(addsuffix .elf,$$($(1)_NAMES)))
+$(1)_BINS     := $$(addprefix $(BUILD_DIR)/$(1)/,$$(addsuffix .bin,$$($(1)_NAMES)))
+$(1)_MANIFEST := $(BUILD_DIR)/$(1)/tests.txt
 
-$(1): $$($(1)_OBJECTS) $$($(1)_ELFS) $$($(1)_BINS)
+$(1): $$($(1)_OBJECTS) $$($(1)_ELFS) $$($(1)_BINS) $$($(1)_MANIFEST)
 
 $(BUILD_DIR)/$(1)/%.o: $(ISA_DIR)/$(1)/%.S $(ENV_HEADERS) $(TEST_MACROS)
 	mkdir -p $$(@D)
@@ -88,6 +89,10 @@ $(BUILD_DIR)/$(1)/%.elf: $(BUILD_DIR)/$(1)/%.o $(LINKER_SCRIPT)
 
 $(BUILD_DIR)/$(1)/%.bin: $(BUILD_DIR)/$(1)/%.elf
 	$$(OBJCOPY) -O binary $$< $$@
+
+
+$$($(1)_MANIFEST): Makefile $(ISA_DIR)/$(1)/Makefrag | $$($(1)_BINS)
+	@printf '%s\n' $$($(1)_BINS) > $$@
 
 endef
 

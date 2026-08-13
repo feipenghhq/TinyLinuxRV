@@ -20,7 +20,7 @@ SOURCES += src/main.c
 OBJECTS := $(patsubst src/%.c,$(BUILD_DIR)/%.o,$(SOURCES))
 DEPS	:= $(OBJECTS:.o=.d)
 
-.PHONY: build clean sanity-test
+.PHONY: build clean sanity-test riscv-tests
 
 build: $(EMULATOR)
 
@@ -33,6 +33,16 @@ SANITY_DIR := tests/sanity/build
 sanity-test: $(EMULATOR)
 	$(MAKE) -C tests/sanity all
 	./$(EMULATOR) $(SANITY_DIR)/rv64i.bin
+
+#-------------------------------------------------
+# Run riscv-tests test
+#-------------------------------------------------
+
+RISCV_TESTS_DIR := tests/riscv-test
+
+riscv-tests: $(EMULATOR)
+	$(MAKE) -C $(RISCV_TESTS_DIR) all
+	python3 $(RISCV_TESTS_DIR)/run.py
 
 #-------------------------------------------------
 # Build emulator
