@@ -1,5 +1,5 @@
 
-LOG_LEVEL ?= LOG_LEVEL_DEBUG
+LOG_LEVEL ?= LOG_LEVEL_INFO
 
 CC       := gcc
 CPPFLAGS := -Iinclude
@@ -20,7 +20,7 @@ SOURCES += src/main.c
 OBJECTS := $(patsubst src/%.c,$(BUILD_DIR)/%.o,$(SOURCES))
 DEPS	:= $(OBJECTS:.o=.d)
 
-.PHONY: build clean sanity sanity-test
+.PHONY: build clean sanity-test
 
 build: $(EMULATOR)
 
@@ -30,11 +30,9 @@ build: $(EMULATOR)
 
 SANITY_DIR := tests/sanity/build
 
-sanity-test: sanity $(EMULATOR)
-	./$(EMULATOR) $(SANITY_DIR)/rv64i.bin
-
-sanity:
+sanity-test: $(EMULATOR)
 	$(MAKE) -C tests/sanity all
+	./$(EMULATOR) $(SANITY_DIR)/rv64i.bin
 
 #-------------------------------------------------
 # Build emulator

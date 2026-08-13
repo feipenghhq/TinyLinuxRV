@@ -31,7 +31,6 @@ int memory_init(memory_t *memory) {
 void memory_free(memory_t *memory) {
     free(memory->data);
     memory->data = NULL;
-    LOG_INFO("Free Memory done");
 }
 
 /**
