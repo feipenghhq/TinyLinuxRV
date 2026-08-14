@@ -313,6 +313,7 @@ int cpu_execute(cpu_t *cpu, uint32_t inst, memory_t *memory)
     case OPCODE_FENCE:
     {
         ADD_INST(FENCE, );
+        ADD_INST(FENCEI, );
         break;
     }
     case OPCODE_SYSTEM:

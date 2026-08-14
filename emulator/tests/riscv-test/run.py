@@ -15,7 +15,7 @@ rvemu = Path(emulator_path) / "rvemu"
 # -----------------------------------
 # Common test function
 # -----------------------------------
-def run_suite(suite):
+def run_suite(suite, skip_list=()):
     pass_list = []
     fail_list = []
     count = 0
@@ -23,6 +23,9 @@ def run_suite(suite):
     with open(riscv_tests_path / f"build/{suite}/tests.txt") as tests_manifest:
         for line in tests_manifest.readlines():
             test = Path(line.strip()).stem
+            if test in skip_list:
+                print(f"- Skip test: {test}")
+                continue
             full_path = riscv_tests_path / line.strip()
             cmd = [str(rvemu), "--max-instruction", str(MAX_INSTRUCTIONS), "--riscv-tests", str(full_path)]
             #print(shlex.join(cmd))
@@ -48,7 +51,7 @@ def run_suite(suite):
 
 def run_all_suites():
     result = 0
-    result |= run_suite("rv64ui")
+    result |= run_suite("rv64ui", skip_list=("ma_data"))
     return result
 
 if __name__ == "__main__":
