@@ -47,7 +47,7 @@ The immediate focus is:
 - OpenSBI, Linux, and BusyBox bring-up.
 - Deterministic architectural tracing for later RTL verification.
 
-See [PLAN_emulator.md](PLAN_emulator.md) for the detailed emulator roadmap.
+See [PLAN_emulator.md](doc/PLAN_emulator.md) for the detailed emulator roadmap.
 
 ---
 

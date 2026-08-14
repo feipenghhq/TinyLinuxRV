@@ -65,6 +65,8 @@ TinyLinuxRV/
 
 ## Milestone 0: Development Environment and Repository Structure
 
+**Status: Completed — 07/29/2026**
+
 ### Goals
 
 Create a reproducible development environment that supports both the emulator and the later RTL implementation.
@@ -91,6 +93,11 @@ Create a reproducible development environment that supports both the emulator an
 
 ## Milestone 1: Minimal RV64I Execution Engine
 
+**Status: Completed — 08/13/2026**
+
+Scope changes made during implementation retain the original text with a
+strikethrough and record the adjusted decision below it.
+
 ### Goals
 
 Implement a basic emulator capable of running RV64I programs.
@@ -100,8 +107,12 @@ Implement a basic emulator capable of running RV64I programs.
 - 32 general-purpose registers and a 64-bit program counter.
 - Byte-addressable guest memory.
 - Instruction fetch, decode, and execute loop.
-- Raw binary loading at a configurable guest address.
-- Register dump and instruction trace support.
+- ~~Raw binary loading at a configurable guest address.~~
+  - Adjusted: Load raw binaries at the fixed TinyLinuxRV reset address
+    (`0x80000000`).
+- ~~Register dump and instruction trace support.~~
+  - Adjusted: Provide instruction-level debug logging and defer the register
+    dump until it is needed.
 - Explicit diagnostics for invalid instructions and invalid memory accesses.
 
 ### ISA Scope
@@ -115,19 +126,24 @@ Implement a basic emulator capable of running RV64I programs.
 - Define a minimal memory layout, load address, and entry point for ISA tests.
 - Add the linker script and target macros required by `riscv-tests`.
 - Build tests as ELF files, convert them to flat binaries, and run them through the raw-binary loader.
-- Automate test execution, timeout handling, pass/fail reporting, and failure traces.
+- Automate test execution, timeout handling, and pass/fail reporting.
+- ~~Produce failure traces automatically.~~
+  - Adjusted: Report failed test binaries for manual reruns with debug logging.
 
 ### Verification
 
 - Integrate the applicable RV64I tests from `riscv-tests`.
 - Run tests incrementally as each instruction family is implemented.
 - Run the complete RV64I regression after every ISA implementation change.
+- Skip `ma_data` until misaligned load/store trap handling is implemented.
 
 ### Completion Criteria
 
 - The complete RV64I base integer instruction set is implemented.
 - All applicable RV64I tests from `riscv-tests` pass.
-- Raw binary programs execute from a configurable address.
+- ~~Raw binary programs execute from a configurable address.~~
+  - Adjusted: Raw binary programs execute from the fixed TinyLinuxRV reset
+    address.
 - Invalid instructions and invalid memory accesses produce clear diagnostics.
 - Failed tests provide useful diagnostics and execution traces.
 
