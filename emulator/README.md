@@ -9,14 +9,15 @@ will later be implemented in RTL.
 - `FENCE` and `FENCE.I` are currently treated as no-ops. Memory accesses are
   executed in order, and the emulator has no instruction cache.
 - A fixed 1 MiB RAM region starting at `0x80000000`.
-- Raw binary loading at the RAM base, with execution starting at the same
-  address.
+- Raw binary and RISC-V ELF64 loading, including `PT_LOAD` segments and BSS
+  initialization.
+- Explicit `elf` and `bin` input formats plus automatic file-type detection.
 - A configurable instruction limit for detecting programs that do not finish.
 - Automated `riscv-tests` RV64UI regression.
 
 ## Next
 
-- ELF loading and automatic file-type detection are not implemented.
+- Bare-metal C runtime support is not implemented.
 - Privilege modes, CSRs, exceptions, interrupts, and trap handling are not
   implemented.
 - Misaligned load/store accesses are rejected. The `ma_data` test is therefore
@@ -65,7 +66,7 @@ make clean
 make build LOG_LEVEL=LOG_LEVEL_DEBUG
 ```
 
-## Running a Raw Binary
+## Running a Program
 
 The command-line form is:
 
@@ -77,6 +78,8 @@ For example:
 
 ```shell
 ./rvemu --max-instruction 10000 program.bin
+./rvemu --format elf program.elf
+./rvemu --format auto program.elf
 ```
 
 The currently available options are:
@@ -85,7 +88,7 @@ The currently available options are:
 | --- | --- |
 | `--help` | Print the command-line help. |
 | `--max-instruction COUNT` | Stop with an error if the program exceeds the instruction limit. |
-| `--format auto\|elf\|bin` | Select an input format. Only raw binary loading is currently implemented; `auto` and `elf` are placeholders. |
+| `--format auto\|elf\|bin` | Select automatic detection, RISC-V ELF64 loading, or raw-binary loading. The default is `bin`. |
 | `--riscv-tests` | Interpret program termination using the emulator-specific `riscv-tests` PASS/FAIL protocol. |
 
 The `--riscv-tests` option is intended for the automated test environment, not
@@ -105,9 +108,10 @@ Build and run the complete enabled RV64UI regression with:
 make riscv-tests
 ```
 
-The regression Makefile builds each test as an ELF file, converts it to a raw
-binary, and generates a manifest consumed by the Python runner. The runner
-returns a nonzero host exit status if any executed test fails or times out.
+The regression Makefile builds each test as both an ELF file and a raw binary,
+then generates a manifest consumed by the Python runner. The runner executes
+the ELF image directly and returns a nonzero host exit status if any test fails
+or times out.
 
 At the current milestone, 53 RV64UI tests are executed and pass. `ma_data` is
 reported as skipped because the current execution environment does not handle

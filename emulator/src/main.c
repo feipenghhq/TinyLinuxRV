@@ -1,34 +1,25 @@
+#include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <getopt.h>
 
 #include "cpu.h"
-#include "memory.h"
 #include "log.h"
+#include "memory.h"
 
 // -------------------------------------------------------------------
 // Different type enum
 // -------------------------------------------------------------------
-typedef enum FILE_TYPE {
-    AUTO,
-    BIN,
-    ELF
-} FILE_TYPE_t;
+typedef enum FILE_TYPE { AUTO, BIN, ELF } FILE_TYPE_t;
 
-typedef enum RUN_MODE {
-    NORMAL,
-    RISCV_TESTS
-} RUN_MODE_t;
+typedef enum RUN_MODE { NORMAL, RISCV_TESTS } RUN_MODE_t;
 
 typedef struct {
     long        max_instruction;
     FILE_TYPE_t format;
     RUN_MODE_t  mode;
-    char        *file;
+    char       *file;
 } argument_t;
-
-
 
 // -------------------------------------------------------------------
 // Command line parser
@@ -42,16 +33,16 @@ static const char USAGE[] =
     "--max-instruction <max_instruction_count>\n"
     "        Specify the max instruction count. If not include, the test will run till the end.\n\n"
     "--format <auto|elf|bin>\n"
-    "        Specify the format of the file. auto: automatically detect the file type. elf: elf file. bin: binary file.\n\n"
+    "        Specify the format of the file. auto: automatically detect the file type. elf: elf file. bin: binary "
+    "file.\n\n"
     "--riscv-tests\n"
     "        Run riscv-tests.\n";
 
-
 static struct option longopts[] = {
-    {"help",            no_argument,        0, 0},
-    {"max-instruction", required_argument,  0, 0},
-    {"format",          required_argument,  0, 0},
-    {"riscv-tests",     no_argument,        0, 0},
+    {"help", no_argument, 0, 0},
+    {"max-instruction", required_argument, 0, 0},
+    {"format", required_argument, 0, 0},
+    {"riscv-tests", no_argument, 0, 0},
     {0, 0, 0, 0},
 };
 
@@ -65,39 +56,38 @@ int parse_arguments(int argc, char **argv, argument_t *argument) {
 
     while (1) {
         int option_index = 0;
-        c = getopt_long(argc, argv, "", longopts, &option_index);
-
+        c                = getopt_long(argc, argv, "", longopts, &option_index);
 
         if (c == -1) {
             break;
-        }
-        else if (c == 0) {
-            switch(option_index) {
-                case 0: { // help
-                    printf("%s", USAGE);
-                    exit(EXIT_SUCCESS);
+        } else if (c == 0) {
+            switch (option_index) {
+            case 0: { // help
+                printf("%s", USAGE);
+                exit(EXIT_SUCCESS);
+            }
+            case 1: { // max_instruction
+                argument->max_instruction =
+                    atoi(optarg); // Note: assuming it is a digit for now. (But user could enter anything)
+                break;
+            }
+            case 2: { // format
+                if (strcmp(optarg, "auto") == 0)
+                    argument->format = AUTO;
+                else if (strcmp(optarg, "elf") == 0)
+                    argument->format = ELF;
+                else if (strcmp(optarg, "bin") == 0)
+                    argument->format = BIN;
+                else {
+                    printf("Incorrect argument type for format. Format must be auto, elf, or bin\n");
+                    exit(EXIT_FAILURE);
                 }
-                case 1: { // max_instruction
-                    argument->max_instruction = atoi(optarg); // Note: assuming it is a digit for now. (But user could enter anything)
-                    break;
-                    }
-                case 2: { // format
-                    if (strcmp(optarg, "auto") == 0)
-                        argument->format = AUTO;
-                    else if (strcmp(optarg, "elf") == 0)
-                        argument->format = ELF;
-                    else if (strcmp(optarg, "bin") == 0)
-                        argument->format = BIN;
-                    else {
-                        printf("Incorrect argument type for format. Format must be auto, elf, or bin\n");
-                        exit(EXIT_FAILURE);
-                    }
-                    break;
-                }
-                case 3: { // riscv-tests
-                    argument->mode = RISCV_TESTS;
-                    break;
-                }
+                break;
+            }
+            case 3: { // riscv-tests
+                argument->mode = RISCV_TESTS;
+                break;
+            }
             }
         } else if (c == '?') {
             exit(EXIT_FAILURE);
@@ -139,15 +129,15 @@ static bool check_riscv_tests_result(cpu_t *cpu) {
 // -------------------------------------------------------------------
 int main(int argc, char **argv) {
 
-    cpu_t       cpu;
-    memory_t    memory;
-    uint32_t    inst;
-    argument_t  argument = {0, BIN, NORMAL, NULL};
-    long        inst_count = 0;
+    cpu_t      cpu;
+    memory_t   memory;
+    uint32_t   inst;
+    argument_t argument   = {0, AUTO, NORMAL, NULL};
+    long       inst_count = 0;
+    int        result     = 0;
 
     // process the argument
     parse_arguments(argc, argv, &argument);
-
     LOG_INFO("Running: %s", argument.file);
 
     // initialize cpu and memory
@@ -155,17 +145,29 @@ int main(int argc, char **argv) {
     if (memory_init(&memory) != 0) {
         return EXIT_FAILURE;
     }
-
-    // load the binary file
-    LOG_INFO("Loading binary file: %s", argument.file);
-    if (memory_load_binary(&memory, argument.file) != 0) {
+    // read the program
+    switch (argument.format) {
+    case AUTO: {
+        result = memory_load_auto(&memory, argument.file);
+        break;
+    }
+    case BIN: {
+        result = memory_load_binary(&memory, argument.file);
+        break;
+    }
+    case ELF: {
+        result = memory_load_elf(&memory, argument.file);
+        break;
+    }
+    }
+    if (result != 0) {
         memory_free(&memory);
         return EXIT_FAILURE;
     }
 
     // execute instruction
     while (!cpu.halted) {
-        if (memory_read(&memory, cpu.pc, 4, &inst) != 0) {
+        if (memory_cpu_read(&memory, cpu.pc, 4, &inst) != 0) {
             LOG_ERROR("Memory read failed. Unable to fetch instruction");
             memory_free(&memory);
             return EXIT_FAILURE;
@@ -177,7 +179,7 @@ int main(int argc, char **argv) {
         }
 
         inst_count++;
-        if (argument.max_instruction > 0 && argument.max_instruction < inst_count) {
+        if (argument.max_instruction > 0 && argument.max_instruction <= inst_count) {
             LOG_ERROR("Reach maximum instruction count but the program has not finished yet");
             memory_free(&memory);
             if (argument.mode == RISCV_TESTS) {

@@ -1,8 +1,9 @@
 #ifndef CPU_H
 #define CPU_H
 
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
+
 #include "memory.h"
 
 // reset to 0x80000000
@@ -15,8 +16,7 @@ typedef struct {
     bool     halted;
 } cpu_t;
 
-
 void cpu_init(cpu_t *cpu);
-int cpu_execute(cpu_t *cpu, uint32_t inst, memory_t *memory);
+int  cpu_execute(cpu_t *cpu, uint32_t inst, memory_t *memory);
 
 #endif

@@ -36,3 +36,10 @@ the Git history.
   - All 53 executed RV64UI tests pass.
   - `ma_data` is skipped until misaligned load/store trap handling is
     implemented.
+
+### Milestone 2 — ELF Loading and Bare-Metal C Programs (In Progress)
+
+- 08/15/2026 — Added initial RISC-V ELF64 program loading.
+  - Load `PT_LOAD` segments, initialize BSS, and reject invalid images.
+  - Added `elf`, `bin`, and automatic format selection.
+  - Switched the RV64UI regression to ELF images; all 53 enabled tests pass.

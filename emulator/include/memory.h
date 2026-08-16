@@ -1,8 +1,8 @@
 #ifndef MEMORY_H
 #define MEMORY_H
 
-#include <stdint.h>
 #include <stddef.h>
+#include <stdint.h>
 
 #define RAM_BASE 0x80000000ULL
 
@@ -16,12 +16,20 @@ typedef struct {
     uint64_t end;
 } memory_t;
 
-
-int memory_init(memory_t *memory);
+// Initialization and free
+int  memory_init(memory_t *memory);
 void memory_free(memory_t *memory);
-int memory_load_binary(memory_t *memory, const char *bin);
-void memory_print32(const memory_t *memory, uint64_t start, size_t size);
-int memory_read(const memory_t *memory, uint64_t addr, size_t size, void *data);
-int memory_write(memory_t *memory, uint64_t addr, size_t size, const void *data);
+
+// CPU access interface
+int memory_cpu_read(const memory_t *memory, uint64_t addr, size_t size, void *data);
+int memory_cpu_write(memory_t *memory, uint64_t addr, size_t size, const void *data);
+
+// Host access interface
+void *memory_set(memory_t *memory, uint64_t start_addr, int c, size_t n);
+
+// Loader
+int memory_load_binary(memory_t *memory, const char *file);
+int memory_load_elf(memory_t *memory, const char *file);
+int memory_load_auto(memory_t *memory, const char *file);
 
 #endif

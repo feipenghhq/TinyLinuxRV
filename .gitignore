@@ -1,5 +1,6 @@
 # gcc
 *build
+compile_commands.json
 
 #emulator
 emulator/rvemu

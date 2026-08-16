@@ -15,6 +15,7 @@ BUILD_DIR := build
 
 SOURCES := src/cpu/cpu.c
 SOURCES += src/memory/memory.c
+SOURCES += src/memory/loader.c
 SOURCES += src/main.c
 
 OBJECTS := $(patsubst src/%.c,$(BUILD_DIR)/%.o,$(SOURCES))

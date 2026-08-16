@@ -21,23 +21,26 @@ def run_suite(suite, skip_list=()):
     count = 0
     print(f"Running test suite: {suite}")
     with open(riscv_tests_path / f"build/{suite}/tests.txt") as tests_manifest:
-        for line in tests_manifest.readlines():
+        for line in tests_manifest:
             test = Path(line.strip()).stem
             if test in skip_list:
                 print(f"- Skip test: {test}")
                 continue
             full_path = riscv_tests_path / line.strip()
-            cmd = [str(rvemu), "--max-instruction", str(MAX_INSTRUCTIONS), "--riscv-tests", str(full_path)]
+            full_path = full_path.with_suffix(".elf")
+            cmd = [str(rvemu), "--max-instruction", str(MAX_INSTRUCTIONS), "--format", "elf", "--riscv-tests", str(full_path)]
             #print(shlex.join(cmd))
             result = subprocess.run(
                 cmd,
                 capture_output=True,
-                text=True
+                text=True,
+                check=False,
             )
             if result.returncode == 0:
                 pass_list.append(test)
             else:
                 fail_list.append(test)
+                print(result.stderr.strip())
             count += 1
 
     if len(fail_list) == 0:
