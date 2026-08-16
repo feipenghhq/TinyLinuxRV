@@ -94,6 +94,7 @@ jalr_target:
     ecall
 
     # End the smoke test using the temporary Phase 1 halt convention.
+    addi a0, x0, 0
     ebreak
 
     .balign 8

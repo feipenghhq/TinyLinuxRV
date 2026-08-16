@@ -148,7 +148,7 @@ int main(int argc, char **argv) {
     // read the program
     switch (argument.format) {
     case AUTO: {
-        result = memory_load_auto(&memory, argument.file);
+        result = memory_load_auto(&memory, argument.file, &cpu.pc);
         break;
     }
     case BIN: {
@@ -156,7 +156,7 @@ int main(int argc, char **argv) {
         break;
     }
     case ELF: {
-        result = memory_load_elf(&memory, argument.file);
+        result = memory_load_elf(&memory, argument.file, &cpu.pc);
         break;
     }
     }
@@ -199,6 +199,14 @@ int main(int argc, char **argv) {
             return EXIT_FAILURE;
         }
     }
-
-    return EXIT_SUCCESS;
+    // Normal bare-metal programs report their result through a0.
+    else {
+        if (cpu.regs[10] == 0) {
+            return EXIT_SUCCESS;
+        } else {
+            // Keep the host exit status portable instead of returning a0 directly.
+            LOG_ERROR("Guest program failed. a0 = %ld", cpu.regs[10]);
+            return EXIT_FAILURE;
+        }
+    }
 }

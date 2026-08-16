@@ -1,3 +1,13 @@
+# -----------------------------------------------------------------------------
+# Repository paths
+# -----------------------------------------------------------------------------
+
+BAREMETAL_DIR = ../software/baremetal
+
+
+# -----------------------------------------------------------------------------
+# GCC toolchain
+# -----------------------------------------------------------------------------
 
 LOG_LEVEL ?= LOG_LEVEL_INFO
 
@@ -8,6 +18,10 @@ CFLAGS 	 := -std=c99 -Wall -Wextra -Wpedantic -Wshadow -Wformat=2 -Wconversion -
 DEPFLAGS := -MMD -MP
 LDFLAGS  :=
 LDLIBS   :=
+
+#-------------------------------------------------
+# Build emulator
+#-------------------------------------------------
 
 EMULATOR := rvemu
 
@@ -21,9 +35,35 @@ SOURCES += src/main.c
 OBJECTS := $(patsubst src/%.c,$(BUILD_DIR)/%.o,$(SOURCES))
 DEPS	:= $(OBJECTS:.o=.d)
 
-.PHONY: build clean sanity-test riscv-tests
+
+.PHONY: build clean sanity-test riscv-tests run-elf run-fib
 
 build: $(EMULATOR)
+
+$(EMULATOR): $(OBJECTS)
+	$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
+
+$(BUILD_DIR)/%.o: src/%.c
+	mkdir -p $(@D)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(DEPFLAGS) -c $< -o $@
+
+-include $(DEPS)
+
+clean:
+	rm -rf $(EMULATOR) $(BUILD_DIR)
+
+#-------------------------------------------------
+# Run ELF file and program
+#-------------------------------------------------
+
+ELF ?=
+
+run-elf: rvemu
+	./rvemu --format elf $(ELF)
+
+run-fib: rvemu
+	$(MAKE) -C $(BAREMETAL_DIR) fib
+	./rvemu --format elf $(BAREMETAL_DIR)/build/examples/fib/fib.elf
 
 #-------------------------------------------------
 # Run sanity test
@@ -44,19 +84,3 @@ RISCV_TESTS_DIR := tests/riscv-test
 riscv-tests: $(EMULATOR)
 	$(MAKE) -C $(RISCV_TESTS_DIR) all
 	python3 $(RISCV_TESTS_DIR)/run.py
-
-#-------------------------------------------------
-# Build emulator
-#-------------------------------------------------
-
-$(EMULATOR): $(OBJECTS)
-	$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
-
-$(BUILD_DIR)/%.o: src/%.c
-	mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(DEPFLAGS) -c $< -o $@
-
--include $(DEPS)
-
-clean:
-	rm -rf $(EMULATOR) $(BUILD_DIR)

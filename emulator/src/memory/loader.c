@@ -64,13 +64,6 @@ static int check_ehdr(Elf64_Ehdr *ehdr) {
         return -1;
     }
 
-    // make sure the entry point is the same as the RAM base. (At current setup)
-    // But ideally we should set PC to this value
-    if (ehdr->e_entry != RAM_BASE) {
-        LOG_ERROR("The entry point is not the same as RAM base");
-        return -1;
-    }
-
     // make sure we have program header and the e_phnum < PN_XNUM
     // Not supporting e_phnum > PN_XNUM. Will add support when we encountered such file later
     if (ehdr->e_phoff == 0 || ehdr->e_phnum == 0) {
@@ -110,12 +103,15 @@ static int memory_fread(memory_t *memory, uint64_t start_addr, size_t size, FILE
     return 0;
 }
 
-int memory_load_elf(memory_t *memory, const char *file) {
+int memory_load_elf(memory_t *memory, const char *file, uint64_t *entry_point) {
     FILE         *fp;
     unsigned char magic[4];
     Elf64_Ehdr    ehdr;
     Elf64_Phdr    phdr;
     Elf64_Off     next_phoff;
+    // Track loading and entry validation separately: data segments are not executable.
+    bool          valid_entry = false;
+    bool          loaded      = false;
 
     fp = fopen(file, "rb");
     if (fp == NULL) {
@@ -150,6 +146,7 @@ int memory_load_elf(memory_t *memory, const char *file) {
         }
         FILE_READ_EXACT_OR_RETURN(&phdr, sizeof(phdr), fp);
         if (phdr.p_type == PT_LOAD) {
+            // Load every PT_LOAD segment, including non-executable data segments.
             if (phdr.p_filesz > phdr.p_memsz) {
                 fclose(fp);
                 LOG_ERROR("ELF segment file size exceeds memory size");
@@ -168,10 +165,30 @@ int memory_load_elf(memory_t *memory, const char *file) {
                 fclose(fp);
                 return -1;
             }
+
+            loaded = true;
+            // p_flags is a bitmask, so executable segments may also have PF_R.
+            // Compare the entry offset to avoid overflowing p_vaddr + p_memsz.
+            if ((phdr.p_flags & PF_X) != 0 && ehdr.e_entry >= phdr.p_vaddr &&
+                ehdr.e_entry - phdr.p_vaddr < phdr.p_memsz) {
+                valid_entry = true;
+            }
         }
         next_phoff += ehdr.e_phentsize;
     }
     fclose(fp);
+
+    if (!loaded) {
+        LOG_ERROR("No loadable program segment in the elf file.");
+        return -1;
+    }
+
+    if (!valid_entry) {
+        LOG_ERROR("e_entry not in any executable PT_LOAD segment");
+        return -1;
+    }
+
+    *entry_point = ehdr.e_entry;
     return 0;
 }
 
@@ -208,9 +225,9 @@ int memory_load_binary(memory_t *memory, const char *file) {
     return 0;
 }
 
-int memory_load_auto(memory_t *memory, const char *file) {
+int memory_load_auto(memory_t *memory, const char *file, uint64_t *entry_point) {
     if (file_is_elf(file) == 0) {
-        return memory_load_elf(memory, file);
+        return memory_load_elf(memory, file, entry_point);
     } else {
         return memory_load_binary(memory, file);
     }
