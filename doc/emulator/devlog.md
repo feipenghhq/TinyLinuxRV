@@ -37,9 +37,24 @@ the Git history.
   - `ma_data` is skipped until misaligned load/store trap handling is
     implemented.
 
-### Milestone 2 — ELF Loading and Bare-Metal C Programs (In Progress)
+### Milestone 2 — ELF Loading and Bare-Metal C Programs (Completed — 08/16/2026)
 
 - 08/15/2026 — Added initial RISC-V ELF64 program loading.
   - Load `PT_LOAD` segments, initialize BSS, and reject invalid images.
   - Added `elf`, `bin`, and automatic format selection.
   - Switched the RV64UI regression to ELF images; all 53 enabled tests pass.
+- 08/16/2026 — Added the bare-metal platform and build environment.
+  - Added the memory map, linker script, startup code, stack, and build flags.
+  - Startup initializes `gp` and `sp`, clears `.bss`, calls `main`, and stops
+    with `EBREAK`.
+  - Added Fibonacci as the first C example.
+- 08/16/2026 — Added a bare-metal C test.
+  - Tests global data, `.bss`, small data, stack, function calls, branches,
+    loops, pointers, and different memory access sizes.
+  - Raw-binary testing with poisoned RAM found and fixed a bug that cleared
+    only the first byte of `.bss`.
+- 08/16/2026 — **Completed Milestone 2: ELF Loading and Bare-Metal C
+  Programs.**
+  - ELF and raw-binary bare-metal programs run successfully.
+  - The sanity test and all 53 enabled RV64UI tests continue to pass.
+  - ACT4, CI, configurable RAM, tracing, and dumps are deferred.

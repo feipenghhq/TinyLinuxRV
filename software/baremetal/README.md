@@ -51,8 +51,22 @@ The current emulator has 1 MiB of DRAM:
 0x80100000  stack top
 ```
 
-The stack must be 16-byte aligned. The linker should also check that the
-program does not overlap the stack.
+The stack is 16-byte aligned. The linker checks that the program does not
+overlap the stack.
+
+## Building
+
+From this directory, build an example with:
+
+```shell
+make fib
+make baremetal-test
+```
+
+The output files are placed under `build/examples/`.
+
+The build is freestanding and uses RV64I/LP64 with the `medany` code model. It
+also disables PIE, PIC, and the stack protector.
 
 ## Files
 
@@ -69,8 +83,8 @@ The linker script:
 - Defines the stack bottom and top.
 - Checks that the program fits in DRAM.
 
-`.data` does not need to be copied because the ELF loader places it directly
-at its runtime address in DRAM.
+`crt0.S` does not need to copy `.data` because the emulator loads it directly
+at its runtime address.
 
 ### `crt0.S`
 
@@ -101,3 +115,18 @@ Emulator errors such as invalid instructions, invalid memory accesses, and
 timeouts are separate from the guest return value.
 
 `EBREAK` is temporary. A shutdown/reset device will replace it later.
+
+## Programs
+
+### `fib`
+
+A small freestanding C example. It calculates Fibonacci number 10 and returns
+`0` when the result is correct.
+
+### `baremetal-test`
+
+A C test for global data, `.bss`, small data, stack use, function calls,
+branches, loops, pointers, and different memory access sizes.
+
+The emulator runs its raw binary with RAM filled with `0xA5`. This makes sure
+that `crt0.S`, rather than the ELF loader, clears `.bss`.

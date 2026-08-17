@@ -13,16 +13,18 @@ will later be implemented in RTL.
   initialization.
 - Explicit `elf` and `bin` input formats plus automatic file-type detection.
 - A configurable instruction limit for detecting programs that do not finish.
+- Bare-metal program results reported through `a0`.
 - Automated `riscv-tests` RV64UI regression.
+- A bare-metal C regression using poisoned RAM.
 
 ## Next
 
-- Bare-metal C runtime support is not implemented.
+- Implement the RV64M and RV64A extensions.
 - Privilege modes, CSRs, exceptions, interrupts, and trap handling are not
   implemented.
 - Misaligned load/store accesses are rejected. The `ma_data` test is therefore
   skipped by the regression runner until trap handling is available.
-- The M and A extensions, virtual memory, and devices are not implemented.
+- Virtual memory and devices are not implemented.
 
 See the [emulator roadmap](../doc/PLAN_emulator.md) for the planned development
 milestones.
@@ -84,12 +86,13 @@ For example:
 
 The currently available options are:
 
-| Option | Description |
-| --- | --- |
-| `--help` | Print the command-line help. |
-| `--max-instruction COUNT` | Stop with an error if the program exceeds the instruction limit. |
-| `--format auto\|elf\|bin` | Select automatic detection, RISC-V ELF64 loading, or raw-binary loading. The default is `bin`. |
-| `--riscv-tests` | Interpret program termination using the emulator-specific `riscv-tests` PASS/FAIL protocol. |
+| Option                    | Description                                                                                    |
+| ------------------------- | ---------------------------------------------------------------------------------------------- |
+| `--help`                  | Print the command-line help.                                                                   |
+| `--max-instruction COUNT` | Stop with an error if the program exceeds the instruction limit.                               |
+| `--format auto\|elf\|bin` | Select automatic detection, RISC-V ELF64 loading, or raw-binary loading. The default is `auto`. |
+| `--riscv-tests`           | Interpret program termination using the emulator-specific `riscv-tests` PASS/FAIL protocol.    |
+| `--poison-ram`            | Fill RAM with `0xA5` before loading the program. Used for testing.                              |
 
 The `--riscv-tests` option is intended for the automated test environment, not
 for general programs.
@@ -107,6 +110,24 @@ Build and run the complete enabled RV64UI regression with:
 ```shell
 make riscv-tests
 ```
+
+Run the example bare-metal programs with:
+
+```shell
+make run-fib
+make run-baremetal-test
+```
+
+`run-baremetal-test` loads a raw binary into RAM filled with `0xA5`. This
+checks that the startup code clears `.bss` before calling `main`.
+
+Run all current tests with:
+
+```shell
+make regression
+```
+
+The regression stops when a test fails.
 
 The regression Makefile builds each test as both an ELF file and a raw binary,
 then generates a manifest consumed by the Python runner. The runner executes
