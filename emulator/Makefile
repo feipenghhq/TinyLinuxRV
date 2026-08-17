@@ -49,6 +49,10 @@ $(BUILD_DIR)/%.o: src/%.c
 
 -include $(DEPS)
 
+$(BUILD_DIR)/cpu/cpu.o: include/decode.h
+include/decode.h: scripts/generate_inst_patterns.py
+	python3 $<
+
 clean:
 	rm -rf $(EMULATOR) $(BUILD_DIR)
 
@@ -77,6 +81,7 @@ SANITY_DIR := tests/sanity/build
 
 sanity-test: $(EMULATOR)
 	$(MAKE) -C tests/sanity all
+	./$(EMULATOR) $(SANITY_DIR)/rv64m.bin
 	./$(EMULATOR) $(SANITY_DIR)/rv64i.bin
 
 #-------------------------------------------------
@@ -93,4 +98,7 @@ riscv-tests: $(EMULATOR)
 # Full regression test list for emulator
 #-------------------------------------------------
 
-regression: sanity-test riscv-tests run-fib run-baremetal-test
+REGRESSION_DIR := tests/regression
+
+regression:
+	python3 $(REGRESSION_DIR)/run.py

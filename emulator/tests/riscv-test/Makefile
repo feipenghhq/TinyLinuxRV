@@ -38,15 +38,15 @@ LDFLAGS := -T $(LINKER_SCRIPT)
 
 # Only enabled suites are included in `all`. Add a suite when the emulator
 # implements the corresponding ISA extension.
-SUITES ?= rv64ui
+SUITES ?= rv64ui rv64um
 
 rv64ui_MARCH := rv64i
 rv64ui_MABI  := lp64
 
+rv64um_MARCH := rv64im
+rv64um_MABI  := lp64
+
 # Future examples:
-# SUITES += rv64um
-# rv64um_MARCH := rv64im
-# rv64um_MABI  := lp64
 #
 # SUITES += rv64ua
 # rv64ua_MARCH := rv64ia
