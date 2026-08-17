@@ -1,5 +1,7 @@
 #include "cpu.h"
 
+#include <stdint.h>
+
 #include "decode.h"
 #include "log.h"
 #include "memory.h"
@@ -18,6 +20,9 @@
 #define OPCODE_OP_32     0x3B
 #define OPCODE_FENCE     0x0F
 #define OPCODE_SYSTEM    0x73
+
+__extension__ typedef __int128          int128_t;
+__extension__ typedef unsigned __int128 uint128_t;
 
 // Fields shared by the instruction formats used by the executor.
 typedef struct {
@@ -70,6 +75,124 @@ static inline uint64_t srl32(uint64_t value, uint64_t shamt) {
 
 static inline uint64_t sll32(uint64_t value, uint64_t shamt) {
     return sext32bit((uint32_t)(value) << (shamt & UINT64_C(0x1F)));
+}
+
+// Helper function for mul
+static uint64_t mul(uint64_t a, uint64_t b) {
+    return a * b;
+}
+
+static uint64_t mulh(uint64_t a, uint64_t b) {
+    int128_t sa     = (int128_t)(int64_t)a;
+    int128_t sb     = (int128_t)(int64_t)b;
+    int128_t result = sa * sb;
+    return (uint64_t)(result >> 64);
+}
+
+static uint64_t mulhu(uint64_t a, uint64_t b) {
+    uint128_t sa = (uint128_t)a;
+    uint128_t sb = (uint128_t)b;
+    return (uint64_t)((sa * sb) >> 64);
+}
+
+static uint64_t mulhsu(uint64_t a, uint64_t b) {
+    uint128_t sa = (uint128_t)(int64_t)a;
+    return (uint64_t)((sa * b) >> 64);
+}
+
+static uint64_t mulw(uint64_t a, uint64_t b) {
+    uint32_t al = (uint32_t)a;
+    uint32_t bl = (uint32_t)b;
+    return (uint64_t)sext32bit(al * bl);
+}
+
+// helper function for div
+static uint64_t div(uint64_t a, uint64_t b) {
+    int64_t sa = (int64_t)a;
+    int64_t sb = (int64_t)b;
+    if (b == 0) {
+        return (uint64_t)-1;
+    } else if (sa == INT64_MIN && sb == -1) {
+        return (uint64_t)INT64_MIN;
+    } else {
+        return (uint64_t)(sa / sb);
+    }
+}
+
+static uint64_t divu(uint64_t a, uint64_t b) {
+    if (b == 0) {
+        return UINT64_MAX;
+    } else {
+        return a / b;
+    }
+}
+
+static uint64_t rem(uint64_t a, uint64_t b) {
+    int64_t sa = (int64_t)a;
+    int64_t sb = (int64_t)b;
+    if (b == 0) {
+        return a;
+    } else if (sa == INT64_MIN && sb == -1) {
+        return 0;
+    } else {
+        return (uint64_t)(sa % sb);
+    }
+}
+
+static uint64_t remu(uint64_t a, uint64_t b) {
+    if (b == 0) {
+        return a;
+    } else {
+        return a % b;
+    }
+}
+
+static uint64_t divw(uint64_t a, uint64_t b) {
+    int32_t sa = (int32_t)a;
+    int32_t sb = (int32_t)b;
+    int32_t result;
+    if (sb == 0) {
+        return (uint64_t)-1;
+    } else if (sa == INT32_MIN && sb == -1) {
+        return (uint64_t)INT32_MIN;
+    } else {
+        result = sa / sb;
+        return sext32bit((uint64_t)result);
+    }
+}
+
+static uint64_t divuw(uint64_t a, uint64_t b) {
+    uint32_t al = (uint32_t)a;
+    uint32_t bl = (uint32_t)b;
+    if (bl == 0) {
+        return UINT64_MAX;
+    } else {
+        return (uint64_t)sext32bit(al / bl);
+    }
+}
+
+static uint64_t remw(uint64_t a, uint64_t b) {
+    int32_t sa = (int32_t)a;
+    int32_t sb = (int32_t)b;
+    int32_t result;
+    if (sb == 0) {
+        return sext32bit((uint32_t) a);
+    } else if (sa == INT32_MIN && sb == -1) {
+        return 0;
+    } else {
+        result = sa % sb;
+        return (uint64_t)sext32bit((uint64_t)result);
+    }
+}
+
+static uint64_t remuw(uint64_t a, uint64_t b) {
+    uint32_t al = (uint32_t)a;
+    uint32_t bl = (uint32_t)b;
+    if (bl == 0) {
+        return sext32bit((uint32_t) a);
+    } else {
+        return (uint64_t)sext32bit(al % bl);
+    }
 }
 
 // Extract register indices and reconstruct the immediate for each opcode type.
@@ -257,6 +380,15 @@ int cpu_execute(cpu_t *cpu, uint32_t inst, memory_t *memory) {
         ADD_INST(SRA, RD() = sra64(RS1(), RS2()));
         ADD_INST(OR, RD() = RS1() | RS2());
         ADD_INST(AND, RD() = RS1() & RS2());
+
+        ADD_INST(MUL, RD() = mul(RS1(), RS2()));
+        ADD_INST(MULH, RD() = mulh(RS1(), RS2()));
+        ADD_INST(MULHU, RD() = mulhu(RS1(), RS2()));
+        ADD_INST(MULHSU, RD() = mulhsu(RS1(), RS2()));
+        ADD_INST(DIV, RD() = div(RS1(), RS2()));
+        ADD_INST(DIVU, RD() = divu(RS1(), RS2()));
+        ADD_INST(REM, RD() = rem(RS1(), RS2()));
+        ADD_INST(REMU, RD() = remu(RS1(), RS2()));
         break;
     }
     case OPCODE_OP_32: {
@@ -265,6 +397,12 @@ int cpu_execute(cpu_t *cpu, uint32_t inst, memory_t *memory) {
         ADD_INST(SLLW, RD() = sll32(RS1(), RS2()));
         ADD_INST(SRLW, RD() = srl32(RS1(), RS2()));
         ADD_INST(SRAW, RD() = sra32(RS1(), RS2()));
+
+        ADD_INST(MULW, RD() = mulw(RS1(), RS2()));
+        ADD_INST(DIVW, RD() = divw(RS1(), RS2()));
+        ADD_INST(DIVUW, RD() = divuw(RS1(), RS2()));
+        ADD_INST(REMW, RD() = remw(RS1(), RS2()));
+        ADD_INST(REMUW, RD() = remuw(RS1(), RS2()));
         break;
     }
     case OPCODE_FENCE: {

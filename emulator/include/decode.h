@@ -218,4 +218,56 @@
 #define MASK_EBREAK    UINT32_C(0xffffffff)
 #define GOLDEN_EBREAK  UINT32_C(0x00100073)
 
+// MUL: 0000_001?_????_????_?000_????_?011_0011
+#define MASK_MUL       UINT32_C(0xfe00707f)
+#define GOLDEN_MUL     UINT32_C(0x02000033)
+
+// MULH: 0000_001?_????_????_?001_????_?011_0011
+#define MASK_MULH      UINT32_C(0xfe00707f)
+#define GOLDEN_MULH    UINT32_C(0x02001033)
+
+// MULHSU: 0000_001?_????_????_?010_????_?011_0011
+#define MASK_MULHSU    UINT32_C(0xfe00707f)
+#define GOLDEN_MULHSU  UINT32_C(0x02002033)
+
+// MULHU: 0000_001?_????_????_?011_????_?011_0011
+#define MASK_MULHU     UINT32_C(0xfe00707f)
+#define GOLDEN_MULHU   UINT32_C(0x02003033)
+
+// DIV: 0000_001?_????_????_?100_????_?011_0011
+#define MASK_DIV       UINT32_C(0xfe00707f)
+#define GOLDEN_DIV     UINT32_C(0x02004033)
+
+// DIVU: 0000_001?_????_????_?101_????_?011_0011
+#define MASK_DIVU      UINT32_C(0xfe00707f)
+#define GOLDEN_DIVU    UINT32_C(0x02005033)
+
+// REM: 0000_001?_????_????_?110_????_?011_0011
+#define MASK_REM       UINT32_C(0xfe00707f)
+#define GOLDEN_REM     UINT32_C(0x02006033)
+
+// REMU: 0000_001?_????_????_?111_????_?011_0011
+#define MASK_REMU      UINT32_C(0xfe00707f)
+#define GOLDEN_REMU    UINT32_C(0x02007033)
+
+// MULW: 0000_001?_????_????_?000_????_?011_1011
+#define MASK_MULW      UINT32_C(0xfe00707f)
+#define GOLDEN_MULW    UINT32_C(0x0200003b)
+
+// DIVW: 0000_001?_????_????_?100_????_?011_1011
+#define MASK_DIVW      UINT32_C(0xfe00707f)
+#define GOLDEN_DIVW    UINT32_C(0x0200403b)
+
+// DIVUW: 0000_001?_????_????_?101_????_?011_1011
+#define MASK_DIVUW     UINT32_C(0xfe00707f)
+#define GOLDEN_DIVUW   UINT32_C(0x0200503b)
+
+// REMW: 0000_001?_????_????_?110_????_?011_1011
+#define MASK_REMW      UINT32_C(0xfe00707f)
+#define GOLDEN_REMW    UINT32_C(0x0200603b)
+
+// REMUW: 0000_001?_????_????_?111_????_?011_1011
+#define MASK_REMUW     UINT32_C(0xfe00707f)
+#define GOLDEN_REMUW   UINT32_C(0x0200703b)
+
 #endif
