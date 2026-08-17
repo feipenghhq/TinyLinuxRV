@@ -19,6 +19,7 @@ typedef struct {
     FILE_TYPE_t format;
     RUN_MODE_t  mode;
     char       *file;
+    bool        poison_ram;
 } argument_t;
 
 // -------------------------------------------------------------------
@@ -36,14 +37,14 @@ static const char USAGE[] =
     "        Specify the format of the file. auto: automatically detect the file type. elf: elf file. bin: binary "
     "file.\n\n"
     "--riscv-tests\n"
-    "        Run riscv-tests.\n";
+    "        Run riscv-tests.\n\n"
+    "--poison-ram\n"
+    "        Fill ram content to 0xA5 before loading the program. Used mainly for testing.\n\n";
 
 static struct option longopts[] = {
-    {"help", no_argument, 0, 0},
-    {"max-instruction", required_argument, 0, 0},
-    {"format", required_argument, 0, 0},
-    {"riscv-tests", no_argument, 0, 0},
-    {0, 0, 0, 0},
+    {"help", no_argument, 0, 0},         {"max-instruction", required_argument, 0, 0},
+    {"format", required_argument, 0, 0}, {"riscv-tests", no_argument, 0, 0},
+    {"poison-ram", no_argument, 0, 0},   {0, 0, 0, 0},
 };
 
 int parse_arguments(int argc, char **argv, argument_t *argument) {
@@ -86,6 +87,10 @@ int parse_arguments(int argc, char **argv, argument_t *argument) {
             }
             case 3: { // riscv-tests
                 argument->mode = RISCV_TESTS;
+                break;
+            }
+            case 4: { // poison-ram
+                argument->poison_ram = true;
                 break;
             }
             }
@@ -132,7 +137,7 @@ int main(int argc, char **argv) {
     cpu_t      cpu;
     memory_t   memory;
     uint32_t   inst;
-    argument_t argument   = {0, AUTO, NORMAL, NULL};
+    argument_t argument   = {0, AUTO, NORMAL, NULL, false};
     long       inst_count = 0;
     int        result     = 0;
 
@@ -142,7 +147,7 @@ int main(int argc, char **argv) {
 
     // initialize cpu and memory
     cpu_init(&cpu);
-    if (memory_init(&memory) != 0) {
+    if (memory_init(&memory, argument.poison_ram) != 0) {
         return EXIT_FAILURE;
     }
     // read the program

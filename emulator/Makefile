@@ -36,7 +36,7 @@ OBJECTS := $(patsubst src/%.c,$(BUILD_DIR)/%.o,$(SOURCES))
 DEPS	:= $(OBJECTS:.o=.d)
 
 
-.PHONY: build clean sanity-test riscv-tests run-elf run-fib
+.PHONY: build clean regression sanity-test riscv-tests run-elf run-fib run-baremetal-test
 
 build: $(EMULATOR)
 
@@ -65,6 +65,10 @@ run-fib: rvemu
 	$(MAKE) -C $(BAREMETAL_DIR) fib
 	./rvemu --format elf $(BAREMETAL_DIR)/build/examples/fib/fib.elf
 
+run-baremetal-test: rvemu
+	$(MAKE) -C $(BAREMETAL_DIR) baremetal-test
+	./rvemu --format bin --poison-ram $(BAREMETAL_DIR)/build/examples/baremetal-test/baremetal-test.bin
+
 #-------------------------------------------------
 # Run sanity test
 #-------------------------------------------------
@@ -84,3 +88,9 @@ RISCV_TESTS_DIR := tests/riscv-test
 riscv-tests: $(EMULATOR)
 	$(MAKE) -C $(RISCV_TESTS_DIR) all
 	python3 $(RISCV_TESTS_DIR)/run.py
+
+#-------------------------------------------------
+# Full regression test list for emulator
+#-------------------------------------------------
+
+regression: sanity-test riscv-tests run-fib run-baremetal-test

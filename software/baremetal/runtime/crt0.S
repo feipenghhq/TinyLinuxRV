@@ -21,7 +21,7 @@ _start:
 1:
     sb x0, 0(t0)
     addi t0, t0, 1
-    beq t0, t1, 2f
+    bne t0, t1, 1b
 2:
 
 # Call main function

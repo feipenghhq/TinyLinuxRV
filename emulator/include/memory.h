@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 #define RAM_BASE 0x80000000ULL
 
@@ -17,7 +18,7 @@ typedef struct {
 } memory_t;
 
 // Initialization and free
-int  memory_init(memory_t *memory);
+int  memory_init(memory_t *memory, bool poison_ram);
 void memory_free(memory_t *memory);
 
 // CPU access interface
