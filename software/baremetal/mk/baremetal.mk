@@ -18,7 +18,7 @@ AS      := $(CROSS_COMPILE)as
 LD      := $(CROSS_COMPILE)ld
 OBJCOPY := $(CROSS_COMPILE)objcopy
 
-ARCH  = rv64i
+ARCH  = rv64ima
 ABI   = lp64
 
 # medany allows code and data to live at the DRAM base, 0x80000000.

@@ -38,7 +38,7 @@ LDFLAGS := -T $(LINKER_SCRIPT)
 
 # Only enabled suites are included in `all`. Add a suite when the emulator
 # implements the corresponding ISA extension.
-SUITES ?= rv64ui rv64um
+SUITES ?= rv64ui rv64um rv64ua
 
 rv64ui_MARCH := rv64i
 rv64ui_MABI  := lp64
@@ -46,11 +46,8 @@ rv64ui_MABI  := lp64
 rv64um_MARCH := rv64im
 rv64um_MABI  := lp64
 
-# Future examples:
-#
-# SUITES += rv64ua
-# rv64ua_MARCH := rv64ia
-# rv64ua_MABI  := lp64
+rv64ua_MARCH := rv64ia
+rv64ua_MABI  := lp64
 
 # Each upstream Makefrag defines a list such as rv64ui_sc_tests.
 include $(addsuffix /Makefrag,$(addprefix $(ISA_DIR)/,$(SUITES)))

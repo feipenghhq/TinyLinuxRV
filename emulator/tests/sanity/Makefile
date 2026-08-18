@@ -1,6 +1,6 @@
 # Make file for the tool-chain rv64i check
 
-ARCH  = rv64im
+ARCH  = rv64ima
 ABI   = lp64
 
 START ?= 0x80000000
@@ -11,7 +11,7 @@ LDFLAGS := -e _start -Ttext $(START)
 
 BUILD_DIR := build
 
-SOURCES := rv64i.S rv64m.S
+SOURCES := rv64i.S rv64m.S rv64a.S
 OBJECTS := $(patsubst %.S,$(BUILD_DIR)/%.o,   $(SOURCES))
 ELFS    := $(patsubst %.S,$(BUILD_DIR)/%.elf, $(SOURCES))
 BINS    := $(patsubst %.S,$(BUILD_DIR)/%.bin, $(SOURCES))

@@ -87,14 +87,17 @@ def print_test_result(passed):
 def run_all_suites():
     rv64ui = TestSuite("rv64ui", skip_list=("ma_data"))
     rv64um = TestSuite("rv64um")
+    rv64ua = TestSuite("rv64ua")
 
     passed = True
     passed &= rv64ui.run()
     passed &= rv64um.run()
+    passed &= rv64ua.run()
 
     print_test_result(passed)
     rv64ui.summary()
     rv64um.summary()
+    rv64ua.summary()
 
     if passed:
         return 0

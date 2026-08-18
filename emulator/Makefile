@@ -77,12 +77,11 @@ run-baremetal-test: rvemu
 # Run sanity test
 #-------------------------------------------------
 
-SANITY_DIR := tests/sanity/build
+SANITY_DIR := tests/sanity
 
 sanity-test: $(EMULATOR)
 	$(MAKE) -C tests/sanity all
-	./$(EMULATOR) $(SANITY_DIR)/rv64m.bin
-	./$(EMULATOR) $(SANITY_DIR)/rv64i.bin
+	python3 $(SANITY_DIR)/run.py
 
 #-------------------------------------------------
 # Run riscv-tests test

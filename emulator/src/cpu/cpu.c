@@ -20,6 +20,7 @@
 #define OPCODE_OP_32     0x3B
 #define OPCODE_FENCE     0x0F
 #define OPCODE_SYSTEM    0x73
+#define OPCODE_AMO       0x2F
 
 __extension__ typedef __int128          int128_t;
 __extension__ typedef unsigned __int128 uint128_t;
@@ -176,7 +177,7 @@ static uint64_t remw(uint64_t a, uint64_t b) {
     int32_t sb = (int32_t)b;
     int32_t result;
     if (sb == 0) {
-        return sext32bit((uint32_t) a);
+        return sext32bit((uint32_t)a);
     } else if (sa == INT32_MIN && sb == -1) {
         return 0;
     } else {
@@ -189,7 +190,7 @@ static uint64_t remuw(uint64_t a, uint64_t b) {
     uint32_t al = (uint32_t)a;
     uint32_t bl = (uint32_t)b;
     if (bl == 0) {
-        return sext32bit((uint32_t) a);
+        return sext32bit((uint32_t)a);
     } else {
         return (uint64_t)sext32bit(al % bl);
     }
@@ -260,25 +261,68 @@ static void decode(uint32_t inst, inst_dec_t *inst_dec) {
 
 // Execute a load. ext selects either sign extension or no extension.
 #define noext(value, bits) (value)
-#define EXEC_LOAD(size, ext)                                            \
-    do {                                                                \
-        uint64_t data = 0;                                              \
-        if (memory_cpu_read(memory, RS1() + IMM(), size, &data) != 0) { \
-            cpu->halted = true;                                         \
-            return -1;                                                  \
-        }                                                               \
-        RD() = ext(data, size * 8);                                     \
+#define EXEC_LOAD(addr, size, ext)                             \
+    do {                                                       \
+        uint64_t data = 0;                                     \
+        if (memory_cpu_read(memory, addr, size, &data) != 0) { \
+            cpu->halted = true;                                \
+            return -1;                                         \
+        }                                                      \
+        RD() = ext(data, size * 8);                            \
     } while (0)
 
 // Execute a store using the low "size" bytes of rs2.
-#define EXEC_STORE(size)                                                  \
-    do {                                                                  \
-        const uint64_t value = RS2();                                     \
-        if (memory_cpu_write(memory, RS1() + IMM(), size, &value) != 0) { \
-            cpu->halted = true;                                           \
-            return -1;                                                    \
-        }                                                                 \
+#define EXEC_STORE(addr, data, size)                            \
+    do {                                                        \
+        if (memory_cpu_write(memory, addr, size, &data) != 0) { \
+            cpu->halted = true;                                 \
+            return -1;                                          \
+        }                                                       \
     } while (0)
+
+// Helper Macro for LR/SC/AMO
+
+// Need to record RS1 first because LR could override RS1 if RD = RS1
+#define LR(res, size)                                          \
+    do {                                                       \
+        uint64_t lr_addr = RS1();                              \
+        EXEC_LOAD(RS1(), size, sext);                          \
+        LOG_DEBUG("LR: addr = %lx, size = %d", lr_addr, size); \
+        res.valid      = true;                                 \
+        res.addr_start = lr_addr;                              \
+        res.addr_end   = lr_addr + size;                       \
+    } while (0)
+
+#define SC(res, size)                                                                                      \
+    do {                                                                                                   \
+        LOG_DEBUG("SC: addr = %lx, size = %d", RS1(), size);                                               \
+        LOG_DEBUG("SC: reserve. valid = %d, addr_start = %lx, addr_end = %lx ", res.valid, res.addr_start, \
+                  res.addr_end);                                                                           \
+        if (!res.valid || RS1() < res.addr_start || RS1() > res.addr_end - size) {                         \
+            res.valid = false;                                                                             \
+            RD()      = 1;                                                                                 \
+        } else {                                                                                           \
+            res.valid = false;                                                                             \
+            EXEC_STORE(RS1(), RS2(), size);                                                                \
+            RD() = 0;                                                                                      \
+        }                                                                                                  \
+    } while (0)
+
+// Need to record RS1 and RS2 first because AMO could override if RD = RS1 or RD = RS2
+#define AMO(size, op)                       \
+    do {                                    \
+        uint64_t amo_addr = RS1();          \
+        uint64_t amo_src  = RS2();          \
+        EXEC_LOAD(RS1(), size, sext);       \
+        uint64_t result = (op);             \
+        EXEC_STORE(amo_addr, result, size); \
+    } while (0)
+
+#define CMP64U(a, b, op) ((a)op(b) ? (a) : (b))
+#define CMP32U(a, b, op) sext32bit(((uint32_t)(a)op(uint32_t)(b) ? (a) : (b)))
+
+#define CMP64(a, b, op) ((int64_t)(a)op(int64_t)(b) ? (a) : (b))
+#define CMP32(a, b, op) sext32bit(((int32_t)(a)op(int32_t)(b) ? (a) : (b)))
 
 /**
  * Initialize the CPU state to deterministic state.
@@ -292,6 +336,8 @@ void cpu_init(cpu_t *cpu) {
     for (int i = 0; i < 32; i++) {
         cpu->regs[i] = 0;
     }
+
+    cpu->res = (reservation_t){false, 0, 0};
     LOG_INFO("Initialize CPU done");
 }
 
@@ -334,20 +380,20 @@ int cpu_execute(cpu_t *cpu, uint32_t inst, memory_t *memory) {
         break;
     }
     case OPCODE_LOAD: {
-        ADD_INST(LB, EXEC_LOAD(1, sext));
-        ADD_INST(LH, EXEC_LOAD(2, sext));
-        ADD_INST(LW, EXEC_LOAD(4, sext));
-        ADD_INST(LBU, EXEC_LOAD(1, noext));
-        ADD_INST(LHU, EXEC_LOAD(2, noext));
-        ADD_INST(LWU, EXEC_LOAD(4, noext));
-        ADD_INST(LD, EXEC_LOAD(8, noext));
+        ADD_INST(LB, EXEC_LOAD(RS1() + IMM(), 1, sext));
+        ADD_INST(LH, EXEC_LOAD(RS1() + IMM(), 2, sext));
+        ADD_INST(LW, EXEC_LOAD(RS1() + IMM(), 4, sext));
+        ADD_INST(LBU, EXEC_LOAD(RS1() + IMM(), 1, noext));
+        ADD_INST(LHU, EXEC_LOAD(RS1() + IMM(), 2, noext));
+        ADD_INST(LWU, EXEC_LOAD(RS1() + IMM(), 4, noext));
+        ADD_INST(LD, EXEC_LOAD(RS1() + IMM(), 8, noext));
         break;
     }
     case OPCODE_STORE: {
-        ADD_INST(SB, EXEC_STORE(1));
-        ADD_INST(SH, EXEC_STORE(2));
-        ADD_INST(SW, EXEC_STORE(4));
-        ADD_INST(SD, EXEC_STORE(8));
+        ADD_INST(SB, EXEC_STORE(RS1() + IMM(), RS2(), 1));
+        ADD_INST(SH, EXEC_STORE(RS1() + IMM(), RS2(), 2));
+        ADD_INST(SW, EXEC_STORE(RS1() + IMM(), RS2(), 4));
+        ADD_INST(SD, EXEC_STORE(RS1() + IMM(), RS2(), 8));
         break;
     }
     case OPCODE_OP_IMM: {
@@ -416,6 +462,32 @@ int cpu_execute(cpu_t *cpu, uint32_t inst, memory_t *memory) {
         ADD_INST(EBREAK, cpu->halted = true);
         break;
     }
+    case OPCODE_AMO: {
+        ADD_INST(LR_D, LR(cpu->res, 8));
+        ADD_INST(LR_W, LR(cpu->res, 4));
+        ADD_INST(SC_D, SC(cpu->res, 8));
+        ADD_INST(SC_W, SC(cpu->res, 4));
+        ADD_INST(AMOSWAP_D, AMO(8, amo_src));
+        ADD_INST(AMOSWAP_W, AMO(4, amo_src));
+        ADD_INST(AMOADD_D, AMO(8, amo_src + RD()));
+        ADD_INST(AMOADD_W, AMO(4, amo_src + RD()));
+        ADD_INST(AMOAND_D, AMO(8, amo_src & RD()));
+        ADD_INST(AMOAND_W, AMO(4, amo_src & RD()));
+        ADD_INST(AMOOR_D, AMO(8, amo_src | RD()));
+        ADD_INST(AMOOR_W, AMO(4, amo_src | RD()));
+        ADD_INST(AMOXOR_D, AMO(8, amo_src ^ RD()));
+        ADD_INST(AMOXOR_W, AMO(4, amo_src ^ RD()));
+        ADD_INST(AMOMAXU_D, AMO(8, CMP64U(amo_src, RD(), >)));
+        ADD_INST(AMOMAXU_W, AMO(4, CMP32U(amo_src, RD(), >)));
+        ADD_INST(AMOMAX_D, AMO(8, CMP64(amo_src, RD(), >)));
+        ADD_INST(AMOMAX_W, AMO(4, CMP32(amo_src, RD(), >)));
+        ADD_INST(AMOMINU_D, AMO(8, CMP64U(amo_src, RD(), <)));
+        ADD_INST(AMOMINU_W, AMO(4, CMP32U(amo_src, RD(), <)));
+        ADD_INST(AMOMIN_D, AMO(8, CMP64(amo_src, RD(), <)));
+        ADD_INST(AMOMIN_W, AMO(4, CMP32(amo_src, RD(), <)));
+        break;
+    }
+
     default:
         break;
     }
