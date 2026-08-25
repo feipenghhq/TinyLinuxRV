@@ -65,7 +65,7 @@ make baremetal-test
 
 The output files are placed under `build/examples/`.
 
-The build is freestanding and uses RV64I/LP64 with the `medany` code model. It
+The build is freestanding and uses RV64IMA/LP64 with the `medany` code model. It
 also disables PIE, PIC, and the stack protector.
 
 ## Files

@@ -4,3 +4,6 @@ compile_commands.json
 
 #emulator
 emulator/rvemu
+
+# AI
+AGENTS.md

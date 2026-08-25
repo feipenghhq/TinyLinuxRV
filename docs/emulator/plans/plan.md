@@ -1,151 +1,133 @@
-# TinyLinuxRV Milestone Plan
+# TinyLinuxRV — Emulator Milestone Plan
 
-TinyLinuxRV is a project to build a simple RV64 RISC-V system that can boot Linux, first in a C emulator, then in RTL simulation, and finally on an FPGA.
+TinyLinuxRV is a project to build a simple RV64 RISC-V system capable of
+booting Linux, progressing through three implementation stages:
 
----
+1. C emulator
+2. RTL simulation
+3. FPGA implementation
 
-# Project Strategy
+This document tracks the milestones for the **emulator stage**.
 
-TinyLinuxRV follows three major stages:
-
-1. **Build a complete RV64 emulator**
-   - Implement the ISA, privileged architecture, virtual memory, and devices.
-   - Boot OpenSBI, Linux, and BusyBox.
-
-2. **Build the RTL processor and SoC**
-   - Implement the same architectural behavior in hardware.
-   - Reuse the same memory map, device tree, firmware, kernel configuration, and test programs.
-
-3. **Deploy on FPGA**
-   - Integrate physical memory and UART.
-   - Boot the same Linux software stack on hardware.
-
-The emulator and RTL implementations live in the same repository so they can share:
+> [!NOTE]
+> When a planned task changes, the original text is preserved with
+> ~~strikethrough~~ and the revised decision is documented directly below it.
 
 ---
 
-# Repository Layout (Planned)
+## Emulator Roadmap
 
-```text
-TinyLinuxRV/
-├── docs/
-├── emulator/
-│   ├── include/
-│   ├── src/
-│   ├── tests/
-│   └── README.md
-├── rtl/
-│   ├── core/
-│   ├── bus/
-│   ├── peripherals/
-│   └── soc/
-├── platform/
-│   ├── include/
-│   ├── device-tree/
-│   ├── memory-map/
-│   └── config/
-├── software/
-│   ├── tests/
-│   ├── baremetal/
-│   ├── opensbi/
-│   ├── linux/
-│   ├── busybox/
-│   └── images/
-├── sim/
-├── fpga/
-├── scripts/
-├── Makefile
-├── README.md
-└── LICENSE
-```
+| Phase   | Milestone                                 | Status     |
+| ------- | ----------------------------------------- | ---------- |
+| Phase 0 | Development Environment                   | ✅ Complete |
+| Phase 1 | Minimal RV64I Execution Engine            | ✅ Complete |
+| Phase 1 | ELF Loading & Bare-Metal C                | ✅ Complete |
+| Phase 1 | RV64M / RV64A Extensions                  | ✅ Complete |
+| Phase 2 | TinyLinuxRV Machine Model                 | 🟡 Next     |
+| Phase 2 | Basic Platform Devices                    | Planned    |
+| Phase 3 | Machine Mode, CSRs, Traps, and Interrupts | Planned    |
+| Phase 3 | Supervisor and User Modes                 | Planned    |
+| Phase 4 | Sv39 Address Translation                  | Planned    |
+| Phase 5 | OpenSBI and SBI Validation                | Planned    |
+| Phase 6 | Linux Early Boot                          | Planned    |
+| Phase 6 | Scheduler and Initramfs                   | Planned    |
+| Phase 6 | BusyBox User Space                        | Planned    |
+| Phase 7 | Differential Reference Infrastructure     | Planned    |
+
+## Compatibility Policy
+
+Before work begins on a milestone that depends on an external specification or
+software project, record the exact target version and build configuration in
+the repository. In particular, pin the privileged architecture, SBI, OpenSBI,
+Linux, and BusyBox versions instead of implicitly following their latest
+releases.
 
 ---
-
 # Phase 0 — Project Foundation
 
-## Milestone 0: Development Environment and Repository Structure
+## Milestone 0: Development Environment
 
-**Status: Completed — 07/29/2026**
+> ✅ **Completed** · 2026-07-29
 
-### Goals
+### Goal
 
 Create a reproducible development environment that supports both the emulator and the later RTL implementation.
 
 ### Tasks
 
-- Install and document the RV64 cross-compilation toolchain.
-- Use C99 and Make for the emulator.
-- Use SystemVerilog and Verilator for the later RTL implementation.
-- Add a small RV64 assembly toolchain smoke test.
+- [x] Install and document the RV64 cross-compilation toolchain.
+- [x] Use C99 and Make for the emulator.
+- [x] Select SystemVerilog and Verilator for the later RTL implementation.
+- [x] Add a small RV64 assembly toolchain smoke test.
 
 ### Completion Criteria
 
-- The development environment can be reproduced using documented commands.
-- A minimal RV64 assembly program can be compiled into ELF and binary formats.
+- [x] The development environment can be reproduced using documented commands.
+- [x] A minimal RV64 assembly program can be compiled into ELF and binary formats.
 
 ### Deliverable
 
-**v0.1 — Development environment ready**
+**`v0.1` — Development environment ready**
 
 ---
 
-# Phase 1 — RV64 User-Mode Emulator
+# Phase 1 — RV64 Unprivileged ISA Emulator
 
 ## Milestone 1: Minimal RV64I Execution Engine
 
-**Status: Completed — 08/13/2026**
+> ✅ **Completed** · 2026-08-13
 
-Changed tasks keep the old text with a strikethrough. The new decision is
-written below it.
-
-### Goals
+### Goal
 
 Implement a basic emulator capable of running RV64I programs.
 
-### Core Components
+### CPU Core Components
 
-- 32 general-purpose registers and a 64-bit program counter.
-- Byte-addressable guest memory.
-- Instruction fetch, decode, and execute loop.
-- ~~Raw binary loading at a configurable guest address.~~
-  - Adjusted: Load raw binaries at the fixed TinyLinuxRV reset address
-    (`0x80000000`).
-- ~~Register dump and instruction trace support.~~
-  - Adjusted: Provide instruction-level debug logging and defer the register
-    dump until it is needed.
-- Explicit diagnostics for invalid instructions and invalid memory accesses.
+- [x] 32 general-purpose registers and a 64-bit program counter.
+- [x] Byte-addressable guest memory.
+- [x] Instruction fetch, decode, and execute loop.
+- [x] Explicit diagnostics for invalid instructions and invalid memory accesses.
+- [x] ~~Raw binary loading at a configurable guest address.~~
+  **Revised:** Load raw binaries at the fixed TinyLinuxRV reset address
+  (`0x80000000`).
+- [x] ~~Register dump and instruction trace support.~~
+  **Revised:** Provide instruction-level debug logging and defer the register
+  dump until it is needed.
+
 
 ### ISA Scope
 
-- Implement the complete RV64I base integer instruction set.
-- Reject unsupported and reserved instruction encodings explicitly.
-- Defer architectural handling of `ECALL` and `EBREAK`, CSRs, privilege modes, and traps to later phases.
+- [x] Implement the complete RV64I base integer instruction set.
+- [x] Implement `Zifencei`; treat `FENCE.I` as a valid no-op while the
+  emulator has no instruction cache.
+- [x] Reject unsupported and reserved instruction encodings explicitly.
+- **Deferred:** architectural handling of `ECALL` and `EBREAK`, CSRs, privilege modes, and traps is
+  deferred to later phases.
 
 ### Test Environment
 
-- Define a minimal memory layout, load address, and entry point for ISA tests.
-- Add the linker script and target macros required by `riscv-tests`.
-- Build tests as ELF files, convert them to flat binaries, and run them through the raw-binary loader.
-- Automate test execution, timeout handling, and pass/fail reporting.
-- ~~Produce failure traces automatically.~~
-  - Adjusted: Report failed test binaries for manual reruns with debug logging.
+- [x] Define a minimal memory layout, load address, and entry point for ISA tests.
+- [x] Add the linker script and target macros required by `riscv-tests`.
+- [x] Build tests as ELF files, convert them to flat binaries, and run them through the raw-binary loader.
+- [x] Automate test execution, timeout handling, and pass/fail reporting.
+- [x] ~~Produce failure traces automatically.~~
+  **Revised:** Report failed test binaries for manual reruns with debug logging.
 
 ### Verification
 
-- Integrate the applicable RV64I tests from `riscv-tests`.
-- Run tests incrementally as each instruction family is implemented.
-- Run the complete RV64I regression after every ISA implementation change.
-- Skip `ma_data` until misaligned load/store trap handling is implemented.
+- [x] Integrate the applicable RV64I tests from `riscv-tests`.
+- [x] Run the complete RV64I regression after every ISA implementation change.
+- **Deferred:** skip `ma_data` until misaligned load/store trap handling is implemented.
 
 ### Completion Criteria
 
-- The complete RV64I base integer instruction set is implemented.
-- All applicable RV64I tests from `riscv-tests` pass.
-- ~~Raw binary programs execute from a configurable address.~~
-  - Adjusted: Raw binary programs execute from the fixed TinyLinuxRV reset
+- [x] The complete RV64I base integer instruction set is implemented.
+- [x] All applicable RV64I tests from `riscv-tests` pass.
+- [x] Invalid instructions and invalid memory accesses produce clear diagnostics.
+- [x] Failed tests provide useful diagnostics and execution traces.
+- [x] ~~Raw binary programs execute from a configurable address.~~
+  **Revised:** Raw binary programs execute from the fixed TinyLinuxRV reset
     address.
-- Invalid instructions and invalid memory accesses produce clear diagnostics.
-- Failed tests provide useful diagnostics and execution traces.
 
 ### Deliverable
 
@@ -155,63 +137,61 @@ Implement a basic emulator capable of running RV64I programs.
 
 ## Milestone 2: ELF Loading and Bare-Metal C Programs
 
-**Status: Completed — 08/16/2026**
+> ✅ **Completed** · 2026-08-16
 
-Scope changes made during implementation retain the original text with a
-strikethrough and record the adjusted decision below it.
-
-### Goals
+### Goal
 
 Turn the verified RV64I interpreter into a practical bare-metal execution environment capable of loading standard RISC-V ELF executables and running freestanding C programs.
 
 ### Bare-Metal Platform
 
-- Define the RAM layout, program entry point, stack convention, and program exit mechanism.
-- Keep the initial platform simple; define the complete Linux and MMIO memory map in Phase 2.
+- [x] Define the RAM layout, program entry point, stack convention, and program exit mechanism.
+- **Deferred:** Keep the initial platform simple; implement the complete Linux
+  and MMIO machine model in Phase 2.
 
 ### ELF Loader
 
-- Load valid RISC-V ELF64 executables using `PT_LOAD` segments and start execution at `e_entry`.
-- Support initialized and zero-filled segments.
-- Validate ELF metadata and reject malformed or out-of-range images with clear diagnostics.
+- [x] Load valid RISC-V ELF64 executables using `PT_LOAD` segments and start execution at `e_entry`.
+- [x] Support initialized and zero-filled segments.
+- [x] Validate ELF metadata and reject malformed or out-of-range images with clear diagnostics.
 
 ### Bare-Metal Build Environment
 
-- Add a linker script and minimal startup code for freestanding RV64I programs.
-- Initialize the stack, clear `.bss`, call `main`, and report its return value.
-- Document the required compiler and linker flags and provide example assembly and C builds.
+- [x] Add a linker script and minimal startup code for freestanding RV64I programs.
+- [x] Initialize the stack, clear `.bss`, call `main`, and report its return value.
+- [x] Document the required compiler and linker flags and provide example assembly and C builds.
 
 ### Emulator Interface
 
-- ~~Add command-line support for ELF and raw binaries, memory configuration, tracing, dumps, and instruction limits.~~
-  - Adjusted: Support ELF, raw binaries, automatic format detection, and
+- [x] ~~Add command-line support for ELF and raw binaries, memory configuration, tracing, dumps, and instruction limits.~~
+  **Revised:** Support ELF, raw binaries, automatic format detection, and
     instruction limits. Memory configuration, tracing, and dumps are deferred.
-- ~~Return distinct host exit codes for guest results and emulator errors.~~
-  - Adjusted: Use normal host success and failure statuses. Logs show whether
+- [x] ~~Return distinct host exit codes for guest results and emulator errors.~~
+  **Revised:** Use normal host success and failure statuses. Logs show whether
     the failure came from the guest or the emulator.
 
 ### Bare-Metal C Verification
 
-- Add freestanding C tests covering global data, `.bss`, stack usage, function calls, control flow, arrays, pointers, and different memory access widths.
+- [x] Add freestanding C tests covering global data, `.bss`, stack usage, function calls, control flow, arrays, pointers, and different memory access widths.
 
 ### Architectural Verification
 
-- ~~Integrate the applicable RV64I architectural tests using ACT4.~~
-  - Adjusted: ACT4 is deferred until the emulator supports more of the ISA.
-- ~~Add the required TinyLinuxRV target configuration and automated test runner.~~
-  - Adjusted: Use `riscv-tests` and the bare-metal C test for this milestone.
-- ~~Run both ACT4 and `riscv-tests` regressions in CI.~~
-  - Adjusted: CI is deferred to a later milestone.
+- [x] ~~Integrate the applicable RV64I architectural tests using ACT4.~~
+  **Revised:** ACT4 is deferred until the emulator supports more of the ISA.
+- [x] ~~Add the required TinyLinuxRV target configuration and automated test runner.~~
+  **Revised:** Use `riscv-tests` and the bare-metal C test for this milestone.
+- [x] ~~Run both ACT4 and `riscv-tests` regressions in CI.~~
+  **Revised:** CI is deferred to a later milestone.
 
 ### Completion Criteria
 
-- The emulator loads valid RISC-V ELF64 executables using `PT_LOAD` segments.
-- A freestanding RV64I C program runs successfully.
-- Global data, `.bss`, stack usage, function calls, arrays, pointers, branches, and loops work correctly.
-- ~~The applicable RV64I architectural tests pass.~~
-  - Adjusted: All 53 enabled RV64UI tests and the bare-metal C test pass.
-- The complete Milestone 1 `riscv-tests` regression continues to pass.
-- Invalid ELF metadata, entry points, and load addresses produce useful
+- [x] The emulator loads valid RISC-V ELF64 executables using `PT_LOAD` segments.
+- [x] A freestanding RV64I C program runs successfully.
+- [x] Global data, `.bss`, stack usage, function calls, arrays, pointers, branches, and loops work correctly.
+- [x] ~~The applicable RV64I architectural tests pass.~~
+  **Revised:** All 53 enabled RV64UI tests and the bare-metal C test pass.
+- [x] The complete Milestone 1 `riscv-tests` regression continues to pass.
+- [x] Invalid ELF metadata, entry points, and load addresses produce useful
   errors. More malformed-ELF tests are deferred.
 
 ### Deliverable
@@ -222,33 +202,52 @@ Turn the verified RV64I interpreter into a practical bare-metal execution enviro
 
 ## Milestone 3: RV64IMA Extension Support
 
-### Goals
+> ✅ **Completed** · 2026-08-17
+
+### Goal
 
 Extend the verified RV64I emulator with the multiplication, division, and atomic instructions needed by compiled system software and the later Linux software stack.
 
 ### ISA Scope
 
-- Implement the complete RV64M extension.
-- Implement the complete RV64A extension with deterministic single-hart reservation behavior.
+- [x] Implement the complete RV64M extension.
+- [x] Implement the complete RV64A extension with deterministic single-hart reservation behavior.
+- [x] Define the initial reservation policy: the latest LR reserves exactly
+  the bytes it accesses, and every SC clears the reservation whether it
+  succeeds or fails.
 
 ### Build Environment
 
-- Update the bare-metal toolchain configuration for RV64IMA.
-- Add compiled C and assembly examples exercising multiplication, division, and atomic operations.
+- [x] Update the bare-metal toolchain configuration for RV64IMA.
+- ~~Add compiled C and assembly examples exercising multiplication, division, and atomic operations.~~
+  **Revised:** Use the upstream RV64M/RV64A suites and focused sanity tests for
+  this milestone. Dedicated compiled examples are deferred until a system
+  software workload requires them.
 
 ### Verification
 
-- Run the applicable RV64M and RV64A tests from `riscv-tests`.
-- Run the applicable RV64M and RV64A architectural tests.
-- Add focused tests for multiplication high halves, division corner cases, word-result sign extension, LR/SC success and failure, reservation invalidation, and word/doubleword AMOs.
-- Run the complete RV64I regression after adding M and A support.
+- [x] Run the applicable RV64M and RV64A tests from `riscv-tests`.
+- ~~Run the applicable RV64M and RV64A architectural tests.~~
+  **Revised:** Defer ACT4 integration until the privileged architecture is
+  available; use `riscv-tests` for this milestone.
+- ~~Add focused tests for multiplication high halves, division corner cases, word-result sign extension, LR/SC success and failure, reservation invalidation, and word/doubleword AMOs.~~
+  **Revised:** Add instruction-coverage sanity tests plus focused AMO register
+  aliasing and LR/SC tests. Rely on the upstream RV64M/RV64A suites for the
+  remaining arithmetic and atomic corner cases at this milestone.
+- [x] Run the complete RV64I regression after adding M and A support.
 
 ### Completion Criteria
 
-- All applicable RV64I, RV64M, and RV64A tests pass.
-- Compiled bare-metal programs can use multiplication, division, and atomic operations.
-- Single-hart reservation behavior is documented and verified.
-- The RV64IMA regression runs automatically in CI.
+- [x] All applicable tests pass: 53 RV64UI, 13 RV64UM, and 19 RV64UA
+  tests. `ma_data` remains skipped until misaligned-access traps are available.
+- ~~Compiled bare-metal programs can use multiplication, division, and atomic operations.~~
+  **Revised:** The bare-metal build uses `-march=rv64ima`; dedicated compiled
+  examples are deferred as described above.
+- [x] The initial single-hart reservation policy is documented in this
+  milestone and verified by the RV64A regression and focused sanity tests.
+- ~~The RV64IMA regression runs automatically in CI.~~
+  **Revised:** The complete RV64IMA regression runs locally with
+  `make -C emulator regression`. CI integration is deferred to Milestone 13.
 
 ### Deliverable
 
@@ -266,9 +265,13 @@ Define the machine-level platform required by firmware, operating-system bring-u
 
 ### Platform Definition
 
-- Define the reset address and physical memory map for ROM, RAM, and MMIO devices.
+- Finalize and implement the documented TinyLinuxRV v0.1 reset address and
+  physical memory map for ROM, RAM, and MMIO devices.
 - Keep the platform definition shared by the emulator, future RTL, firmware, and device tree.
 - Reserve address ranges for later interrupt controllers and additional peripherals.
+- Add a configurable DRAM size while retaining `0x80000000` as the DRAM base.
+- Select a default DRAM size large enough for OpenSBI, Linux, a device tree,
+  and an initramfs.
 
 ### Machine Model
 
@@ -278,17 +281,28 @@ Define the machine-level platform required by firmware, operating-system bring-u
 - Reject unmapped and invalid device accesses with clear diagnostics.
 - Keep platform constants in a shared definition suitable for reuse by software and RTL.
 
+### Boot and Image Loading
+
+- Define non-overlapping load regions for OpenSBI, Linux, the device tree, and
+  the initramfs.
+- Extend the emulator interface so a system boot can load multiple images at
+  documented guest addresses.
+- Preserve the existing direct ELF and raw-binary modes for bare-metal tests.
+
 ### Verification
 
 - Add tests for ROM, RAM, and MMIO address decoding.
 - Verify reset and shutdown behavior.
 - Verify invalid and overlapping memory mappings are rejected.
+- Test configurable DRAM sizes and multi-image overlap detection.
 - Run the complete RV64IMA regression after introducing the machine model.
 
 ### Completion Criteria
 
 - The TinyLinuxRV reset address and memory map are documented.
 - Boot ROM, RAM, and MMIO regions behave correctly.
+- DRAM size is configurable and large system images can be loaded without
+  overlapping one another.
 - Invalid physical accesses produce clear diagnostics.
 - Platform definitions can be reused by later firmware and RTL work.
 - Existing ISA regressions continue to pass.
@@ -299,11 +313,12 @@ Define the machine-level platform required by firmware, operating-system bring-u
 
 ---
 
-## Milestone 5: UART and Timer Devices
+## Milestone 5: Basic Platform Devices
 
 ### Goals
 
-Add the basic devices required for observable bare-metal software and early firmware development without depending on privileged CPU interrupt handling.
+Add the devices required for observable bare-metal software and early firmware
+development without depending on privileged CPU interrupt handling.
 
 ### UART
 
@@ -313,20 +328,36 @@ Add the basic devices required for observable bare-metal software and early firm
 - Expose status information required by polling software.
 - Expose a device-level interrupt-pending signal for later privileged-architecture integration.
 
-### Timer
+### ACLINT
 
-- Implement a deterministic ACLINT/CLINT-style machine timer.
+- Implement deterministic ACLINT-style machine timer and machine
+  software-interrupt register blocks.
 - Provide a readable machine-time counter and writable compare register.
+- Provide a writable machine software-interrupt register for the single hart.
 - Define deterministic timer progression suitable for testing.
-- Expose a timer-pending condition when the counter reaches the compare value.
-- Defer architectural timer-interrupt delivery to Phase 3.
+- Expose device-level `MTIP` and `MSIP` pending conditions.
+- Defer architectural timer- and software-interrupt delivery to Phase 3.
+
+### PLIC
+
+- Implement a minimal PLIC-compatible MMIO model for a single hart.
+- Provide machine and supervisor contexts needed by the selected firmware and
+  Linux configuration.
+- Route the UART interrupt source into the PLIC.
+- Implement interrupt enable, priority, threshold, claim, and completion
+  behavior for the supported sources.
+- Expose device-level external-interrupt pending conditions to be connected to
+  the CPU in Phase 3.
 
 ### Verification
 
 - Add MMIO register tests for UART and timer behavior.
 - Run bare-metal programs that use polling UART input and output.
 - Verify that software can read the timer counter and program the compare register.
-- Verify UART and timer pending conditions at the device level.
+- Verify software-interrupt register behavior.
+- Verify UART, timer, software, and external-interrupt pending conditions at
+  the device level.
+- Test PLIC enable, priority, threshold, claim, and completion behavior.
 - Run the complete RV64IMA regression after adding the devices.
 
 ### Completion Criteria
@@ -334,19 +365,21 @@ Add the basic devices required for observable bare-metal software and early firm
 - Bare-metal software can communicate through the UART using polling.
 - UART input and output work through the host terminal.
 - Software can read the timer and program its compare register.
-- Timer and UART pending conditions are generated correctly.
+- Software can assert and clear the machine software-interrupt source.
+- The PLIC handles the supported external interrupt sources and contexts.
+- Timer, software, and external-interrupt pending conditions are generated correctly.
 - No privileged CSR or trap handling is required to test this milestone.
 - Existing ISA and bare-metal regressions continue to pass.
 
 ### Deliverable
 
-**v0.6 — Basic UART and timer platform**
+**v0.6 — Basic platform devices**
 
 ---
 
 # Phase 3 — Privileged Architecture
 
-## Milestone 6: Machine Mode, CSRs, and Interrupts
+## Milestone 6: Machine Mode, CSRs, Traps, and Interrupts
 
 ### Goals
 
@@ -354,8 +387,9 @@ Implement the machine-mode privileged architecture required for traps, interrupt
 
 ### ISA and CSR Support
 
+- Select and document the target RISC-V privileged-architecture version.
 - Implement the `Zicsr` extension.
-- Implement `Zifencei`; treat `FENCE.I` as a valid no-op while the emulator has no instruction cache.
+- Preserve and validate the existing `FENCE.I` no-op behavior.
 - Implement the machine-mode CSRs required by traps and interrupts, including:
   - `mstatus`
   - `misa`
@@ -369,6 +403,14 @@ Implement the machine-mode privileged architecture required for traps, interrupt
   - `mcause`
   - `mtval`
   - `mip`
+  - `mvendorid`
+  - `marchid`
+  - `mimpid`
+  - `mhartid`
+- Implement the counter CSRs required by the selected OpenSBI and Linux
+  versions, including a deterministic `time` CSR backed by the Phase 2 timer.
+- Define and document the supported `cycle`, `time`, and `instret` behavior and
+  their access controls.
 - Enforce CSR privilege levels, read-only behavior, and WARL constraints where required.
 
 ### Exceptions and Trap Handling
@@ -380,17 +422,15 @@ Implement the machine-mode privileged architecture required for traps, interrupt
   - Instruction, load, and store access faults.
   - Environment calls.
   - Breakpoints.
-- Implement direct and vectored `mtvec` behavior where applicable.
+- Implement direct `mtvec` behavior.
+- Defer vectored `mtvec` mode until required by software or verification.
 - Save trap state in `mepc`, `mcause`, and `mtval`.
 - Update interrupt-enable state in `mstatus` during trap entry.
 - Implement `MRET` and restore the previous privilege and interrupt state.
 
 ### Machine Interrupts
 
-- Connect the Phase 2 timer-pending condition to the machine timer interrupt.
-- Add a machine software-interrupt source.
-- Add external interrupt support through a PLIC-compatible interrupt controller.
-- Route UART interrupt requests through the external interrupt controller.
+- Connect the Phase 2 `MTIP`, `MSIP`, and PLIC pending conditions to the CPU.
 - Implement `mip`, `mie`, and `mstatus.MIE` behavior.
 - Evaluate interrupts at instruction boundaries and apply architectural priority rules.
 
@@ -398,7 +438,7 @@ Implement the machine-mode privileged architecture required for traps, interrupt
 
 - Add focused tests for CSR access permissions and side effects.
 - Test each synchronous exception and verify trap state.
-- Test direct and vectored trap entry.
+- Test direct trap entry.
 - Test `MRET` state restoration.
 - Add end-to-end timer, software, and external interrupt tests.
 - Run the applicable privileged-architecture and CSR tests.
@@ -410,8 +450,9 @@ Implement the machine-mode privileged architecture required for traps, interrupt
 - Exceptions enter machine-mode trap handlers with correct cause and state.
 - `MRET` restores execution correctly.
 - Timer, software, and UART external interrupts are delivered end to end.
-- PLIC claim and completion behavior works for the supported devices.
-- Existing user-mode and ISA regressions continue to pass.
+- PLIC interrupts are delivered correctly after device-level claim and
+  completion behavior was verified in Phase 2.
+- Existing unprivileged ISA and bare-metal regressions continue to pass.
 
 ### Deliverable
 
@@ -499,7 +540,10 @@ Implement the Sv39 virtual-memory architecture required by supervisor software a
 - Enforce valid, readable, writable, executable, user, global, accessed, and dirty bits.
 - Enforce privilege and access permissions using `SUM` and `MXR`.
 - Detect invalid PTE combinations and misaligned superpages.
-- Initially raise page faults when required accessed or dirty bits are clear.
+- Initially implement `Svade`: raise a page fault when the required accessed
+  or dirty bit is clear.
+- Advertise the selected A/D-bit behavior consistently to OpenSBI and Linux.
+- Defer `Svadu` hardware updating of A/D bits until it is required.
 - Keep the A/D-bit policy explicit so it can later be matched by the RTL implementation.
 
 ### Faults and Synchronization
@@ -518,7 +562,7 @@ Implement the Sv39 virtual-memory architecture required by supervisor software a
 - Test execute-only, read-only, and writable mappings.
 - Test invalid PTEs and misaligned superpages.
 - Test instruction, load, and store page faults.
-- Test `SUM`, `MXR`, and A/D-bit behavior.
+- Test `SUM`, `MXR`, and `Svade` behavior.
 - Test `SFENCE.VMA` behavior.
 - Run applicable Sv39 architectural tests.
 
@@ -527,6 +571,8 @@ Implement the Sv39 virtual-memory architecture required by supervisor software a
 - Sv39 address translation works for instruction fetches, loads, and stores.
 - All supported page sizes behave correctly.
 - Permission checks and page faults match the privileged specification.
+- `Svade` behavior is implemented, tested, and reported consistently to
+  firmware and operating-system software.
 - Supervisor and user programs can execute through virtual mappings.
 - Applicable Sv39 architectural tests pass.
 - Existing ISA and privilege regressions continue to pass.
@@ -547,8 +593,12 @@ Boot OpenSBI on TinyLinuxRV and validate the machine-to-supervisor firmware inte
 
 ### Platform Integration
 
+- Select and record the exact SBI specification and OpenSBI release used for
+  this milestone.
 - Prefer the OpenSBI generic platform with a device tree.
 - Add a TinyLinuxRV-specific OpenSBI platform only if the generic platform cannot support the required devices.
+- Match device-tree compatible strings and properties to the drivers provided
+  by the selected OpenSBI release.
 - Provide a device tree describing:
   - CPU and ISA capabilities.
   - Physical memory.
@@ -556,12 +606,14 @@ Boot OpenSBI on TinyLinuxRV and validate the machine-to-supervisor firmware inte
   - Timer and software-interrupt device.
   - External interrupt controller.
   - Reset or shutdown device.
+- Define `/chosen/stdout-path` for the platform UART.
 - Keep the device tree consistent with the emulator memory map.
 
 ### Firmware Loading
 
 - Define the OpenSBI firmware load address and entry point.
-- Load the firmware and supervisor payload into guest memory.
+- Use the Phase 2 multi-image interface to load the firmware, device tree, and
+  supervisor payload into guest memory.
 - Pass the hart ID and device-tree address according to the selected boot convention.
 - Start OpenSBI in machine mode.
 
@@ -618,13 +670,17 @@ Boot a Linux kernel far enough to initialize the architecture, parse the device 
 
 ### Kernel Boot Interface
 
+- Select and record an exact Linux release, kernel configuration, compiler
+  version, and TinyLinuxRV ISA string for reproducible builds.
 - Build a Linux kernel for the supported TinyLinuxRV ISA profile.
-- Load the kernel `Image` at an address satisfying the RISC-V boot protocol and required alignment.
+- Load the RV64 kernel `Image` at a 2 MiB-aligned physical address as required
+  by the RISC-V Linux boot protocol.
 - Enter the kernel in supervisor mode with:
   - `a0` containing the hart ID.
   - `a1` containing the physical address of the device tree.
   - Virtual memory initially disabled.
 - Keep the kernel, OpenSBI, device tree, and initramfs load addresses documented and non-overlapping.
+- Configure enough DRAM for the selected kernel and initramfs images.
 
 ### Early Platform Bring-up
 
@@ -708,6 +764,7 @@ Run a minimal BusyBox-based user space and reach an interactive shell.
 
 ### User-Space Image
 
+- Select and record an exact BusyBox release and build configuration.
 - Build a static BusyBox configuration suitable for RV64.
 - Create an initramfs with:
   - BusyBox applets.

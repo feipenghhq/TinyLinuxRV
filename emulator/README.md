@@ -5,7 +5,7 @@ will later be implemented in RTL.
 
 ## Current Capabilities
 
-- RV64I base integer instruction execution.
+- RV64IMA instruction execution.
 - `FENCE` and `FENCE.I` are currently treated as no-ops. Memory accesses are
   executed in order, and the emulator has no instruction cache.
 - A fixed 1 MiB RAM region starting at `0x80000000`.
@@ -14,20 +14,22 @@ will later be implemented in RTL.
 - Explicit `elf` and `bin` input formats plus automatic file-type detection.
 - A configurable instruction limit for detecting programs that do not finish.
 - Bare-metal program results reported through `a0`.
-- Automated `riscv-tests` RV64UI regression.
+- Automated `riscv-tests` RV64UI, RV64UM, and RV64UA regression.
 - A bare-metal C regression using poisoned RAM.
 
 ## Next
 
-- Implement the RV64M and RV64A extensions.
-- Privilege modes, CSRs, exceptions, interrupts, and trap handling are not
-  implemented.
+- Implement the TinyLinuxRV machine model, including MMIO dispatch,
+  configurable DRAM, boot ROM, and multi-image loading.
+- Add UART, ACLINT, and PLIC device models.
+- Add machine-mode CSRs, exceptions, traps, and interrupts, followed by
+  supervisor and user privilege modes.
 - Misaligned load/store accesses are rejected. The `ma_data` test is therefore
   skipped by the regression runner until trap handling is available.
-- Virtual memory and devices are not implemented.
+- Add Sv39 virtual memory after privilege-mode support.
 
-See the [emulator roadmap](../doc/PLAN_emulator.md) for the planned development
-milestones.
+See the [emulator milestone plan](../docs/emulator/plans/plan.md) for the
+planned development milestones.
 
 ## Prerequisites
 
@@ -41,7 +43,7 @@ git submodule update --init --recursive
 ```
 
 The required tools and installation notes are documented in
-[toolchain.md](../doc/emulator/toolchain.md).
+[riscv-toolchain.md](../docs/emulator/notes/riscv-toolchain.md).
 
 ## Building
 
@@ -105,7 +107,7 @@ Run the small emulator sanity test with:
 make sanity-test
 ```
 
-Build and run the complete enabled RV64UI regression with:
+Build and run the enabled RV64IMA `riscv-tests` suites with:
 
 ```shell
 make riscv-tests
@@ -134,9 +136,23 @@ then generates a manifest consumed by the Python runner. The runner executes
 the ELF image directly and returns a nonzero host exit status if any test fails
 or times out.
 
-At the current milestone, 53 RV64UI tests are executed and pass. `ma_data` is
-reported as skipped because the current execution environment does not handle
-misaligned load/store traps.
+At the current milestone, all 53 RV64UI, 13 RV64UM, and 19 RV64UA tests pass.
+`ma_data` is reported as skipped because the current execution environment
+does not handle misaligned load/store traps.
 
-For a detailed explanation of the test build system, see
-[riscv-tests-makefile.md](../doc/emulator/riscv-tests-makefile.md).
+For a concise explanation of the emulator and test build system, see
+[makefiles.md](../docs/emulator/notes/makefiles.md).
+
+## Related Documentation
+
+- [Milestone Plan](../docs/emulator/plans/plan.md) — Detailed emulator
+  milestones and current progress.
+- [Development Roadmap](../docs/emulator/plans/roadmap.md) — Emulator-centered
+  development and learning path.
+- [Software Checkpoints](../docs/emulator/plans/software.md) — Real workloads
+  for integration testing.
+- [Development Log](../docs/emulator/plans/devlog.md) — Completed milestones,
+  test results, and design decisions.
+- [RISC-V Toolchain Notes](../docs/emulator/notes/riscv-toolchain.md) — Required
+  tools and manual build steps.
+- [Makefile Notes](../docs/emulator/notes/makefiles.md) — Build-system reference.

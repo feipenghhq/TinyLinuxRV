@@ -1,14 +1,60 @@
 # TinyLinuxRV
 
+![ISA](https://img.shields.io/badge/ISA-RV64IMA-blue)
+[![Emulator](https://img.shields.io/badge/Emulator-C99-00599C)](emulator/README.md)
+![RTL](https://img.shields.io/badge/RTL-SystemVerilog%20(planned)-lightgrey)
+![Status](https://img.shields.io/badge/Status-In%20Development-yellow)
+
 > A tiny RV64 RISC-V CPU and SoC built from scratch to run Linux.
 
-TinyLinuxRV is a long-term project to design and implement a complete RV64
-RISC-V system, starting with a C emulator and eventually progressing to RTL
-simulation and FPGA hardware.
+## Introduction
+
+TinyLinuxRV is a long-term project to design and implement a Linux-capable
+RV64IMA system, starting with a C emulator and eventually progressing
+to RTL simulation and FPGA hardware.
 
 The goal is to build a working Linux-capable CPU and SoC with a clear,
 understandable architecture and a reusable software stack across the emulator,
 RTL implementation, and FPGA platform.
+
+---
+
+## Current Status
+
+The project is currently in the emulator stage.
+
+Completed:
+
+- ✅ RV64I execution.
+- ✅ ELF loading and bare-metal C programs.
+- ✅ RV64M and RV64A extensions.
+
+Next:
+
+- TinyLinuxRV machine model, MMIO dispatch, and configurable DRAM.
+- UART, ACLINT, and PLIC device support.
+- Machine-mode CSRs, exceptions, traps, and interrupts.
+- Supervisor and user privilege modes.
+- Sv39 virtual memory.
+- OpenSBI, Linux, and BusyBox bring-up.
+- Deterministic architectural tracing for later RTL verification.
+
+See the [emulator milestone plan](docs/emulator/plans/plan.md) for the detailed
+emulator roadmap.
+
+---
+
+## Getting Started
+
+Initialize the test dependency and run the emulator regression:
+
+```shell
+git submodule update --init --recursive
+make -C emulator regression
+```
+
+See the [emulator documentation](emulator/README.md) for build requirements,
+command-line usage, and individual test targets.
 
 ---
 
@@ -24,7 +70,7 @@ TinyLinuxRV is developed in three major stages:
 2. **Build the RTL CPU and SoC**
    - Implement the same architectural behavior in SystemVerilog.
    - Reuse the emulator's memory map, firmware, device tree, tests, and software images.
-   - Validate the RTL against the emulator through differential testing.
+   - Reuse the emulator test suite to validate the RTL implementation.
 
 3. **Deploy on FPGA**
    - Integrate physical memory, UART, clocking, reset, and board-specific logic.
@@ -32,26 +78,7 @@ TinyLinuxRV is developed in three major stages:
 
 ---
 
-## Current Status
-
-The project is currently in the emulator stage.
-
-The immediate focus is:
-
-- RV64I execution.
-- ELF loading and bare-metal C programs.
-- RV64M and RV64A extensions.
-- Machine, supervisor, and user privilege modes.
-- Sv39 virtual memory.
-- UART, timer, and interrupt-controller support.
-- OpenSBI, Linux, and BusyBox bring-up.
-- Deterministic architectural tracing for later RTL verification.
-
-See [PLAN_emulator.md](doc/PLAN_emulator.md) for the detailed emulator roadmap.
-
----
-
-## Planned Architecture
+## Target Architecture
 
 ### Emulator
 
@@ -78,7 +105,6 @@ See [PLAN_emulator.md](doc/PLAN_emulator.md) for the detailed emulator roadmap.
 
 - AHB-Lite interconnect.
 - Boot ROM.
-- RAM interface.
 - UART.
 - ACLINT/CLINT-style timer and software-interrupt device.
 - PLIC-compatible external interrupt controller.
@@ -98,57 +124,14 @@ See [PLAN_emulator.md](doc/PLAN_emulator.md) for the detailed emulator roadmap.
 
 ---
 
-## Planned Repository Structure
+## Documentation
 
-```text
-TinyLinuxRV/
-├── docs/
-├── emulator/
-│   ├── include/
-│   ├── src/
-│   ├── tests/
-│   └── README.md
-├── rtl/
-│   ├── core/
-│   ├── bus/
-│   ├── peripherals/
-│   └── soc/
-├── platform/
-│   ├── include/
-│   ├── device-tree/
-│   ├── memory-map/
-│   └── config/
-├── software/
-│   ├── tests/
-│   ├── baremetal/
-│   ├── opensbi/
-│   ├── linux/
-│   ├── busybox/
-│   └── images/
-├── sim/
-├── fpga/
-├── scripts/
-├── Makefile
-├── README.md
-├── PLAN_emulator.md
-└── LICENSE
-```
-
-Directories will be added as their corresponding components are implemented.
-
----
-
-## Project Goals
-
-- Build a complete RV64 CPU capable of running Linux.
-- Understand and control the full hardware and software stack.
-- Create a reusable emulator for architectural validation.
-- Implement the same system in synthesizable RTL.
-- Boot OpenSBI, Linux, and BusyBox in simulation and on FPGA.
-- Maintain clear documentation and reproducible builds.
-
----
+- [Emulator](emulator/README.md) — Build, run, and test the C emulator.
+- [Emulator Milestone Plan](docs/emulator/plans/plan.md) — Planned milestones and current progress.
+- [Platform Specification](platform/README.md) — Shared hardware and software platform definitions.
+- [Bare-Metal Environment](software/baremetal/README.md) — Runtime, memory layout, and example programs.
+- [Development Log](docs/devlog.md) — Project development history and decisions.
 
 ## License
 
-MIT License
+Licensed under the [MIT License](LICENSE).
