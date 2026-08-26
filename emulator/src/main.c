@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "cpu.h"
+#include "device.h"
 #include "log.h"
 #include "memory.h"
 
@@ -135,6 +136,7 @@ static bool check_riscv_tests_result(cpu_t *cpu) {
 int main(int argc, char **argv) {
 
     cpu_t      cpu;
+    dev_list_t devices;
     memory_t   memory;
     uint32_t   inst;
     argument_t argument   = {0, AUTO, NORMAL, NULL, false};
@@ -145,11 +147,16 @@ int main(int argc, char **argv) {
     parse_arguments(argc, argv, &argument);
     LOG_INFO("Running: %s", argument.file);
 
-    // initialize cpu and memory
+    // initialize cpu ,device, and memory
     cpu_init(&cpu);
+    if (device_init(&devices) != 0) {
+        return EXIT_FAILURE;
+    }
+
     if (memory_init(&memory, argument.poison_ram) != 0) {
         return EXIT_FAILURE;
     }
+
     // read the program
     switch (argument.format) {
     case AUTO: {
@@ -172,12 +179,12 @@ int main(int argc, char **argv) {
 
     // execute instruction
     while (!cpu.halted) {
-        if (memory_cpu_read(&memory, cpu.pc, 4, &inst) != 0) {
+        if (memory_cpu_read(&memory, &devices, cpu.pc, 4, &inst) != 0) {
             LOG_ERROR("Memory read failed. Unable to fetch instruction");
             memory_free(&memory);
             return EXIT_FAILURE;
         }
-        if (cpu_execute(&cpu, inst, &memory) != 0) {
+        if (cpu_execute(&cpu, inst, &memory, &devices) != 0) {
             memory_free(&memory);
             LOG_ERROR("CPU execution failed");
             return EXIT_FAILURE;

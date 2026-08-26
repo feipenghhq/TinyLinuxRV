@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "device.h"
 #include "memory.h"
 
 // reset to 0x80000000
@@ -26,6 +27,6 @@ typedef struct {
 } cpu_t;
 
 void cpu_init(cpu_t *cpu);
-int  cpu_execute(cpu_t *cpu, uint32_t inst, memory_t *memory);
+int  cpu_execute(cpu_t *cpu, uint32_t inst, memory_t *memory, dev_list_t *devices);
 
 #endif

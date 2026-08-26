@@ -1,14 +1,15 @@
 #ifndef MEMORY_H
 #define MEMORY_H
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <stdbool.h>
 
-#define RAM_BASE 0x80000000ULL
+#include "addrmap.h"
+#include "device.h"
 
-// 1 MB RAM
-#define RAM_SIZE (1 * 1024 * 1024ULL)
+#define RAM_BASE DRAM_BASE
+#define RAM_SIZE DRAM_SIZE
 
 typedef struct {
     uint8_t *data;
@@ -22,8 +23,8 @@ int  memory_init(memory_t *memory, bool poison_ram);
 void memory_free(memory_t *memory);
 
 // CPU access interface
-int memory_cpu_read(const memory_t *memory, uint64_t addr, size_t size, void *data);
-int memory_cpu_write(memory_t *memory, uint64_t addr, size_t size, const void *data);
+int memory_cpu_read(const memory_t *memory, dev_list_t *devs, uint64_t addr, size_t size, void *data);
+int memory_cpu_write(memory_t *memory, dev_list_t *devs, uint64_t addr, size_t size, const void *data);
 
 // Host access interface
 void *memory_set(memory_t *memory, uint64_t start_addr, int c, size_t n);

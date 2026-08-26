@@ -30,7 +30,7 @@ where practical.
 | PLIC                     | `0x0c000000` | `0x04000000` reserved |  `0x10000000` |  RW-   | Planned     |
 | UART0 (16550-compatible) | `0x10000000` | `0x00001000` reserved |  `0x10001000` |  RW-   | Planned     |
 | VirtIO MMIO (8 slots)    | `0x10001000` |          `0x00008000` |  `0x10009000` |  RW-   | Planned     |
-| DRAM                     | `0x80000000` |          `0x00100000` |  `0x80100000` |  RWX   | Implemented |
+| DRAM                     | `0x80000000` |          `0x08000000` |  `0x88000000` |  RWX   | Implemented |
 
 The access column describes the intended platform behavior. Memory protection
 and execute permissions are not yet enforced by the emulator.

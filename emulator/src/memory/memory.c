@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "device.h"
 #include "log.h"
 
 // ----------------------------------------------
@@ -21,7 +22,9 @@ static inline bool check_addr_range(const memory_t *memory, uint64_t addr, size_
     return true;
 }
 
-
+// ----------------------------------------------
+// Memory initialize
+// ----------------------------------------------
 
 /**
  * Initialize a memory block with a given size and base address.
@@ -73,10 +76,10 @@ static inline bool cpu_access_check(const memory_t *memory, uint64_t addr, size_
 }
 
 /**
-Read from memory. Supporting different size:
+Read from ram. Supporting different size:
 Supported sizes are 1, 2, 4, and 8 bytes.
 */
-int memory_cpu_read(const memory_t *memory, uint64_t addr, size_t size, void *data) {
+int ram_read(const memory_t *memory, uint64_t addr, size_t size, void *data) {
     uint64_t offset;
     if (!cpu_access_check(memory, addr, size)) {
         return -1;
@@ -89,10 +92,10 @@ int memory_cpu_read(const memory_t *memory, uint64_t addr, size_t size, void *da
 }
 
 /**
-Store data to memory. Supporting different size:
+Store data to ram. Supporting different size:
 Supported sizes are 1, 2, 4, and 8 bytes.
 */
-int memory_cpu_write(memory_t *memory, uint64_t addr, size_t size, const void *data) {
+int ram_write(memory_t *memory, uint64_t addr, size_t size, const void *data) {
     uint64_t offset;
     if (!cpu_access_check(memory, addr, size)) {
         return -1;
@@ -119,4 +122,38 @@ void *memory_set(memory_t *memory, uint64_t start_addr, int c, size_t n) {
     }
     uint64_t offset = start_addr - memory->base;
     return memset(&memory->data[offset], c, n);
+}
+
+// ----------------------------------------------
+// CPU access dispatch
+// ----------------------------------------------
+
+#define DISPATCH(dev, op)                                             \
+    do {                                                              \
+        if (addr >= devs->dev.base && addr <= devs->dev.end - size) { \
+            LOG_ERROR("Unsupported devices: %s", #dev);               \
+            return -1;                                                \
+        }                                                             \
+    } while (0)
+
+// CPU read dispatch
+int memory_cpu_read(const memory_t *memory, dev_list_t *devs, uint64_t addr, size_t size, void *data) {
+    DISPATCH(bootROM, read);
+    DISPATCH(reset, read);
+    DISPATCH(aclint, read);
+    DISPATCH(plic, read);
+    DISPATCH(uart0, read);
+    DISPATCH(virtio, read);
+    return ram_read(memory, addr, size, data);
+}
+
+// CPU write dispatch
+int memory_cpu_write(memory_t *memory, dev_list_t *devs, uint64_t addr, size_t size, const void *data) {
+    DISPATCH(bootROM, write);
+    DISPATCH(reset, write);
+    DISPATCH(aclint, write);
+    DISPATCH(plic, write);
+    DISPATCH(uart0, write);
+    DISPATCH(virtio, write);
+    return ram_write(memory, addr, size, data);
 }
