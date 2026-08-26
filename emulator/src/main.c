@@ -8,6 +8,9 @@
 #include "log.h"
 #include "memory.h"
 
+extern bool poweroff_requested;
+extern bool reboot_requested;
+
 // -------------------------------------------------------------------
 // Different type enum
 // -------------------------------------------------------------------
@@ -131,6 +134,73 @@ static bool check_riscv_tests_result(cpu_t *cpu) {
 }
 
 // -------------------------------------------------------------------
+// Common poweroff function
+// -------------------------------------------------------------------
+int poweroff(memory_t *memory, dev_list_t *devices) {
+    memory_free(memory);
+    device_free(devices);
+    return 0;
+}
+
+// -------------------------------------------------------------------
+// Common boot function
+// -------------------------------------------------------------------
+int boot(memory_t *memory, dev_list_t *devices, cpu_t *cpu, argument_t *argument) {
+    int result = 0;
+
+    // initialize cpu
+    cpu_init(cpu);
+
+    // initialize memory
+    if (memory_init(memory, argument->poison_ram) != 0) {
+        return EXIT_FAILURE;
+    }
+
+    // initialize device
+    if (device_init(devices) != 0) {
+        return EXIT_FAILURE;
+    }
+
+    // read the program
+    switch (argument->format) {
+    case AUTO: {
+        result = memory_load_auto(memory, argument->file, &cpu->pc);
+        break;
+    }
+    case BIN: {
+        result = memory_load_binary(memory, argument->file);
+        break;
+    }
+    case ELF: {
+        result = memory_load_elf(memory, argument->file, &cpu->pc);
+        break;
+    }
+    }
+    if (result != 0) {
+        poweroff(memory, devices);
+        return EXIT_FAILURE;
+    }
+    return 0;
+}
+
+// -------------------------------------------------------------------
+// Common reset function
+// -------------------------------------------------------------------
+int reset(dev_list_t *devices, cpu_t *cpu) {
+
+    // re-initialize cpu
+    cpu_init(cpu);
+
+    // reset device
+    if (device_reset(devices) != 0) {
+        return -1;
+    }
+
+    // Noting to be done for memory
+    return 0;
+}
+
+// -------------------------------------------------------------------
 // Main function
 // -------------------------------------------------------------------
 int main(int argc, char **argv) {
@@ -138,62 +208,56 @@ int main(int argc, char **argv) {
     cpu_t      cpu;
     dev_list_t devices;
     memory_t   memory;
+
     uint32_t   inst;
     argument_t argument   = {0, AUTO, NORMAL, NULL, false};
     long       inst_count = 0;
-    int        result     = 0;
 
     // process the argument
     parse_arguments(argc, argv, &argument);
     LOG_INFO("Running: %s", argument.file);
 
-    // initialize cpu ,device, and memory
-    cpu_init(&cpu);
-    if (device_init(&devices) != 0) {
+    // boot and initialize all the component
+    if (boot(&memory, &devices, &cpu, &argument) !=0) {
         return EXIT_FAILURE;
     }
 
-    if (memory_init(&memory, argument.poison_ram) != 0) {
-        return EXIT_FAILURE;
-    }
-
-    // read the program
-    switch (argument.format) {
-    case AUTO: {
-        result = memory_load_auto(&memory, argument.file, &cpu.pc);
-        break;
-    }
-    case BIN: {
-        result = memory_load_binary(&memory, argument.file);
-        break;
-    }
-    case ELF: {
-        result = memory_load_elf(&memory, argument.file, &cpu.pc);
-        break;
-    }
-    }
-    if (result != 0) {
-        memory_free(&memory);
-        return EXIT_FAILURE;
-    }
-
-    // execute instruction
+    // main instruction execution loop
     while (!cpu.halted) {
+        // read instruction from memory
         if (memory_cpu_read(&memory, &devices, cpu.pc, 4, &inst) != 0) {
             LOG_ERROR("Memory read failed. Unable to fetch instruction");
-            memory_free(&memory);
+            poweroff(&memory, &devices);
             return EXIT_FAILURE;
         }
+
+        // execute the instruction
         if (cpu_execute(&cpu, inst, &memory, &devices) != 0) {
-            memory_free(&memory);
+            poweroff(&memory, &devices);
             LOG_ERROR("CPU execution failed");
             return EXIT_FAILURE;
         }
 
+        // check poweroff/reboot
+        if (poweroff_requested) {
+            LOG_INFO("Poweroff requested");
+            break;  // Exit the execution loop
+        }
+
+        if (reboot_requested) {
+            LOG_INFO("Reboot requested");
+            if(reset(&devices, &cpu) !=0) {
+                LOG_ERROR("Failed to reset the devices");
+                poweroff(&memory, &devices);
+                return EXIT_FAILURE;
+            }
+        }
+
+        // check instruction limit
         inst_count++;
         if (argument.max_instruction > 0 && argument.max_instruction <= inst_count) {
             LOG_ERROR("Reach maximum instruction count but the program has not finished yet");
-            memory_free(&memory);
+            poweroff(&memory, &devices);
             if (argument.mode == RISCV_TESTS) {
                 LOG_ERROR("RISCV TESTS SUITE: TEST TIMEOUT");
             }
@@ -201,9 +265,10 @@ int main(int argc, char **argv) {
         }
     }
 
+    // execution completed
     LOG_INFO("CPU execution halted normally");
-    memory_free(&memory);
-
+    poweroff(&memory, &devices);
+    // Check result
     if (argument.mode == RISCV_TESTS) {
         if (check_riscv_tests_result(&cpu) == 0) {
             return EXIT_SUCCESS;

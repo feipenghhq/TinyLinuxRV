@@ -8,6 +8,7 @@ RESET = "\033[0m"
 REG_LIST = (
     "sanity-test",
     "riscv-tests",
+    "device-tests",
     "run-fib",
     "run-baremetal-test",
 )

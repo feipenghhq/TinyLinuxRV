@@ -10,10 +10,10 @@
 #define BootROM_SIZE 0x0000f000ULL
 #define BootROM_END  (BootROM_BASE + BootROM_SIZE)
 
-// Reset/syscon
-#define Reset_BASE 0x00100000ULL
-#define Reset_SIZE 0x00001000ULL
-#define Reset_END  (Reset_BASE + Reset_SIZE)
+// Syscon
+#define Syscon_BASE 0x00100000ULL
+#define Syscon_SIZE 0x00001000ULL
+#define Syscon_END  (Syscon_BASE + Syscon_SIZE)
 
 // ACLINT
 #define ACLINT_BASE 0x02000000ULL

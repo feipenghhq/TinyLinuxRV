@@ -12,7 +12,7 @@ BAREMETAL_DIR = ../software/baremetal
 LOG_LEVEL ?= LOG_LEVEL_INFO
 
 CC       := gcc
-CPPFLAGS := -Iinclude
+CPPFLAGS := -Iinclude -Iinclude/device
 CPPFLAGS += -DLOG_LEVEL=$(LOG_LEVEL)
 CFLAGS 	 := -std=c99 -Wall -Wextra -Wpedantic -Wshadow -Wformat=2 -Wconversion -O2
 DEPFLAGS := -MMD -MP
@@ -31,13 +31,14 @@ SOURCES := src/cpu/cpu.c
 SOURCES += src/memory/memory.c
 SOURCES += src/memory/loader.c
 SOURCES += src/device/device.c
+SOURCES += src/device/syscon.c
 SOURCES += src/main.c
 
 OBJECTS := $(patsubst src/%.c,$(BUILD_DIR)/%.o,$(SOURCES))
 DEPS	:= $(OBJECTS:.o=.d)
 
 
-.PHONY: build clean regression sanity-test riscv-tests run-elf run-fib run-baremetal-test
+.PHONY: build clean regression sanity-test riscv-tests device-tests run-elf run-fib run-baremetal-test
 
 build: $(EMULATOR)
 
@@ -93,6 +94,15 @@ RISCV_TESTS_DIR := tests/riscv-test
 riscv-tests: $(EMULATOR)
 	$(MAKE) -C $(RISCV_TESTS_DIR) all
 	python3 $(RISCV_TESTS_DIR)/run.py
+
+#-------------------------------------------------
+# Run device tests
+#-------------------------------------------------
+
+DEVICE_TESTS_DIR := tests/devices
+
+device-tests: $(EMULATOR)
+	python3 $(DEVICE_TESTS_DIR)/run.py
 
 #-------------------------------------------------
 # Full regression test list for emulator

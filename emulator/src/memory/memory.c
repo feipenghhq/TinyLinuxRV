@@ -127,33 +127,43 @@ void *memory_set(memory_t *memory, uint64_t start_addr, int c, size_t n) {
 // ----------------------------------------------
 // CPU access dispatch
 // ----------------------------------------------
+// Placeholder dispatcher before the device is implemented
+#define DISPATCH_ERR(dev, op)                                         \
+    do {                                                              \
+        if (addr >= devs->dev.base && addr <= devs->dev.end - size) { \
+            LOG_ERROR("Unsupported devices: %s", #dev);               \
+            LOG_ERROR("Address: %lx", addr);                          \
+            return -1;                                                \
+        }                                                             \
+    } while (0)
 
 #define DISPATCH(dev, op)                                             \
     do {                                                              \
         if (addr >= devs->dev.base && addr <= devs->dev.end - size) { \
-            LOG_ERROR("Unsupported devices: %s", #dev);               \
-            return -1;                                                \
+            return dev##_##op(devs->dev.device, addr, size, data);        \
         }                                                             \
     } while (0)
 
 // CPU read dispatch
 int memory_cpu_read(const memory_t *memory, dev_list_t *devs, uint64_t addr, size_t size, void *data) {
-    DISPATCH(bootROM, read);
-    DISPATCH(reset, read);
-    DISPATCH(aclint, read);
-    DISPATCH(plic, read);
-    DISPATCH(uart0, read);
-    DISPATCH(virtio, read);
+    DISPATCH_ERR(bootROM, read);
+    DISPATCH_ERR(aclint, read);
+    DISPATCH_ERR(plic, read);
+    DISPATCH_ERR(uart0, read);
+    DISPATCH_ERR(virtio, read);
+
+    DISPATCH(syscon, read);
     return ram_read(memory, addr, size, data);
 }
 
 // CPU write dispatch
 int memory_cpu_write(memory_t *memory, dev_list_t *devs, uint64_t addr, size_t size, const void *data) {
-    DISPATCH(bootROM, write);
-    DISPATCH(reset, write);
-    DISPATCH(aclint, write);
-    DISPATCH(plic, write);
-    DISPATCH(uart0, write);
-    DISPATCH(virtio, write);
+    DISPATCH_ERR(bootROM, write);
+    DISPATCH_ERR(aclint, write);
+    DISPATCH_ERR(plic, write);
+    DISPATCH_ERR(uart0, write);
+    DISPATCH_ERR(virtio, write);
+
+    DISPATCH(syscon, write);
     return ram_write(memory, addr, size, data);
 }
