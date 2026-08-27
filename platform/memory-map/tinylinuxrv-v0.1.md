@@ -1,6 +1,5 @@
 # TinyLinuxRV Memory Map
 
-
 This document defines version 0.1 of the TinyLinuxRV physical address map.
 The layout follows the broad structure of the QEMU RISC-V `virt` platform so
 that existing RISC-V firmware and operating-system conventions can be reused
@@ -22,18 +21,19 @@ where practical.
 
 ## Physical Address Map
 
-| Device                   |         Base |           Window Size | End Exclusive | Access | Status      |
+| Device                   |         Base |                  Size | End Exclusive | Access | Status      |
 | ------------------------ | -----------: | --------------------: | ------------: | :----: | ----------- |
 | Boot ROM                 | `0x00001000` |          `0x0000f000` |  `0x00010000` |  R-X   | Planned     |
-| Reset/syscon             | `0x00100000` |          `0x00001000` |  `0x00101000` |  RW-   | Planned     |
+| Reset/syscon             | `0x00100000` |          `0x00001000` |  `0x00101000` |  RW-   | Implemented |
 | ACLINT                   | `0x02000000` |          `0x00010000` |  `0x02010000` |  RW-   | Planned     |
 | PLIC                     | `0x0c000000` | `0x04000000` reserved |  `0x10000000` |  RW-   | Planned     |
 | UART0 (16550-compatible) | `0x10000000` | `0x00001000` reserved |  `0x10001000` |  RW-   | Planned     |
 | VirtIO MMIO (8 slots)    | `0x10001000` |          `0x00008000` |  `0x10009000` |  RW-   | Planned     |
-| DRAM                     | `0x80000000` |          `0x08000000` |  `0x88000000` |  RWX   | Implemented |
+| DRAM                     | `0x80000000` |  `0x08000000` default |  `0x88000000` |  RWX   | Implemented |
 
-The access column describes the intended platform behavior. Memory protection
-and execute permissions are not yet enforced by the emulator.
+- The access column describes the intended platform behavior. Memory protection
+  and execute permissions are not yet enforced by the emulator.
+- DRAM size is configurable. The default is 128 MiB.
 
 ## Region Notes
 
@@ -45,9 +45,12 @@ boot modes may bypass the Boot ROM.
 
 ### Reset/syscon
 
-The reset system controller will provide shutdown and reset requests. It will
+The reset system controller provides shutdown and reset requests. It will
 eventually replace `EBREAK` as the normal bare-metal completion mechanism and
 serve as the platform backend for SBI system reset operations.
+
+See the [syscon device documentation](../devices/syscon.md) for its behavior
+and register layout.
 
 ### ACLINT
 
@@ -88,9 +91,9 @@ for a Linux root filesystem.
 
 ### DRAM
 
-The current emulator implements 1 MiB of DRAM at
-`[0x80000000, 0x80100000)`. The platform will support configurable and larger
-DRAM sizes before Linux bring-up, while retaining `0x80000000` as the base.
+The emulator provides 128 MiB of DRAM by default at
+`[0x80000000, 0x88000000)`. Users can override the size with the
+`--dram-size` option. The base address remains `0x80000000`.
 
 ## Interrupt Map
 
@@ -104,9 +107,3 @@ DRAM sizes before Linux bring-up, while retaining `0x80000000` as the base.
 PLIC interrupt source 9 and source IDs above 10 are reserved for future
 devices. Interrupt IDs describe PLIC sources and are independent of MMIO
 addresses.
-
-## Current Implementation Scope
-
-Version 0.1 currently implements only the DRAM region and direct loading of
-program images. All other regions in this document are architectural
-reservations for later emulator-platform milestones.

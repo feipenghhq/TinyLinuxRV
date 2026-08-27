@@ -8,17 +8,6 @@
 #include "device/syscon.h"
 #include "log.h"
 
-/*
-| Offset | 寄存器 | 访问 | 定义 |
-|---:|---|:---:|---|
-| `0x00` | `SYS_CTRL` | WO | 写命令触发系统操作 |
-| `0x04` | `RESET_CAUSE` | RO | 暂不实现，留作以后记录实际复位来源 |
-
-#define SYSCON_CMD_POWER_OFF 1
-#define SYSCON_CMD_REBOOT    2
-
-*/
-
 // global variable
 bool poweroff_requested = false;
 bool reboot_requested   = false;

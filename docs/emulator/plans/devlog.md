@@ -96,3 +96,22 @@ the Git history.
   * The complete emulator regression passes.
   * ACT4, continuous integration, and dedicated compiled RV64M/RV64A examples
     remain deferred.
+
+---
+
+## Phase 2 — Emulator Platform and Basic Devices
+
+### Milestone 4: TinyLinuxRV Machine Model
+
+> ✅ **Completed** · 2026-08-26
+
+* **2026-08-25** — Defined the address map and added MMIO dispatch.
+
+  * The complete emulator regression passed.
+
+* **2026-08-26** — Implemented the syscon device and configurable DRAM.
+
+  * The complete emulator regression passed.
+  * Added tests for the syscon device and configurable DRAM.
+
+* **2026-08-26** — Completed the TinyLinuxRV Machine Model Milestone.

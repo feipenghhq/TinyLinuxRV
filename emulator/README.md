@@ -5,31 +5,34 @@ will later be implemented in RTL.
 
 ## Current Capabilities
 
-- RV64IMA instruction execution.
-- `FENCE` and `FENCE.I` are currently treated as no-ops. Memory accesses are
-  executed in order, and the emulator has no instruction cache.
-- A fixed 1 MiB RAM region starting at `0x80000000`.
-- Raw binary and RISC-V ELF64 loading, including `PT_LOAD` segments and BSS
-  initialization.
-- Explicit `elf` and `bin` input formats plus automatic file-type detection.
-- A configurable instruction limit for detecting programs that do not finish.
-- Bare-metal program results reported through `a0`.
-- Automated `riscv-tests` RV64UI, RV64UM, and RV64UA regression.
-- A bare-metal C regression using poisoned RAM.
-
-## Next
-
-- Implement the TinyLinuxRV machine model, including MMIO dispatch,
-  configurable DRAM, boot ROM, and multi-image loading.
-- Add UART, ACLINT, and PLIC device models.
-- Add machine-mode CSRs, exceptions, traps, and interrupts, followed by
-  supervisor and user privilege modes.
-- Misaligned load/store accesses are rejected. The `ma_data` test is therefore
-  skipped by the regression runner until trap handling is available.
-- Add Sv39 virtual memory after privilege-mode support.
-
 See the [emulator milestone plan](../docs/emulator/plans/plan.md) for the
 planned development milestones.
+
+### Platform
+
+- RV64IMA.
+- Configurable DRAM.
+- MMIO dispatch.
+- Syscon device.
+
+### Emulator
+
+- Raw binary and RISC-V ELF64 loading.
+- Configurable instruction limit.
+
+### Limitations
+
+- `FENCE` and `FENCE.I` are currently treated as no-ops.
+  Memory accesses are executed in order, and the emulator has no instruction
+  cache.
+
+## Verification
+
+- `sanity`: Tests basic instruction identification and covers corner cases not
+  covered by `riscv-tests`.
+- `riscv-tests`: RV64UI, RV64UM, and RV64UA regression.
+- `baremetal-test`: Covers basic software use cases.
+- `devices`: Verifies implemented devices.
 
 ## Prerequisites
 
@@ -88,13 +91,14 @@ For example:
 
 The currently available options are:
 
-| Option                    | Description                                                                                    |
-| ------------------------- | ---------------------------------------------------------------------------------------------- |
-| `--help`                  | Print the command-line help.                                                                   |
-| `--max-instruction COUNT` | Stop with an error if the program exceeds the instruction limit.                               |
-| `--format auto\|elf\|bin` | Select automatic detection, RISC-V ELF64 loading, or raw-binary loading. The default is `auto`. |
-| `--riscv-tests`           | Interpret program termination using the emulator-specific `riscv-tests` PASS/FAIL protocol.    |
-| `--poison-ram`            | Fill RAM with `0xA5` before loading the program. Used for testing.                              |
+| Option                    | Description                                                                                      |
+| ------------------------- | ------------------------------------------------------------------------------------------------ |
+| `--help`                  | Print the command-line help.                                                                     |
+| `--max-instruction COUNT` | Stop with an error if the program exceeds the instruction limit.                                 |
+| `--format auto\|elf\|bin` | Select automatic detection, RISC-V ELF64 loading, or raw-binary loading. The default is `auto`.  |
+| `--riscv-tests`           | Interpret program termination using the emulator-specific `riscv-tests` PASS/FAIL protocol.      |
+| `--poison-ram`            | Fill RAM with `0xA5` before loading the program. Used for testing.                               |
+| `--dram-size SIZE`        | Set the DRAM size in MiB. The default is 128 MiB; the supported range is 1–512 MiB.              |
 
 The `--riscv-tests` option is intended for the automated test environment, not
 for general programs.

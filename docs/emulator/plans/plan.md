@@ -23,8 +23,8 @@ This document tracks the milestones for the **emulator stage**.
 | Phase 1 | Minimal RV64I Execution Engine            | ✅ Complete |
 | Phase 1 | ELF Loading & Bare-Metal C                | ✅ Complete |
 | Phase 1 | RV64M / RV64A Extensions                  | ✅ Complete |
-| Phase 2 | TinyLinuxRV Machine Model                 | 🟡 Next     |
-| Phase 2 | Basic Platform Devices                    | Planned    |
+| Phase 2 | TinyLinuxRV Machine Model                 | ✅ Complete |
+| Phase 2 | Basic Platform Devices                    | 🟡 Next     |
 | Phase 3 | Machine Mode, CSRs, Traps, and Interrupts | Planned    |
 | Phase 3 | Supervisor and User Modes                 | Planned    |
 | Phase 4 | Sv39 Address Translation                  | Planned    |
@@ -259,53 +259,65 @@ Extend the verified RV64I emulator with the multiplication, division, and atomic
 
 ## Milestone 4: TinyLinuxRV Machine Model
 
+> ✅ **Completed** · 2026-08-26
+
 ### Goals
 
 Define the machine-level platform required by firmware, operating-system bring-up, and the later RTL implementation.
 
 ### Platform Definition
 
-- Finalize and implement the documented TinyLinuxRV v0.1 reset address and
+- [x] Finalize and implement the documented TinyLinuxRV v0.1 reset address and
   physical memory map for ROM, RAM, and MMIO devices.
-- Keep the platform definition shared by the emulator, future RTL, firmware, and device tree.
-- Reserve address ranges for later interrupt controllers and additional peripherals.
-- Add a configurable DRAM size while retaining `0x80000000` as the DRAM base.
-- Select a default DRAM size large enough for OpenSBI, Linux, a device tree,
+- [x] Keep the platform definition shared by the emulator, future RTL, firmware, and device tree.
+- [x] Reserve address ranges for later interrupt controllers and additional peripherals.
+- [x] Add a configurable DRAM size while retaining `0x80000000` as the DRAM base.
+- [x] Select a default DRAM size large enough for OpenSBI, Linux, a device tree,
   and an initramfs.
 
 ### Machine Model
 
-- Add MMIO address dispatch.
-- Add boot ROM loading.
-- Add reset and shutdown behavior.
-- Reject unmapped and invalid device accesses with clear diagnostics.
-- Keep platform constants in a shared definition suitable for reuse by software and RTL.
+- [x] Add MMIO address dispatch.
+- ~~Add boot ROM loading.~~
+  **Deferred:** Deferred until OpenSBI and Linux bring-up.
+- [x] Add reset and shutdown behavior.
+- [x] Reject unmapped and invalid device accesses with clear diagnostics.
+- ~~Keep platform constants in a shared definition suitable for reuse by software and RTL.~~
+  **Revised:** Software and RTL use separate implementations, so shared
+  definitions and platform constants are documented instead.
 
 ### Boot and Image Loading
 
-- Define non-overlapping load regions for OpenSBI, Linux, the device tree, and
-  the initramfs.
-- Extend the emulator interface so a system boot can load multiple images at
-  documented guest addresses.
-- Preserve the existing direct ELF and raw-binary modes for bare-metal tests.
+- ~~Define non-overlapping load regions for OpenSBI, Linux, the device tree, and the initramfs.~~
+  **Deferred:** Deferred until OpenSBI and Linux bring-up.
+- ~~Extend the emulator interface so a system boot can load multiple images at documented guest addresses.~~
+  **Deferred:** Deferred until OpenSBI and Linux bring-up.
+- [x] Preserve the existing direct ELF and raw-binary modes for bare-metal tests.
 
 ### Verification
 
-- Add tests for ROM, RAM, and MMIO address decoding.
-- Verify reset and shutdown behavior.
-- Verify invalid and overlapping memory mappings are rejected.
-- Test configurable DRAM sizes and multi-image overlap detection.
-- Run the complete RV64IMA regression after introducing the machine model.
+- [x] ~~Add tests for ROM, RAM, and MMIO address decoding.~~
+  **Revised:** Add tests for RAM and MMIO (syscon) address decoding.
+- [x] Verify reset and shutdown behavior.
+- ~~Verify invalid and overlapping memory mappings are rejected.~~
+  **Deferred:** Memory mappings are static, so overlap checks are not needed yet.
+- [x] ~~Test configurable DRAM sizes and multi-image overlap detection.~~
+  **Revised:** Test configurable DRAM sizes.
+- [x] Run the complete RV64IMA regression after introducing the machine model.
 
 ### Completion Criteria
 
-- The TinyLinuxRV reset address and memory map are documented.
-- Boot ROM, RAM, and MMIO regions behave correctly.
-- DRAM size is configurable and large system images can be loaded without
-  overlapping one another.
-- Invalid physical accesses produce clear diagnostics.
-- Platform definitions can be reused by later firmware and RTL work.
-- Existing ISA regressions continue to pass.
+- [x] The TinyLinuxRV reset address and memory map are documented.
+- [x] ~~Boot ROM, RAM, and MMIO regions behave correctly.~~
+  **Revised:** RAM and MMIO regions behave correctly.
+- [x] ~~DRAM size is configurable and large system images can be loaded without overlapping one another.~~
+  **Revised:** DRAM size is configurable.
+- [x] Invalid physical accesses produce clear diagnostics.
+- [x] Platform definitions can be reused by later firmware and RTL work.
+- [x] Existing ISA regressions continue to pass.
+
+> [!NOTE]
+> Deferred features will be tested after their implementation.
 
 ### Deliverable
 
@@ -612,8 +624,8 @@ Boot OpenSBI on TinyLinuxRV and validate the machine-to-supervisor firmware inte
 ### Firmware Loading
 
 - Define the OpenSBI firmware load address and entry point.
-- Use the Phase 2 multi-image interface to load the firmware, device tree, and
-  supervisor payload into guest memory.
+- Add the multi-image interface deferred from Milestone 4 and use it to load
+  the firmware, device tree, and supervisor payload into guest memory.
 - Pass the hart ID and device-tree address according to the selected boot convention.
 - Start OpenSBI in machine mode.
 

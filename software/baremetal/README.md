@@ -38,7 +38,8 @@ address. ELF files start at the address stored in `e_entry`.
 
 ## Memory Layout
 
-The current emulator has 1 MiB of DRAM:
+The emulator provides 128 MiB of DRAM by default. However, the linker script
+assumes and uses only 1 MiB:
 
 ```text
 0x80000000  _start

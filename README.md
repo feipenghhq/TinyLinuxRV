@@ -28,10 +28,10 @@ Completed:
 - ✅ RV64I execution.
 - ✅ ELF loading and bare-metal C programs.
 - ✅ RV64M and RV64A extensions.
+- ✅ TinyLinuxRV machine model, MMIO dispatch, and configurable DRAM.
 
 Next:
 
-- TinyLinuxRV machine model, MMIO dispatch, and configurable DRAM.
 - UART, ACLINT, and PLIC device support.
 - Machine-mode CSRs, exceptions, traps, and interrupts.
 - Supervisor and user privilege modes.
@@ -92,7 +92,7 @@ TinyLinuxRV is developed in three major stages:
 - OpenSBI, Linux, and BusyBox support.
 - Deterministic architectural commit tracing.
 
-### CPU
+### CPU (Planned)
 
 - RV64 in-order core.
 - Five-stage pipeline.
@@ -101,7 +101,7 @@ TinyLinuxRV is developed in three major stages:
 - Exceptions and interrupts.
 - CSR support.
 
-### SoC
+### SoC (Planned)
 
 - AHB-Lite interconnect.
 - Boot ROM.
@@ -110,17 +110,6 @@ TinyLinuxRV is developed in three major stages:
 - PLIC-compatible external interrupt controller.
 - Reset and shutdown device.
 - External SDRAM or DDR memory support for FPGA deployment.
-
----
-
-## Design Principles
-
-- Keep the architecture small enough to understand and debug.
-- Prefer correctness and observability over performance.
-- Reuse the same platform definition and software stack across emulator and RTL.
-- Add verification alongside each architectural feature.
-- Keep the emulator deterministic so it can serve as the RTL reference model.
-- Avoid unnecessary complexity until it is required by Linux or hardware integration.
 
 ---
 
