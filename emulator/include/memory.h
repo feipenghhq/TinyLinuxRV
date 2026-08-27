@@ -19,7 +19,7 @@ typedef struct {
 } memory_t;
 
 // Initialization and free
-int  memory_init(memory_t *memory, bool poison_ram);
+int  memory_init(memory_t *memory, bool poison_ram, size_t ram_size);
 void memory_free(memory_t *memory);
 
 // CPU access interface

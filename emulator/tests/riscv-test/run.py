@@ -1,6 +1,6 @@
 from pathlib import Path
 import subprocess
-#import shlex
+# import shlex
 
 RED = "\033[1;31m"
 GREEN = "\033[1;32m"
@@ -9,15 +9,14 @@ RESET = "\033[0m"
 MAX_INSTRUCTIONS = 10000
 
 repo_path = subprocess.check_output(
-    ["git", "rev-parse", "--show-toplevel"],
-    text=True
+    ["git", "rev-parse", "--show-toplevel"], text=True
 ).strip()
 emulator_path = Path(repo_path) / "emulator"
 riscv_tests_path = emulator_path / "tests/riscv-test"
 rvemu = Path(emulator_path) / "rvemu"
 
-class TestSuite:
 
+class TestSuite:
     def __init__(self, suite, skip_list=()):
         self.suite = suite
         self.skip_list = skip_list
@@ -35,8 +34,18 @@ class TestSuite:
                     continue
                 full_path = riscv_tests_path / line.strip()
                 full_path = full_path.with_suffix(".elf")
-                cmd = [str(rvemu), "--max-instruction", str(MAX_INSTRUCTIONS), "--format", "elf", "--riscv-tests", str(full_path)]
-                #print(shlex.join(cmd))
+                cmd = [
+                    str(rvemu),
+                    "--max-instruction",
+                    str(MAX_INSTRUCTIONS),
+                    "--format",
+                    "elf",
+                    "--riscv-tests",
+                    "--dram-size",
+                    "1",
+                    str(full_path),
+                ]
+                # print(shlex.join(cmd))
                 result = subprocess.run(
                     cmd,
                     capture_output=True,
@@ -50,7 +59,6 @@ class TestSuite:
                     print(result.stderr.strip())
                 self.count += 1
         return len(self.fail_list) == 0
-
 
     def summary(self):
         passed = len(self.pass_list)
@@ -84,6 +92,7 @@ def print_test_result(passed):
             + RESET
         )
 
+
 def run_all_suites():
     rv64ui = TestSuite("rv64ui", skip_list=("ma_data"))
     rv64um = TestSuite("rv64um")
@@ -103,6 +112,7 @@ def run_all_suites():
         return 0
     else:
         return -1
+
 
 if __name__ == "__main__":
     raise SystemExit(run_all_suites())

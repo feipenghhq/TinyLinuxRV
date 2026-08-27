@@ -24,6 +24,7 @@ typedef struct {
     RUN_MODE_t  mode;
     char       *file;
     bool        poison_ram;
+    size_t      dram_size;
 } argument_t;
 
 // -------------------------------------------------------------------
@@ -43,12 +44,18 @@ static const char USAGE[] =
     "--riscv-tests\n"
     "        Run riscv-tests.\n\n"
     "--poison-ram\n"
-    "        Fill ram content to 0xA5 before loading the program. Used mainly for testing.\n\n";
+    "        Fill ram content to 0xA5 before loading the program. Used mainly for testing.\n\n"
+    "--dram-size\n"
+    "        Assign DRAM size (in MiB). Default is 128MiB. Support 1MiB to 512MiB. \n\n";
 
 static struct option longopts[] = {
-    {"help", no_argument, 0, 0},         {"max-instruction", required_argument, 0, 0},
-    {"format", required_argument, 0, 0}, {"riscv-tests", no_argument, 0, 0},
-    {"poison-ram", no_argument, 0, 0},   {0, 0, 0, 0},
+    {"help", no_argument, 0, 0},
+    {"max-instruction", required_argument, 0, 0},
+    {"format", required_argument, 0, 0},
+    {"riscv-tests", no_argument, 0, 0},
+    {"poison-ram", no_argument, 0, 0},
+    {"dram-size", required_argument, 0, 0},
+    {0, 0, 0, 0},
 };
 
 int parse_arguments(int argc, char **argv, argument_t *argument) {
@@ -95,6 +102,15 @@ int parse_arguments(int argc, char **argv, argument_t *argument) {
             }
             case 4: { // poison-ram
                 argument->poison_ram = true;
+                break;
+            }
+            case 5: { // dram-size
+                size_t dram_size_mib = (size_t)atoi(optarg);
+                argument->dram_size  = dram_size_mib * (1024 * 1024);
+                if (dram_size_mib <= 0 || dram_size_mib > 512) {
+                    printf("Unsupported dram size\n");
+                    exit(EXIT_FAILURE);
+                }
                 break;
             }
             }
@@ -152,7 +168,7 @@ int boot(memory_t *memory, dev_list_t *devices, cpu_t *cpu, argument_t *argument
     cpu_init(cpu);
 
     // initialize memory
-    if (memory_init(memory, argument->poison_ram) != 0) {
+    if (memory_init(memory, argument->poison_ram, argument->dram_size) != 0) {
         return EXIT_FAILURE;
     }
 
@@ -210,7 +226,7 @@ int main(int argc, char **argv) {
     memory_t   memory;
 
     uint32_t   inst;
-    argument_t argument   = {0, AUTO, NORMAL, NULL, false};
+    argument_t argument   = {0, AUTO, NORMAL, NULL, false, RAM_SIZE};
     long       inst_count = 0;
 
     // process the argument
@@ -218,7 +234,7 @@ int main(int argc, char **argv) {
     LOG_INFO("Running: %s", argument.file);
 
     // boot and initialize all the component
-    if (boot(&memory, &devices, &cpu, &argument) !=0) {
+    if (boot(&memory, &devices, &cpu, &argument) != 0) {
         return EXIT_FAILURE;
     }
 
@@ -241,12 +257,12 @@ int main(int argc, char **argv) {
         // check poweroff/reboot
         if (poweroff_requested) {
             LOG_INFO("Poweroff requested");
-            break;  // Exit the execution loop
+            break; // Exit the execution loop
         }
 
         if (reboot_requested) {
             LOG_INFO("Reboot requested");
-            if(reset(&devices, &cpu) !=0) {
+            if (reset(&devices, &cpu) != 0) {
                 LOG_ERROR("Failed to reset the devices");
                 poweroff(&memory, &devices);
                 return EXIT_FAILURE;

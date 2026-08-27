@@ -31,17 +31,17 @@ static inline bool check_addr_range(const memory_t *memory, uint64_t addr, size_
  * The memory block is allocated and initialized to zero.
  * If poison_ram is set the ram content to non zero value (0xA5).
  */
-int memory_init(memory_t *memory, bool poison_ram) {
-    memory->size = RAM_SIZE;
+int memory_init(memory_t *memory, bool poison_ram, size_t ram_size) {
+    memory->size = ram_size;
     memory->base = RAM_BASE;
-    memory->end  = RAM_BASE + RAM_SIZE;
-    memory->data = calloc(RAM_SIZE, sizeof(uint8_t));
+    memory->end  = RAM_BASE + ram_size;
+    memory->data = calloc(ram_size, sizeof(uint8_t));
     if (memory->data == NULL) {
         LOG_ERROR("Can't allocate memory data");
         return -1;
     }
     if (poison_ram) {
-        memset(memory->data, 0xA5, RAM_SIZE * sizeof(uint8_t));
+        memset(memory->data, 0xA5, ram_size * sizeof(uint8_t));
     }
     LOG_INFO("Initialize Memory done");
     return 0;

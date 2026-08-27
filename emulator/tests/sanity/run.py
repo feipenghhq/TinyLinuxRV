@@ -9,23 +9,31 @@ RESET = "\033[0m"
 MAX_INSTRUCTIONS = 10000
 
 repo_path = subprocess.check_output(
-    ["git", "rev-parse", "--show-toplevel"],
-    text=True
+    ["git", "rev-parse", "--show-toplevel"], text=True
 ).strip()
 emulator_path = Path(repo_path) / "emulator"
 sanity_tests_path = emulator_path / "tests/sanity/build"
 rvemu = Path(emulator_path) / "rvemu"
 
-class Test:
 
+class Test:
     def __init__(self, test):
         self.test = test
 
     def run(self):
         print(f"Running sanity test: {self.test}")
         full_path = (sanity_tests_path / self.test).with_suffix(".bin")
-        cmd = [str(rvemu), "--max-instruction", str(MAX_INSTRUCTIONS), "--format", "bin", str(full_path)]
-        #print(shlex.join(cmd))
+        cmd = [
+            str(rvemu),
+            "--max-instruction",
+            str(MAX_INSTRUCTIONS),
+            "--format",
+            "bin",
+            "--dram-size",
+            "1",
+            str(full_path),
+        ]
+        # print(shlex.join(cmd))
         result = subprocess.run(
             cmd,
             capture_output=True,
@@ -40,6 +48,7 @@ class Test:
             print(f"{GREEN}[PASS]{RESET} {self.test}")
         else:
             print(f"{RED}[FAIL]{RESET} {self.test}")
+
 
 def print_test_result(passed):
     if passed:
@@ -58,6 +67,7 @@ def print_test_result(passed):
             + "╚══════════════════════════════════════╝"
             + RESET
         )
+
 
 def run_all_suites():
     rv64i = Test("rv64i")
@@ -78,6 +88,7 @@ def run_all_suites():
         return 0
     else:
         return -1
+
 
 if __name__ == "__main__":
     raise SystemExit(run_all_suites())
