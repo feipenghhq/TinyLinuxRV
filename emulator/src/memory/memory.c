@@ -149,10 +149,10 @@ int memory_cpu_read(const memory_t *memory, dev_list_t *devs, uint64_t addr, siz
     DISPATCH_ERR(bootROM, read);
     DISPATCH_ERR(aclint, read);
     DISPATCH_ERR(plic, read);
-    DISPATCH_ERR(uart0, read);
     DISPATCH_ERR(virtio, read);
 
     DISPATCH(syscon, syscon_read);
+    DISPATCH(uart0, uart16550_read);
     return ram_read(memory, addr, size, data);
 }
 
@@ -161,9 +161,9 @@ int memory_cpu_write(memory_t *memory, dev_list_t *devs, uint64_t addr, size_t s
     DISPATCH_ERR(bootROM, write);
     DISPATCH_ERR(aclint, write);
     DISPATCH_ERR(plic, write);
-    DISPATCH_ERR(uart0, write);
     DISPATCH_ERR(virtio, write);
 
     DISPATCH(syscon, syscon_write);
+    DISPATCH(uart0, uart16550_write);
     return ram_write(memory, addr, size, data);
 }

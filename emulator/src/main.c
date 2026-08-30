@@ -7,6 +7,7 @@
 #include "device.h"
 #include "log.h"
 #include "memory.h"
+#include "uart16550.h"
 
 extern bool poweroff_requested;
 extern bool reboot_requested;
@@ -279,6 +280,9 @@ int main(int argc, char **argv) {
             }
             return EXIT_FAILURE;
         }
+
+        // Device polling, continue even if failed to pull from FIFO
+        uart16550_poll_input(devices.uart0.device);
     }
 
     // execution completed

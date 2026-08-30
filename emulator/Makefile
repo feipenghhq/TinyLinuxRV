@@ -32,6 +32,7 @@ SOURCES += src/memory/memory.c
 SOURCES += src/memory/loader.c
 SOURCES += src/device/device.c
 SOURCES += src/device/syscon.c
+SOURCES += src/device/uart16550.c
 SOURCES += src/main.c
 
 OBJECTS := $(patsubst src/%.c,$(BUILD_DIR)/%.o,$(SOURCES))

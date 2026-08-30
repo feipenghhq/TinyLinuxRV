@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #include "syscon.h"
+#include "uart16550.h"
 
 typedef struct {
     void    *device;
