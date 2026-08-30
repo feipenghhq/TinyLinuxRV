@@ -5,15 +5,11 @@ RED = "\033[1;31m"
 GREEN = "\033[1;32m"
 RESET = "\033[0m"
 
-MAX_INSTRUCTIONS = 10000
-
 emulator_path = Path(__file__).resolve().parents[2]
 device_tests_path = emulator_path / "tests/devices"
 rvemu = emulator_path / "rvemu"
 
-DEVICE_TESTS = (
-    "syscon",
-)
+DEVICE_TESTS = ("syscon",)
 
 
 class DeviceTest:
@@ -21,7 +17,7 @@ class DeviceTest:
         self.name = name
         self.returncode = 1
 
-    def run(self):
+    def run(self, max_inst=10000, input=""):
         print(f"Running device test: {self.name}")
         test_path = device_tests_path / self.name
 
@@ -31,6 +27,8 @@ class DeviceTest:
             capture_output=True,
             text=True,
             check=False,
+            input=input,
+            timeout=5
         )
         if build.returncode != 0:
             self.returncode = build.returncode
@@ -38,19 +36,35 @@ class DeviceTest:
             return False
 
         program = test_path / "build" / f"{self.name}.elf"
-        result = subprocess.run(
-            [
+        if max_inst > 0:
+            cmd = [
                 str(rvemu),
                 "--max-instruction",
-                str(MAX_INSTRUCTIONS),
+                str(max_inst),
                 "--format",
                 "elf",
                 str(program),
-            ],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
+            ]
+        else:
+            cmd = [
+                str(rvemu),
+                "--format",
+                "elf",
+                str(program),
+            ]
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                check=False,
+                input=input,
+                timeout=5
+            )
+        except subprocess.TimeoutExpired:
+            self.returncode = 1
+            print("subprocess timeout")
+            return False;
         self.returncode = result.returncode
         if self.returncode != 0:
             self._print_output(result)
@@ -97,6 +111,11 @@ def run_all_tests():
         test = DeviceTest(name)
         passed &= test.run()
         tests.append(test)
+
+    # special case for uart
+    test = DeviceTest("uart16550")
+    passed &= test.run(max_inst=0, input="z\n123456789012345\nabcdefg\n")
+    tests.append(test)
 
     print_test_result(passed)
     for test in tests:

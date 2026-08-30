@@ -55,19 +55,28 @@ BINS := $(addsuffix .bin,$(BUILD_DIR)/$(PROGRAM))
 RUNTIME_SRCS := $(RUNTIME_DIR)/crt0.S
 RUNTIME_OBJS := $(patsubst $(RUNTIME_DIR)/%.S, $(BAREMETAL_ROOT)/build/runtime/%.o, $(RUNTIME_SRCS))
 
-all: $(ELFS) $(BINS) $(RUNTIME_OBJS)
+DRIVERS_SRCS := $(DRIVERS_DIR)/uart16550/uart16550.c
+DRIVERS_OBJS := $(patsubst $(DRIVERS_DIR)/%.c, $(BAREMETAL_ROOT)/build/drivers/%.o, $(DRIVERS_SRCS))
+
+all: $(ELFS) $(BINS) $(RUNTIME_OBJS) $(DRIVERS_OBJS)
 
 $(BUILD_DIR)/%.bin: $(BUILD_DIR)/%.elf
 	$(OBJCOPY) $< -O binary $@
 
-$(ELFS): $(OBJS) $(RUNTIME_OBJS) $(LINKER_SCRIPT)
+$(ELFS): $(OBJS) $(RUNTIME_OBJS) $(DRIVERS_OBJS) $(LINKER_SCRIPT)
 	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
 
+$(BUILD_DIR)/%.o: %.c
+	mkdir -p $(@D)
+	$(CC) -c $(CPPFLAGS) $(CFLAGS) $< -o $@
+
+# runtime
 $(BAREMETAL_ROOT)/build/runtime/%.o: $(RUNTIME_DIR)/%.S
 	mkdir -p $(@D)
 	$(CC) -c $(CPPFLAGS) $(ASFLAGS) $< -o $@
 
-$(BUILD_DIR)/%.o: %.c
+# driver
+$(BAREMETAL_ROOT)/build/drivers/%.o: $(DRIVERS_DIR)/%.c
 	mkdir -p $(@D)
 	$(CC) -c $(CPPFLAGS) $(CFLAGS) $< -o $@
 
