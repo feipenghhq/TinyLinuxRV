@@ -140,7 +140,7 @@ void *memory_set(memory_t *memory, uint64_t start_addr, int c, size_t n) {
 #define DISPATCH(dev, op)                                             \
     do {                                                              \
         if (addr >= devs->dev.base && addr <= devs->dev.end - size) { \
-            return dev##_##op(devs->dev.device, addr, size, data);        \
+            return op(devs->dev.device, addr, size, data);            \
         }                                                             \
     } while (0)
 
@@ -152,7 +152,7 @@ int memory_cpu_read(const memory_t *memory, dev_list_t *devs, uint64_t addr, siz
     DISPATCH_ERR(uart0, read);
     DISPATCH_ERR(virtio, read);
 
-    DISPATCH(syscon, read);
+    DISPATCH(syscon, syscon_read);
     return ram_read(memory, addr, size, data);
 }
 
@@ -164,6 +164,6 @@ int memory_cpu_write(memory_t *memory, dev_list_t *devs, uint64_t addr, size_t s
     DISPATCH_ERR(uart0, write);
     DISPATCH_ERR(virtio, write);
 
-    DISPATCH(syscon, write);
+    DISPATCH(syscon, syscon_write);
     return ram_write(memory, addr, size, data);
 }

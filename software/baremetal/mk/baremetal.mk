@@ -7,6 +7,9 @@
 LINKER_SCRIPT := $(BAREMETAL_ROOT)/runtime/linker.ld
 
 RUNTIME_DIR := $(BAREMETAL_ROOT)/runtime
+DRIVERS_DIR := $(BAREMETAL_ROOT)/drivers
+
+PLATFORM_DIR := $(BAREMETAL_ROOT)/../../platform
 
 # -----------------------------------------------------------------------------
 # RISC-V cross-toolchain
@@ -27,7 +30,9 @@ ARCH_FLAGS := -march=$(ARCH) -mabi=$(ABI) -mcmodel=medany
 # Do not depend on a hosted C runtime or Linux PIE and stack-protector defaults.
 COMMON_FLAGS := -ffreestanding -fno-pie -fno-pic -fno-stack-protector
 
-CPPFLAGS +=
+CPPFLAGS += -I$(PLATFORM_DIR)/include/tinylinuxrv
+CPPFLAGS += -I$(DRIVERS_DIR)/include
+CPPFLAGS += -I$(DRIVERS_DIR)/uart16550
 
 CFLAGS += -std=c99
 CFLAGS += $(ARCH_FLAGS) $(COMMON_FLAGS)

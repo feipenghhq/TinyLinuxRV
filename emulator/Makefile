@@ -12,7 +12,7 @@ BAREMETAL_DIR = ../software/baremetal
 LOG_LEVEL ?= LOG_LEVEL_INFO
 
 CC       := gcc
-CPPFLAGS := -Iinclude -Iinclude/device
+CPPFLAGS := -Iinclude -Iinclude/device -I../platform/include/tinylinuxrv
 CPPFLAGS += -DLOG_LEVEL=$(LOG_LEVEL)
 CFLAGS 	 := -std=c99 -Wall -Wextra -Wpedantic -Wshadow -Wformat=2 -Wconversion -O2
 DEPFLAGS := -MMD -MP

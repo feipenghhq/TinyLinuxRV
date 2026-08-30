@@ -18,10 +18,11 @@ typedef struct {
 } syscon_reg_t;
 
 typedef struct {
+    uint64_t     base;
     syscon_reg_t reg;
 } syscon_t;
 
-int syscon_init(syscon_t *syscon);
+int syscon_init(syscon_t *syscon, uint64_t base);
 int syscon_reset(syscon_t *syscon);
 int syscon_write(syscon_t *syscon, uint64_t addr, size_t size, const void *data);
 int syscon_read(syscon_t *syscon, uint64_t addr, size_t size, void *data);

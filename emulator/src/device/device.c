@@ -30,7 +30,7 @@ int device_init(dev_list_t *dev) {
     // init syscon
     INIT_DEVICE(syscon, Syscon);
     dev->syscon.device = malloc(sizeof(syscon_t));
-    if (dev->syscon.device == NULL || syscon_init(dev->syscon.device) != 0) {
+    if (dev->syscon.device == NULL || syscon_init(dev->syscon.device, Syscon_BASE) != 0) {
         LOG_ERROR("Failed to initialize syscon device.");
         return -1;
     }
@@ -38,7 +38,6 @@ int device_init(dev_list_t *dev) {
 }
 
 int device_reset(dev_list_t *dev) {
-
     if (syscon_reset(dev->syscon.device) != 0)
         return -1;
     return 0;
