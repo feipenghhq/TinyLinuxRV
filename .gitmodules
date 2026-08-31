@@ -1,3 +1,6 @@
 [submodule "third-party/riscv-tests"]
 	path = third-party/riscv-tests
 	url = git@github.com:riscv-software-src/riscv-tests.git
+[submodule "third-party/coremark"]
+	path = third-party/coremark
+	url = git@github.com:eembc/coremark.git

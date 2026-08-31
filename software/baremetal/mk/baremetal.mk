@@ -20,6 +20,7 @@ CC      := $(CROSS_COMPILE)gcc
 AS      := $(CROSS_COMPILE)as
 LD      := $(CROSS_COMPILE)ld
 OBJCOPY := $(CROSS_COMPILE)objcopy
+OBJDUMP := $(CROSS_COMPILE)objdump
 
 ARCH  = rv64ima
 ABI   = lp64
@@ -38,6 +39,8 @@ CFLAGS += -std=c99
 CFLAGS += $(ARCH_FLAGS) $(COMMON_FLAGS)
 CFLAGS += -Wall -Wextra -Wpedantic -Wshadow -Wformat=2 -Wconversion
 
+DEPFLAGS := -MMD -MP
+
 ASFLAGS += $(ARCH_FLAGS) $(COMMON_FLAGS)
 
 LDFLAGS  += -T $(LINKER_SCRIPT)
@@ -48,9 +51,11 @@ LDFLAGS  += -T $(LINKER_SCRIPT)
 
 .PHONY: all clean
 
-OBJS := $(patsubst %.c, $(BUILD_DIR)/%.o, $(SRCS))
-ELFS := $(addsuffix .elf,$(BUILD_DIR)/$(PROGRAM))
-BINS := $(addsuffix .bin,$(BUILD_DIR)/$(PROGRAM))
+OBJS += $(patsubst %.c, $(BUILD_DIR)/%.o, $(SRCS))
+ELFS += $(addsuffix .elf,$(BUILD_DIR)/$(PROGRAM))
+BINS += $(addsuffix .bin,$(BUILD_DIR)/$(PROGRAM))
+
+DEPS += $(OBJS:.o=.d)
 
 RUNTIME_SRCS := $(RUNTIME_DIR)/crt0.S
 RUNTIME_OBJS := $(patsubst $(RUNTIME_DIR)/%.S, $(BAREMETAL_ROOT)/build/runtime/%.o, $(RUNTIME_SRCS))
@@ -60,6 +65,8 @@ DRIVERS_OBJS := $(patsubst $(DRIVERS_DIR)/%.c, $(BAREMETAL_ROOT)/build/drivers/%
 
 all: $(ELFS) $(BINS) $(RUNTIME_OBJS) $(DRIVERS_OBJS)
 
+-include $(DEPS)
+
 $(BUILD_DIR)/%.bin: $(BUILD_DIR)/%.elf
 	$(OBJCOPY) $< -O binary $@
 
@@ -68,7 +75,7 @@ $(ELFS): $(OBJS) $(RUNTIME_OBJS) $(DRIVERS_OBJS) $(LINKER_SCRIPT)
 
 $(BUILD_DIR)/%.o: %.c
 	mkdir -p $(@D)
-	$(CC) -c $(CPPFLAGS) $(CFLAGS) $< -o $@
+	$(CC) -c $(CPPFLAGS) $(CFLAGS) $(DEPFLAGS) $< -o $@
 
 # runtime
 $(BAREMETAL_ROOT)/build/runtime/%.o: $(RUNTIME_DIR)/%.S
