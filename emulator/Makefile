@@ -12,12 +12,19 @@ BAREMETAL_DIR = ../software/baremetal
 LOG_LEVEL ?= LOG_LEVEL_INFO
 
 CC       := gcc
-CPPFLAGS := -Iinclude -Iinclude/device -I../platform/include/tinylinuxrv
+
+CPPFLAGS += -Iinclude -Iinclude/device -Iinclude/cpu -Iinclude/memory -Iinclude/utils
+CPPFLAGS += -I../platform/include/tinylinuxrv
+
 CPPFLAGS += -DLOG_LEVEL=$(LOG_LEVEL)
-CFLAGS 	 := -std=c99 -Wall -Wextra -Wpedantic -Wshadow -Wformat=2 -Wconversion -O2
-DEPFLAGS := -MMD -MP
-LDFLAGS  :=
-LDLIBS   :=
+
+CFLAGS 	 += -std=c99 -Wall -Wextra -Wpedantic -Wshadow -Wformat=2 -Wconversion -O2
+
+DEPFLAGS += -MMD -MP
+
+LDFLAGS  +=
+
+LDLIBS   +=
 
 #-------------------------------------------------
 # Build emulator
@@ -30,6 +37,7 @@ BUILD_DIR := build
 SOURCES := src/cpu/cpu.c
 SOURCES += src/memory/memory.c
 SOURCES += src/memory/loader.c
+SOURCES += src/utils/iringbuf.c
 SOURCES += src/device/device.c
 SOURCES += src/device/syscon.c
 SOURCES += src/device/uart16550.c
@@ -52,8 +60,8 @@ $(BUILD_DIR)/%.o: src/%.c
 
 -include $(DEPS)
 
-$(BUILD_DIR)/cpu/cpu.o: include/decode.h
-include/decode.h: scripts/generate_inst_patterns.py
+$(BUILD_DIR)/cpu/cpu.o: include/cpu/decode.h
+include/cpu/decode.h: scripts/generate_inst_patterns.py
 	python3 $<
 
 clean:

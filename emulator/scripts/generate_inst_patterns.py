@@ -161,10 +161,10 @@ def main():
     output.append("#endif")
     output.append("")
 
-    with open("include/decode.h", "w") as output_file:
+    with open("include/cpu/decode.h", "w") as output_file:
         output_file.write("\n".join(output))
 
-    print("Generated include/decode.h")
+    print("Generated include/cpu/decode.h")
 
 
 if __name__ == "__main__":

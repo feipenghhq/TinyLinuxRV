@@ -28,5 +28,6 @@ typedef struct {
 
 void cpu_init(cpu_t *cpu);
 int  cpu_execute(cpu_t *cpu, uint32_t inst, memory_t *memory, dev_list_t *devices);
+void cpu_print_regs(cpu_t *cpu);
 
 #endif

@@ -1,6 +1,7 @@
 #include "cpu.h"
 
 #include <stdint.h>
+#include <stdio.h>
 
 #include "decode.h"
 #include "device.h"
@@ -26,7 +27,10 @@
 __extension__ typedef __int128          int128_t;
 __extension__ typedef unsigned __int128 uint128_t;
 
-// Fields shared by the instruction formats used by the executor.
+char *reg_name[] = {"zero", "ra", "sp", "gp", "tp", "t0", "t1", "t2", "s0", "s1", "a0",  "a1",  "a2", "a3", "a4", "a5",
+                    "a6",   "a7", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9", "s10", "s11", "t3", "t4", "t5", "t6"};
+
+                    // Fields shared by the instruction formats used by the executor.
 typedef struct {
     uint8_t  opcode;
     uint8_t  rs1;
@@ -497,4 +501,11 @@ int cpu_execute(cpu_t *cpu, uint32_t inst, memory_t *memory, dev_list_t *devices
     cpu->halted = true;
     LOG_ERROR("EXECUTE: Invalid instruction at address: %lx, instruction: %x", cpu->pc, inst);
     return -1;
+}
+
+void cpu_print_regs(cpu_t *cpu) {
+    fprintf(stderr, "Register Values:\n");
+    for (int i = 0; i < 32; i++) {
+        fprintf(stderr, "%5s (r%d) = 0x%016lx\n", reg_name[i], i, cpu->regs[i]);
+    }
 }

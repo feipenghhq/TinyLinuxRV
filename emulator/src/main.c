@@ -5,6 +5,7 @@
 
 #include "cpu.h"
 #include "device.h"
+#include "iringbuf.h"
 #include "log.h"
 #include "memory.h"
 #include "uart16550.h"
@@ -26,6 +27,7 @@ typedef struct {
     char       *file;
     bool        poison_ram;
     size_t      dram_size;
+    bool        trace;
 } argument_t;
 
 // -------------------------------------------------------------------
@@ -47,16 +49,15 @@ static const char USAGE[] =
     "--poison-ram\n"
     "        Fill ram content to 0xA5 before loading the program. Used mainly for testing.\n\n"
     "--dram-size\n"
-    "        Assign DRAM size (in MiB). Default is 128MiB. Support 1MiB to 512MiB. \n\n";
+    "        Assign DRAM size (in MiB). Default is 128MiB. Support 1MiB to 512MiB.\n\n"
+    "--trace\n"
+    "        Dump debug trace when cpu execution failed.\n\n";
 
 static struct option longopts[] = {
-    {"help", no_argument, 0, 0},
-    {"max-instruction", required_argument, 0, 0},
-    {"format", required_argument, 0, 0},
-    {"riscv-tests", no_argument, 0, 0},
-    {"poison-ram", no_argument, 0, 0},
-    {"dram-size", required_argument, 0, 0},
-    {0, 0, 0, 0},
+    {"help", no_argument, 0, 0},         {"max-instruction", required_argument, 0, 0},
+    {"format", required_argument, 0, 0}, {"riscv-tests", no_argument, 0, 0},
+    {"poison-ram", no_argument, 0, 0},   {"dram-size", required_argument, 0, 0},
+    {"trace", no_argument, 0, 0},        {0, 0, 0, 0},
 };
 
 int parse_arguments(int argc, char **argv, argument_t *argument) {
@@ -112,6 +113,10 @@ int parse_arguments(int argc, char **argv, argument_t *argument) {
                     printf("Unsupported dram size\n");
                     exit(EXIT_FAILURE);
                 }
+                break;
+            }
+            case 6: { // trace
+                argument->trace = true;
                 break;
             }
             }
@@ -227,7 +232,7 @@ int main(int argc, char **argv) {
     memory_t   memory;
 
     uint32_t   inst;
-    argument_t argument   = {0, AUTO, NORMAL, NULL, false, RAM_SIZE};
+    argument_t argument   = {0, AUTO, NORMAL, NULL, false, RAM_SIZE, false};
     long       inst_count = 0;
 
     // process the argument
@@ -248,10 +253,17 @@ int main(int argc, char **argv) {
             return EXIT_FAILURE;
         }
 
+        if (argument.trace) {
+            iringbuf_write(cpu.pc, inst);
+        }
         // execute the instruction
         if (cpu_execute(&cpu, inst, &memory, &devices) != 0) {
             poweroff(&memory, &devices);
             LOG_ERROR("CPU execution failed");
+            if (argument.trace) {
+                iringbuf_print();
+                cpu_print_regs(&cpu);
+            }
             return EXIT_FAILURE;
         }
 
