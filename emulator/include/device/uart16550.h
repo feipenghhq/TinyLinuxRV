@@ -1,6 +1,7 @@
 #ifndef uart16550_H
 #define uart16550_H
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -24,6 +25,8 @@ typedef struct {
     uint8_t rd_ptr;
     uint8_t wr_ptr;
     uint8_t size;
+    bool    overrun;
+    bool    underrun;
 } uart16550_fifo_t;
 
 typedef struct {
@@ -32,10 +35,11 @@ typedef struct {
     uart16550_fifo_t rx_fifo;
 } uart16550_t;
 
-int uart16550_init(uart16550_t *uart16550, uint64_t base);
-int uart16550_reset(uart16550_t *uart16550);
-int uart16550_write(uart16550_t *uart16550, uint64_t addr, size_t size, const void *data);
-int uart16550_read(uart16550_t *uart16550, uint64_t addr, size_t size, void *data);
-int uart16550_poll_input(uart16550_t *uart);
+void uart16550_init(uart16550_t *uart16550, uint64_t base);
+void uart16550_reset(uart16550_t *uart16550);
+int  uart16550_write(uart16550_t *uart16550, uint64_t addr, size_t size, const void *data);
+int  uart16550_read(uart16550_t *uart16550, uint64_t addr, size_t size, void *data);
+int  uart16550_poll_input(uart16550_t *uart);
+bool uart16550_irq_level(uart16550_t *uart);
 
 #endif // uart16550_H

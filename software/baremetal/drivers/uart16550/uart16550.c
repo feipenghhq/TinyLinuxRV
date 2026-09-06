@@ -1,7 +1,7 @@
 #include "uart16550.h"
 
-#include <stdint.h>
 #include <stddef.h>
+#include <stdint.h>
 
 #include "mmio.h"
 #include "uart16550_reg.h"
@@ -45,20 +45,25 @@ void uart_putstr(uint64_t base, const char *s) {
 }
 
 /**
- * Get a string from UART device. End with newline character. Blocking if no data available
+ * Read a line from the UART input, and put the result in the string s.
+ * If the length of the line (excluding the \n) is larger then size - 1, then the exceeding character will be discared
  */
-size_t uart_getstr(uint64_t base, char *s) {
-    char c;
-    size_t size = 0;
-    // wait till we get all something
+size_t uart_readline(uint64_t base, char *buf, size_t size) {
+    char   c;
+    size_t n = 0;
+    if (size == 0) {
+        return 0;
+    }
     while(1) {
-        c = (char) uart_getchar(base);
+        c = (char)uart_getchar(base);
         if (c == '\n') {
-            *s = '\0';
-            return size;
+            *buf = '\0';
+            return n;
         }
-        size++;
-        *s++ = c;
+        if (n < size - 1) {
+            *buf++ = c;
+        }
+        n++;
     }
     return 0;
 }

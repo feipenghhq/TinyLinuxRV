@@ -1,4 +1,5 @@
 #include <getopt.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -8,7 +9,6 @@
 #include "iringbuf.h"
 #include "log.h"
 #include "memory.h"
-#include "uart16550.h"
 
 extern bool poweroff_requested;
 extern bool reboot_requested;
@@ -19,6 +19,8 @@ extern bool reboot_requested;
 typedef enum FILE_TYPE { AUTO, BIN, ELF } FILE_TYPE_t;
 
 typedef enum RUN_MODE { NORMAL, RISCV_TESTS } RUN_MODE_t;
+
+typedef enum EXEC_STATUS { FINISH, MEM_ERROR, CPU_ERROR, DEVICE_ERROR, POWEROFF, TIMEOUT } EXEC_STATUS_t;
 
 typedef struct {
     long        max_instruction;
@@ -167,6 +169,7 @@ int poweroff(memory_t *memory, dev_list_t *devices) {
 // -------------------------------------------------------------------
 // Common boot function
 // -------------------------------------------------------------------
+
 int boot(memory_t *memory, dev_list_t *devices, cpu_t *cpu, argument_t *argument) {
     int result = 0;
 
@@ -175,12 +178,14 @@ int boot(memory_t *memory, dev_list_t *devices, cpu_t *cpu, argument_t *argument
 
     // initialize memory
     if (memory_init(memory, argument->poison_ram, argument->dram_size) != 0) {
-        return EXIT_FAILURE;
+        // No need to free memory as when init failed. the memory will not be allocated
+        return -1;
     }
 
     // initialize device
     if (device_init(devices) != 0) {
-        return EXIT_FAILURE;
+        poweroff(memory, devices);
+        return -1;
     }
 
     // read the program
@@ -198,9 +203,11 @@ int boot(memory_t *memory, dev_list_t *devices, cpu_t *cpu, argument_t *argument
         break;
     }
     }
+
+    // clean up the memory
     if (result != 0) {
         poweroff(memory, devices);
-        return EXIT_FAILURE;
+        return -1;
     }
     return 0;
 }
@@ -208,32 +215,25 @@ int boot(memory_t *memory, dev_list_t *devices, cpu_t *cpu, argument_t *argument
 // -------------------------------------------------------------------
 // Common reset function
 // -------------------------------------------------------------------
-int reset(dev_list_t *devices, cpu_t *cpu) {
-
+void reset(dev_list_t *devices, cpu_t *cpu) {
     // re-initialize cpu
     cpu_init(cpu);
-
     // reset device
-    if (device_reset(devices) != 0) {
-        return -1;
-    }
-
+    device_reset(devices);
     // Noting to be done for memory
-    return 0;
 }
 
 // -------------------------------------------------------------------
 // Main function
 // -------------------------------------------------------------------
 int main(int argc, char **argv) {
-
-    cpu_t      cpu;
-    dev_list_t devices;
-    memory_t   memory;
-
-    uint32_t   inst;
-    argument_t argument   = {0, AUTO, NORMAL, NULL, false, RAM_SIZE, false};
-    long       inst_count = 0;
+    argument_t    argument = {0, AUTO, NORMAL, NULL, false, RAM_SIZE, false};
+    cpu_t         cpu;
+    dev_list_t    devices;
+    memory_t      memory;
+    uint32_t      inst;
+    long          inst_count  = 0;
+    EXEC_STATUS_t exec_status = FINISH;
 
     // process the argument
     parse_arguments(argc, argv, &argument);
@@ -241,6 +241,7 @@ int main(int argc, char **argv) {
 
     // boot and initialize all the component
     if (boot(&memory, &devices, &cpu, &argument) != 0) {
+        // exit the execution directly if boot failed. The memory has been freed in boot function.
         return EXIT_FAILURE;
     }
 
@@ -249,57 +250,72 @@ int main(int argc, char **argv) {
         // read instruction from memory
         if (memory_cpu_read(&memory, &devices, cpu.pc, 4, &inst) != 0) {
             LOG_ERROR("Memory read failed. Unable to fetch instruction");
-            poweroff(&memory, &devices);
-            return EXIT_FAILURE;
+            exec_status = MEM_ERROR;
+            break;
         }
 
         if (argument.trace) {
             iringbuf_write(cpu.pc, inst);
         }
+
         // execute the instruction
         if (cpu_execute(&cpu, inst, &memory, &devices) != 0) {
-            poweroff(&memory, &devices);
             LOG_ERROR("CPU execution failed");
             if (argument.trace) {
                 iringbuf_print();
                 cpu_print_regs(&cpu);
             }
-            return EXIT_FAILURE;
+            exec_status = CPU_ERROR;
+            break;
         }
 
         // check poweroff/reboot
         if (poweroff_requested) {
             LOG_INFO("Poweroff requested");
-            break; // Exit the execution loop
+            exec_status = POWEROFF;
+            break;
         }
 
         if (reboot_requested) {
             LOG_INFO("Reboot requested");
-            if (reset(&devices, &cpu) != 0) {
-                LOG_ERROR("Failed to reset the devices");
-                poweroff(&memory, &devices);
-                return EXIT_FAILURE;
-            }
+            reset(&devices, &cpu);
         }
 
         // check instruction limit
         inst_count++;
         if (argument.max_instruction > 0 && argument.max_instruction <= inst_count) {
             LOG_ERROR("Reach maximum instruction count but the program has not finished yet");
-            poweroff(&memory, &devices);
-            if (argument.mode == RISCV_TESTS) {
-                LOG_ERROR("RISCV TESTS SUITE: TEST TIMEOUT");
-            }
-            return EXIT_FAILURE;
+            exec_status = TIMEOUT;
+            break;
         }
 
-        // Device polling, continue even if failed to pull from FIFO
-        uart16550_poll_input(devices.uart0.device);
+        // Device update
+        if (device_poll_input(&devices) != 0) {
+            LOG_ERROR("Device poll input failed. Exiting.");
+            exec_status = DEVICE_ERROR;
+            break;
+        }
+        device_irq_level(&devices);
     }
 
-    // execution completed
-    LOG_INFO("CPU execution halted normally");
+    // free up memory
     poweroff(&memory, &devices);
+
+    // Check execution status
+    switch (exec_status) {
+    case POWEROFF: // fall-through
+    case FINISH: {
+        LOG_INFO("CPU execution halted normally");
+        break;
+    }
+    case MEM_ERROR:    // fall-through
+    case CPU_ERROR:    // fall-through
+    case DEVICE_ERROR: // fall-through
+    case TIMEOUT: {
+        return EXIT_FAILURE;
+    }
+    }
+
     // Check result
     if (argument.mode == RISCV_TESTS) {
         if (check_riscv_tests_result(&cpu) == 0) {

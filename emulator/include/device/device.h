@@ -22,8 +22,10 @@ typedef struct {
     device_t virtio;
 } dev_list_t;
 
-int device_init(dev_list_t *dev);
-int device_reset(dev_list_t *dev);
-int device_free(dev_list_t *dev);
+int  device_init(dev_list_t *dev);
+void device_reset(dev_list_t *dev);
+void device_free(dev_list_t *dev);
+int  device_poll_input(dev_list_t *dev);
+void device_irq_level(dev_list_t *dev);
 
 #endif

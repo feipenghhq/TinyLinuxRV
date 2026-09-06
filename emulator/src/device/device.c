@@ -25,39 +25,59 @@ int device_init(dev_list_t *dev) {
     INIT_DEVICE(bootROM, BootROM);
     INIT_DEVICE(aclint, ACLINT);
     INIT_DEVICE(plic, PLIC);
-
     INIT_DEVICE(virtio, VirtIO);
+    INIT_DEVICE(syscon, Syscon);
+    INIT_DEVICE(uart0, UART0);
 
     // init syscon
-    INIT_DEVICE(syscon, Syscon);
     dev->syscon.device = malloc(sizeof(syscon_t));
-    if (dev->syscon.device == NULL || syscon_init(dev->syscon.device, Syscon_BASE) != 0) {
+    if (dev->syscon.device == NULL) {
         LOG_ERROR("Failed to initialize syscon device.");
         return -1;
     }
+    syscon_init(dev->syscon.device, Syscon_BASE);
 
     // init uart0
-    INIT_DEVICE(uart0, UART0);
     dev->uart0.device = malloc(sizeof(uart16550_t));
-    if (dev->uart0.device == NULL || uart16550_init(dev->uart0.device, UART0_BASE) != 0) {
+    if (dev->uart0.device == NULL) {
         LOG_ERROR("Failed to initialize uart0 device.");
         return -1;
     }
+    uart16550_init(dev->uart0.device, UART0_BASE);
+
     return 0;
 }
 
-int device_reset(dev_list_t *dev) {
-    if (syscon_reset(dev->syscon.device) != 0)
-        return -1;
-    if (uart16550_reset(dev->uart0.device) != 0)
-        return -1;
+void device_reset(dev_list_t *dev) {
+    syscon_reset(dev->syscon.device);
+    uart16550_reset(dev->uart0.device);
+}
+
+void device_free(dev_list_t *dev) {
+    if (dev->syscon.device != NULL) {
+        free(dev->syscon.device);
+        dev->syscon.device = NULL;
+    }
+    if (dev->uart0.device != NULL) {
+        free(dev->uart0.device);
+        dev->uart0.device = NULL;
+    }
+}
+
+/**
+ *  call device poll function to get device updated
+ */
+int device_poll_input(dev_list_t *dev) {
+    int result;
+    result = uart16550_poll_input(dev->uart0.device);
+    if (result != 0)
+        return result;
     return 0;
 }
 
-int device_free(dev_list_t *dev) {
-    free(dev->syscon.device);
-    dev->syscon.device = NULL;
-    free(dev->uart0.device);
-    dev->uart0.device = NULL;
-    return 0;
+/**
+ *  call device interrupt function to get device interrupt updated
+ */
+void device_irq_level(dev_list_t *dev) {
+    uart16550_irq_level(dev->uart0.device);
 }

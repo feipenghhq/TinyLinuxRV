@@ -38,14 +38,14 @@ int main(void) {
 
     // test multiple character input
     uart_putstr(UART0_BASE, "Test 2: Please enter \"123456789012345\"\n");
-    uart_getstr(UART0_BASE, buf1);
+    uart_readline(UART0_BASE, buf1, 16);
     if (strcmp(buf1, s1) == 0) {
         result[1] = true;
     }
 
     // test rx FIFO ptr wrappering
     uart_putstr(UART0_BASE, "Test 3: Please enter \"abcdefg\"\n");
-    uart_getstr(UART0_BASE, buf2);
+    uart_readline(UART0_BASE, buf2, 16);
     if (strcmp(buf2, s2) == 0) {
         result[2] = true;
     }

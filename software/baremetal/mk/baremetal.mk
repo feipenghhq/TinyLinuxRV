@@ -55,13 +55,13 @@ OBJS += $(patsubst %.c, $(BUILD_DIR)/%.o, $(SRCS))
 ELFS += $(addsuffix .elf,$(BUILD_DIR)/$(PROGRAM))
 BINS += $(addsuffix .bin,$(BUILD_DIR)/$(PROGRAM))
 
-DEPS += $(OBJS:.o=.d)
-
 RUNTIME_SRCS := $(RUNTIME_DIR)/crt0.S
 RUNTIME_OBJS := $(patsubst $(RUNTIME_DIR)/%.S, $(BAREMETAL_ROOT)/build/runtime/%.o, $(RUNTIME_SRCS))
 
 DRIVERS_SRCS := $(DRIVERS_DIR)/uart16550/uart16550.c
 DRIVERS_OBJS := $(patsubst $(DRIVERS_DIR)/%.c, $(BAREMETAL_ROOT)/build/drivers/%.o, $(DRIVERS_SRCS))
+
+DEPS += $(OBJS:.o=.d) $(DRIVERS_OBJS:.o=.d)
 
 all: $(ELFS) $(BINS) $(RUNTIME_OBJS) $(DRIVERS_OBJS)
 
@@ -85,7 +85,7 @@ $(BAREMETAL_ROOT)/build/runtime/%.o: $(RUNTIME_DIR)/%.S
 # driver
 $(BAREMETAL_ROOT)/build/drivers/%.o: $(DRIVERS_DIR)/%.c
 	mkdir -p $(@D)
-	$(CC) -c $(CPPFLAGS) $(CFLAGS) $< -o $@
+	$(CC) -c $(CPPFLAGS) $(CFLAGS) $(DEPFLAGS) $< -o $@
 
 clean:
 	rm -rf $(BUILD_DIR)
