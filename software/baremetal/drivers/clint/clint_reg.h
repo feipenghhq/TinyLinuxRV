@@ -1,0 +1,13 @@
+#ifndef CLINT_REG_H
+#define CLINT_REG_H
+
+// MSIP
+#define CLINT_MSIP_OFFSET 0
+
+// MTIMECMP
+#define CLINT_MTIMECMP_OFFSET 0x4000
+
+// MTIME
+#define CLINT_MTIME_OFFSET 0xBFF8
+
+#endif

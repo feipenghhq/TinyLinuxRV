@@ -296,7 +296,7 @@ int main(int argc, char **argv) {
         }
 
         // Device update
-        if (device_poll_input(&devices) != 0) {
+        if (device_update(&devices) != 0) {
             LOG_ERROR("Device poll input failed. Exiting.");
             exec_status = DEVICE_ERROR;
             break;

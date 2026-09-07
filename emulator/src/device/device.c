@@ -4,9 +4,10 @@
 #include <stdlib.h>
 
 #include "addrmap.h"
-#include "log.h"
-#include "syscon.h"
-#include "uart16550.h"
+#include "device/clint.h"
+#include "device/syscon.h"
+#include "device/uart16550.h"
+#include "utils/log.h"
 
 // ----------------------------------------------
 // Helper Macro
@@ -22,11 +23,12 @@
 int device_init(dev_list_t *dev) {
     // Place holder for unimp devices
     INIT_DEVICE(bootROM, BootROM);
-    INIT_DEVICE(aclint, ACLINT);
     INIT_DEVICE(plic, PLIC);
     INIT_DEVICE(virtio, VirtIO);
+
     INIT_DEVICE(syscon, Syscon);
     INIT_DEVICE(uart0, UART0);
+    INIT_DEVICE(clint, CLINT);
 
     // init syscon
     dev->syscon.device = malloc(sizeof(syscon_t));
@@ -44,12 +46,21 @@ int device_init(dev_list_t *dev) {
     }
     uart16550_init(dev->uart0.device, UART0_BASE);
 
+    // init clint
+    dev->clint.device = malloc(sizeof(clint_t));
+    if (dev->clint.device == NULL) {
+        LOG_ERROR("Failed to initialize clint device.");
+        return -1;
+    }
+    clint_init(dev->clint.device, CLINT_BASE);
+
     return 0;
 }
 
 void device_reset(dev_list_t *dev) {
     syscon_reset(dev->syscon.device);
     uart16550_reset(dev->uart0.device);
+    clint_reset(dev->clint.device);
 }
 
 void device_free(dev_list_t *dev) {
@@ -57,16 +68,22 @@ void device_free(dev_list_t *dev) {
     dev->syscon.device = NULL;
     free(dev->uart0.device);
     dev->uart0.device = NULL;
+    free(dev->clint.device);
+    dev->clint.device = NULL;
 }
 
 /**
- *  call device poll function to get device updated
+ *  Update device
  */
-int device_poll_input(dev_list_t *dev) {
+int device_update(dev_list_t *dev) {
     int result;
+
     result = uart16550_poll_input(dev->uart0.device);
     if (result != 0)
         return result;
+
+    clint_mtime_tick(dev->clint.device);
+
     return 0;
 }
 
@@ -75,4 +92,5 @@ int device_poll_input(dev_list_t *dev) {
  */
 void device_irq_level(dev_list_t *dev) {
     uart16550_irq_level(dev->uart0.device);
+    clint_irq_level(dev->clint.device);
 }

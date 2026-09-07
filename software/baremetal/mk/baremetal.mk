@@ -34,6 +34,7 @@ COMMON_FLAGS := -ffreestanding -fno-pie -fno-pic -fno-stack-protector
 CPPFLAGS += -I$(PLATFORM_DIR)/include/tinylinuxrv
 CPPFLAGS += -I$(DRIVERS_DIR)/include
 CPPFLAGS += -I$(DRIVERS_DIR)/uart16550
+CPPFLAGS += -I$(DRIVERS_DIR)/clint
 
 CFLAGS += -std=c99
 CFLAGS += $(ARCH_FLAGS) $(COMMON_FLAGS)
@@ -55,11 +56,12 @@ OBJS += $(patsubst %.c, $(BUILD_DIR)/%.o, $(SRCS))
 ELFS += $(addsuffix .elf,$(BUILD_DIR)/$(PROGRAM))
 BINS += $(addsuffix .bin,$(BUILD_DIR)/$(PROGRAM))
 
-RUNTIME_SRCS := $(RUNTIME_DIR)/crt0.S
-RUNTIME_OBJS := $(patsubst $(RUNTIME_DIR)/%.S, $(BAREMETAL_ROOT)/build/runtime/%.o, $(RUNTIME_SRCS))
+RUNTIME_SRCS += $(RUNTIME_DIR)/crt0.S
+RUNTIME_OBJS += $(patsubst $(RUNTIME_DIR)/%.S, $(BAREMETAL_ROOT)/build/runtime/%.o, $(RUNTIME_SRCS))
 
-DRIVERS_SRCS := $(DRIVERS_DIR)/uart16550/uart16550.c
-DRIVERS_OBJS := $(patsubst $(DRIVERS_DIR)/%.c, $(BAREMETAL_ROOT)/build/drivers/%.o, $(DRIVERS_SRCS))
+DRIVERS_SRCS += $(DRIVERS_DIR)/uart16550/uart16550.c
+DRIVERS_SRCS += $(DRIVERS_DIR)/clint/clint.c
+DRIVERS_OBJS += $(patsubst $(DRIVERS_DIR)/%.c, $(BAREMETAL_ROOT)/build/drivers/%.o, $(DRIVERS_SRCS))
 
 DEPS += $(OBJS:.o=.d) $(DRIVERS_OBJS:.o=.d)
 

@@ -9,7 +9,7 @@ emulator_path = Path(__file__).resolve().parents[2]
 device_tests_path = emulator_path / "tests/devices"
 rvemu = emulator_path / "rvemu"
 
-DEVICE_TESTS = ("syscon",)
+DEVICE_TESTS = ("syscon", "clint")
 
 
 class DeviceTest:

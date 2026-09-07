@@ -60,3 +60,22 @@ size_t uart_readline(uint64_t base, char *buf, size_t size) {
         n++;
     }
 }
+
+void uart_put_num(uint64_t base, uint64_t num) {
+    char buf[21]; // Can handle up to 20-digit numbers
+    int  i = 20;
+
+    buf[i] = '\0';
+
+    if (num == 0) {
+        uart_putchar(base, '0');
+        return;
+    }
+
+    while (num > 0) {
+        buf[--i] = '0' + (char)(num % 10);
+        num /= 10;
+    }
+
+    uart_putstr(base, &buf[i]);
+}

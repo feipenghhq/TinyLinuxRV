@@ -5,24 +5,19 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "addrmap.h"
 #include "device/syscon.h"
 #include "log.h"
-
-// global variable
-
-void syscon_init(syscon_t *syscon, uint64_t base) {
-    syscon->reg.sys_ctrl    = 0;
-    syscon->reg.reset_cause = RESET_CAUSE_POWER_ON;
-    syscon->base            = base;
-    syscon->poweroff        = false;
-    syscon->reboot          = false;
-}
 
 void syscon_reset(syscon_t *syscon) {
     syscon->reg.sys_ctrl = 0;
     syscon->poweroff     = false;
     syscon->reboot       = false;
+}
+
+void syscon_init(syscon_t *syscon, uint64_t base) {
+    syscon->reg.reset_cause = RESET_CAUSE_POWER_ON;
+    syscon->base            = base;
+    syscon_reset(syscon);
 }
 
 int syscon_write(syscon_t *syscon, uint64_t addr, size_t size, const void *data) {

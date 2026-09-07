@@ -17,6 +17,8 @@ Original Author: Shay Gal-on
 */
 #include "coremark.h"
 #include "core_portme.h"
+#include "clint.h"
+#include "addrmap.h"
 
 #if VALIDATION_RUN
 volatile ee_s32 seed1_volatile = 0x3415;
@@ -44,8 +46,8 @@ volatile ee_s32 seed5_volatile = 0;
 CORETIMETYPE
 barebones_clock()
 {
-    // tinylinuxrv: no timer support at this point
-    return 0;
+
+    return clint_read_mtime(CLINT_BASE);
 }
 /* Define : TIMER_RES_DIVIDER
         Divider to trade off timer resolution and total time that can be
@@ -55,8 +57,9 @@ barebones_clock()
    does not occur. If there are issues with the return value overflowing,
    increase this value.
         */
-//tinylinuxrv: time not supported yet
-#define CLOCKS_PER_SEC             1
+// tinylinuxrv: mtime advances once per guest instruction. Treat 100000 ticks
+// as one simulated second for validation.
+#define CLOCKS_PER_SEC             100000
 #define GETMYTIME(_t)              (*_t = barebones_clock())
 #define MYTIMEDIFF(fin, ini)       ((fin) - (ini))
 #define TIMER_RES_DIVIDER          1
