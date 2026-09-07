@@ -16,9 +16,7 @@
 #include <sys/poll.h>
 #include <unistd.h>
 
-#include "log.h"
-
-#define BYTE(data) ((uint8_t *)data)
+#include "utils/log.h"
 
 #define BIT_MASK(width) ((1 << (width)) - 1)
 
@@ -32,7 +30,7 @@
 #define FIFO_RX_INT_TRIGGER(uart) FIELD_READ(uart->reg.fcr, 6, 2)
 #define FIFO_ENABLE(uart)         FIELD_READ(uart->reg.fcr, 0, 1)
 
-static int fifo_interrupt_level[] = {1, 4, 8, 14};
+static const int fifo_interrupt_level[] = {1, 4, 8, 14};
 
 static inline void clear_reg(uart16550_t *uart) {
     uart->reg.rbr = 0;
@@ -103,7 +101,7 @@ void uart16550_init(uart16550_t *uart, uint64_t base) {
 }
 
 int uart16550_write(uart16550_t *uart, uint64_t addr, size_t size, const void *data) {
-    uint32_t value;
+    uint8_t  value;
     uint8_t  DLAB; // Divisor Latch Access Bit
     uint64_t offset;
 
@@ -119,40 +117,40 @@ int uart16550_write(uart16550_t *uart, uint64_t addr, size_t size, const void *d
     switch (offset) {
     case 0: { // THR or DLL
         if (DLAB == 0) {
-            uart->reg.thr = *BYTE(data);
+            uart->reg.thr = value;
             // send the character out immediate as we are an emulator
-            putchar(*BYTE(data));
+            putchar(value);
         } else {
-            uart->reg.dll = *BYTE(data);
+            uart->reg.dll = value;
         }
         break;
     }
     case 1: { // IER
         if (DLAB == 0) {
-            uart->reg.ier = *BYTE(data);
+            uart->reg.ier = value;
         } else {
-            uart->reg.dlm = *BYTE(data);
+            uart->reg.dlm = value;
         }
         break;
     }
     case 2: { // FCR
         // clear FIFO when FIFO enable bit is changed
-        if ((FIELD_READ(*BYTE(data), 0, 1) ^ FIFO_ENABLE(uart)) != 0) {
+        if ((FIELD_READ(value, 0, 1) ^ FIFO_ENABLE(uart)) != 0) {
             rx_fifo_clear(uart);
         }
         // clear RX FIFO when RX FIFO clear is set by SW.
-        if (FIELD_READ(*BYTE(data), 1, 1)) {
+        if (FIELD_READ(value, 1, 1)) {
             rx_fifo_clear(uart);
         }
-        uart->reg.fcr = *BYTE(data);
+        uart->reg.fcr = value;
         break;
     }
     case 3: { // LCR
-        uart->reg.lcr = *BYTE(data);
+        uart->reg.lcr = value;
         break;
     }
     case 4: { // THR
-        uart->reg.mcr = *BYTE(data);
+        uart->reg.mcr = value;
         break;
     }
     case 5: { // LSR
@@ -164,7 +162,7 @@ int uart16550_write(uart16550_t *uart, uint64_t addr, size_t size, const void *d
         break;
     }
     case 7: { // SCR
-        uart->reg.scr = *BYTE(data);
+        uart->reg.scr = value;
         break;
     }
     default: {
@@ -315,27 +313,27 @@ bool uart16550_irq_level(uart16550_t *uart) {
     fifo_enabled = FIFO_ENABLE(uart);
 
     receiver_line_status_en = FIELD_READ(uart->reg.ier, 2, 1);
-    receiver_line_status    = receiver_line_status_en & uart->rx_fifo.overrun;
+    receiver_line_status    = receiver_line_status_en && uart->rx_fifo.overrun;
 
     receiver_data_available_en = FIELD_READ(uart->reg.ier, 0, 1);
-    receiver_data_available    = receiver_data_available_en &
+    receiver_data_available    = receiver_data_available_en &&
                                  (fifo_enabled ? (uart->rx_fifo.size >= fifo_interrupt_level[FIFO_RX_INT_TRIGGER(uart)])
                                                : uart->rx_fifo.size > 0);
 
     // no timeout interrupt at this point
-    timeout_indication = timeout_indication_en & false;
+    timeout_indication = timeout_indication_en && false;
 
     // TX FIFO is always empty
     transmitter_holding_register_empty_en = FIELD_READ(uart->reg.ier, 1, 1);
-    transmitter_holding_register_empty    = transmitter_holding_register_empty_en & true;
+    transmitter_holding_register_empty    = transmitter_holding_register_empty_en && true;
 
     // not supported
     modem_status_en = FIELD_READ(uart->reg.ier, 3, 1);
-    modem_status    = modem_status_en & false;
+    modem_status    = modem_status_en && false;
 
     // update the IIR register based on interrupt status
     has_interrupt =
-        receiver_line_status | receiver_data_available | timeout_indication | transmitter_holding_register_empty;
+        receiver_line_status || receiver_data_available || timeout_indication || transmitter_holding_register_empty;
     if (has_interrupt) {
         FIELD_WRITE(uart->reg.iir, 0, 0, 1); // 0 - interrupt pending
     } else {

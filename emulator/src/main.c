@@ -4,14 +4,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "cpu.h"
-#include "device.h"
-#include "iringbuf.h"
-#include "log.h"
-#include "memory.h"
-
-extern bool poweroff_requested;
-extern bool reboot_requested;
+#include "bus/bus.h"
+#include "cpu/cpu.h"
+#include "device/device.h"
+#include "device/syscon.h"
+#include "memory/memory.h"
+#include "utils/iringbuf.h"
+#include "utils/log.h"
 
 // -------------------------------------------------------------------
 // Different type enum
@@ -62,7 +61,7 @@ static struct option longopts[] = {
     {"trace", no_argument, 0, 0},        {0, 0, 0, 0},
 };
 
-int parse_arguments(int argc, char **argv, argument_t *argument) {
+static void parse_arguments(int argc, char **argv, argument_t *argument) {
     int c;
     if (argc < 2) {
         printf("Incorrect argument. Please see usage:\n\n");
@@ -83,8 +82,7 @@ int parse_arguments(int argc, char **argv, argument_t *argument) {
                 exit(EXIT_SUCCESS);
             }
             case 1: { // max_instruction
-                argument->max_instruction =
-                    atoi(optarg); // Note: assuming it is a digit for now. (But user could enter anything)
+                argument->max_instruction = atoi(optarg);
                 break;
             }
             case 2: { // format
@@ -109,8 +107,8 @@ int parse_arguments(int argc, char **argv, argument_t *argument) {
                 break;
             }
             case 5: { // dram-size
-                size_t dram_size_mib = (size_t)atoi(optarg);
-                argument->dram_size  = dram_size_mib * (1024 * 1024);
+                int dram_size_mib   = atoi(optarg);
+                argument->dram_size = (size_t)dram_size_mib * (1024 * 1024);
                 if (dram_size_mib <= 0 || dram_size_mib > 512) {
                     printf("Unsupported dram size\n");
                     exit(EXIT_FAILURE);
@@ -140,7 +138,6 @@ int parse_arguments(int argc, char **argv, argument_t *argument) {
         printf("Provided more than one program files.\n");
         exit(EXIT_FAILURE);
     }
-    return 0;
 }
 
 // -------------------------------------------------------------------
@@ -160,17 +157,16 @@ static bool check_riscv_tests_result(cpu_t *cpu) {
 // -------------------------------------------------------------------
 // Common poweroff function
 // -------------------------------------------------------------------
-int poweroff(memory_t *memory, dev_list_t *devices) {
+static void poweroff(memory_t *memory, dev_list_t *devices) {
     memory_free(memory);
     device_free(devices);
-    return 0;
 }
 
 // -------------------------------------------------------------------
 // Common boot function
 // -------------------------------------------------------------------
 
-int boot(memory_t *memory, dev_list_t *devices, cpu_t *cpu, argument_t *argument) {
+static int boot(memory_t *memory, dev_list_t *devices, cpu_t *cpu, argument_t *argument) {
     int result = 0;
 
     // initialize cpu
@@ -215,7 +211,7 @@ int boot(memory_t *memory, dev_list_t *devices, cpu_t *cpu, argument_t *argument
 // -------------------------------------------------------------------
 // Common reset function
 // -------------------------------------------------------------------
-void reset(dev_list_t *devices, cpu_t *cpu) {
+static void reset(dev_list_t *devices, cpu_t *cpu) {
     // re-initialize cpu
     cpu_init(cpu);
     // reset device
@@ -227,13 +223,23 @@ void reset(dev_list_t *devices, cpu_t *cpu) {
 // Main function
 // -------------------------------------------------------------------
 int main(int argc, char **argv) {
-    argument_t    argument = {0, AUTO, NORMAL, NULL, false, RAM_SIZE, false};
+    argument_t    argument = {.max_instruction = 0,
+                              .format          = AUTO,
+                              .mode            = NORMAL,
+                              .file            = NULL,
+                              .poison_ram      = false,
+                              .dram_size       = RAM_SIZE,
+                              .trace           = false};
     cpu_t         cpu;
     dev_list_t    devices;
     memory_t      memory;
+    bus_t         bus;
     uint32_t      inst;
     long          inst_count  = 0;
     EXEC_STATUS_t exec_status = FINISH;
+
+    bus.devices = &devices;
+    bus.memory  = &memory;
 
     // process the argument
     parse_arguments(argc, argv, &argument);
@@ -248,7 +254,7 @@ int main(int argc, char **argv) {
     // main instruction execution loop
     while (!cpu.halted) {
         // read instruction from memory
-        if (memory_cpu_read(&memory, &devices, cpu.pc, 4, &inst) != 0) {
+        if (bus_read(&bus, cpu.pc, 4, &inst) != 0) {
             LOG_ERROR("Memory read failed. Unable to fetch instruction");
             exec_status = MEM_ERROR;
             break;
@@ -259,7 +265,7 @@ int main(int argc, char **argv) {
         }
 
         // execute the instruction
-        if (cpu_execute(&cpu, inst, &memory, &devices) != 0) {
+        if (cpu_execute(&cpu, inst, &bus) != 0) {
             LOG_ERROR("CPU execution failed");
             if (argument.trace) {
                 iringbuf_print();
@@ -270,13 +276,13 @@ int main(int argc, char **argv) {
         }
 
         // check poweroff/reboot
-        if (poweroff_requested) {
+        if (syscon_poweroff_requested(devices.syscon.device)) {
             LOG_INFO("Poweroff requested");
             exec_status = POWEROFF;
             break;
         }
 
-        if (reboot_requested) {
+        if (syscon_reboot_requested(devices.syscon.device)) {
             LOG_INFO("Reboot requested");
             reset(&devices, &cpu);
         }

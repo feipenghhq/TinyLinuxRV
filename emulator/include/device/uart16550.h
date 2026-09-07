@@ -1,23 +1,23 @@
-#ifndef uart16550_H
-#define uart16550_H
+#ifndef UART16550_H
+#define UART16550_H
 
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
 typedef struct {
-    volatile uint8_t rbr; // Receiver Buffer Register (RO)
-    volatile uint8_t thr; // Transmitter Holding Register (WO)
-    volatile uint8_t ier; // Interrupt Enable Register
-    volatile uint8_t iir; // Interrupt Ident Register (RO)
-    volatile uint8_t fcr; // FIFO control Register (WO)
-    volatile uint8_t lcr; // Line Control Register
-    volatile uint8_t mcr; // Modem Control Register
-    volatile uint8_t lsr; // Line Status Register
-    volatile uint8_t msr; // Modem Status Register
-    volatile uint8_t scr; // Scratch Register
-    volatile uint8_t dll; // Divisor Latch (LSB)
-    volatile uint8_t dlm; // Divisor Latch (MSB)
+    uint8_t rbr; // Receiver Buffer Register (RO)
+    uint8_t thr; // Transmitter Holding Register (WO)
+    uint8_t ier; // Interrupt Enable Register
+    uint8_t iir; // Interrupt Ident Register (RO)
+    uint8_t fcr; // FIFO control Register (WO)
+    uint8_t lcr; // Line Control Register
+    uint8_t mcr; // Modem Control Register
+    uint8_t lsr; // Line Status Register
+    uint8_t msr; // Modem Status Register
+    uint8_t scr; // Scratch Register
+    uint8_t dll; // Divisor Latch (LSB)
+    uint8_t dlm; // Divisor Latch (MSB)
 } uart16550_reg_t;
 
 typedef struct {
@@ -42,4 +42,4 @@ int  uart16550_read(uart16550_t *uart16550, uint64_t addr, size_t size, void *da
 int  uart16550_poll_input(uart16550_t *uart);
 bool uart16550_irq_level(uart16550_t *uart);
 
-#endif // uart16550_H
+#endif // UART16550_H

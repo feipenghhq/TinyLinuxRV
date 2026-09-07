@@ -3,10 +3,10 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#include "decode.h"
-#include "device.h"
-#include "log.h"
-#include "memory.h"
+#include "bus/bus.h"
+#include "cpu/decode.h"
+#include "memory/memory.h"
+#include "utils/log.h"
 
 // Instruction Opcode
 #define OPCODE_LUI       0x37
@@ -27,10 +27,11 @@
 __extension__ typedef __int128          int128_t;
 __extension__ typedef unsigned __int128 uint128_t;
 
-char *reg_name[] = {"zero", "ra", "sp", "gp", "tp", "t0", "t1", "t2", "s0", "s1", "a0",  "a1",  "a2", "a3", "a4", "a5",
-                    "a6",   "a7", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9", "s10", "s11", "t3", "t4", "t5", "t6"};
+static const char *reg_name[] = {"zero", "ra", "sp", "gp", "tp",  "t0",  "t1", "t2", "s0", "s1", "a0",
+                                 "a1",   "a2", "a3", "a4", "a5",  "a6",  "a7", "s2", "s3", "s4", "s5",
+                                 "s6",   "s7", "s8", "s9", "s10", "s11", "t3", "t4", "t5", "t6"};
 
-                    // Fields shared by the instruction formats used by the executor.
+// Fields shared by the instruction formats used by the executor.
 typedef struct {
     uint8_t  opcode;
     uint8_t  rs1;
@@ -266,23 +267,23 @@ static void decode(uint32_t inst, inst_dec_t *inst_dec) {
 
 // Execute a load. ext selects either sign extension or no extension.
 #define noext(value, bits) (value)
-#define EXEC_LOAD(addr, size, ext)                                      \
-    do {                                                                \
-        uint64_t data = 0;                                              \
-        if (memory_cpu_read(memory, devices, addr, size, &data) != 0) { \
-            cpu->halted = true;                                         \
-            return -1;                                                  \
-        }                                                               \
-        RD() = ext(data, size * 8);                                     \
+#define EXEC_LOAD(addr, size, ext)                   \
+    do {                                             \
+        uint64_t data = 0;                           \
+        if (bus_read(bus, addr, size, &data) != 0) { \
+            cpu->halted = true;                      \
+            return -1;                               \
+        }                                            \
+        RD() = ext(data, size * 8);                  \
     } while (0)
 
 // Execute a store using the low "size" bytes of rs2.
-#define EXEC_STORE(addr, data, size)                                     \
-    do {                                                                 \
-        if (memory_cpu_write(memory, devices, addr, size, &data) != 0) { \
-            cpu->halted = true;                                          \
-            return -1;                                                   \
-        }                                                                \
+#define EXEC_STORE(addr, data, size)                  \
+    do {                                              \
+        if (bus_write(bus, addr, size, &data) != 0) { \
+            cpu->halted = true;                       \
+            return -1;                                \
+        }                                             \
     } while (0)
 
 // Helper Macro for LR/SC/AMO
@@ -349,7 +350,7 @@ void cpu_init(cpu_t *cpu) {
 /**
  * Execute a SINGLE instruction
  */
-int cpu_execute(cpu_t *cpu, uint32_t inst, memory_t *memory, dev_list_t *devices) {
+int cpu_execute(cpu_t *cpu, uint32_t inst, bus_t *bus) {
     inst_dec_t inst_dec;
     uint64_t   next_pc;
 

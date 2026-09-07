@@ -4,8 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "device.h"
-#include "memory.h"
+#include "bus/bus.h"
 
 // reset to 0x80000000
 #define RST_VEC 0x80000000ULL
@@ -27,7 +26,7 @@ typedef struct {
 } cpu_t;
 
 void cpu_init(cpu_t *cpu);
-int  cpu_execute(cpu_t *cpu, uint32_t inst, memory_t *memory, dev_list_t *devices);
+int  cpu_execute(cpu_t *cpu, uint32_t inst, bus_t *bus);
 void cpu_print_regs(cpu_t *cpu);
 
 #endif

@@ -20,11 +20,15 @@ typedef struct {
 typedef struct {
     uint64_t     base;
     syscon_reg_t reg;
+    bool         poweroff;
+    bool         reboot;
 } syscon_t;
 
 void syscon_init(syscon_t *syscon, uint64_t base);
 void syscon_reset(syscon_t *syscon);
 int  syscon_write(syscon_t *syscon, uint64_t addr, size_t size, const void *data);
 int  syscon_read(syscon_t *syscon, uint64_t addr, size_t size, void *data);
+bool syscon_reboot_requested(const syscon_t *syscon);
+bool syscon_poweroff_requested(const syscon_t *syscon);
 
 #endif // SYSCON_H

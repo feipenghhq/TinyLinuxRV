@@ -37,6 +37,7 @@ BUILD_DIR := build
 SOURCES := src/cpu/cpu.c
 SOURCES += src/memory/memory.c
 SOURCES += src/memory/loader.c
+SOURCES += src/bus/bus.c
 SOURCES += src/utils/iringbuf.c
 SOURCES += src/device/device.c
 SOURCES += src/device/syscon.c

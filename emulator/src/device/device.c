@@ -16,7 +16,6 @@
     do {                                \
         dev->name.base   = NAME##_BASE; \
         dev->name.size   = NAME##_SIZE; \
-        dev->name.end    = NAME##_END;  \
         dev->name.device = NULL;        \
     } while (0)
 
@@ -54,14 +53,10 @@ void device_reset(dev_list_t *dev) {
 }
 
 void device_free(dev_list_t *dev) {
-    if (dev->syscon.device != NULL) {
-        free(dev->syscon.device);
-        dev->syscon.device = NULL;
-    }
-    if (dev->uart0.device != NULL) {
-        free(dev->uart0.device);
-        dev->uart0.device = NULL;
-    }
+    free(dev->syscon.device);
+    dev->syscon.device = NULL;
+    free(dev->uart0.device);
+    dev->uart0.device = NULL;
 }
 
 /**

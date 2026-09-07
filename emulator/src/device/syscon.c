@@ -10,21 +10,19 @@
 #include "log.h"
 
 // global variable
-bool poweroff_requested = false;
-bool reboot_requested   = false;
 
 void syscon_init(syscon_t *syscon, uint64_t base) {
     syscon->reg.sys_ctrl    = 0;
     syscon->reg.reset_cause = RESET_CAUSE_POWER_ON;
     syscon->base            = base;
-    poweroff_requested      = false;
-    reboot_requested        = false;
+    syscon->poweroff        = false;
+    syscon->reboot          = false;
 }
 
 void syscon_reset(syscon_t *syscon) {
     syscon->reg.sys_ctrl = 0;
-    poweroff_requested   = false;
-    reboot_requested     = false;
+    syscon->poweroff     = false;
+    syscon->reboot       = false;
 }
 
 int syscon_write(syscon_t *syscon, uint64_t addr, size_t size, const void *data) {
@@ -42,11 +40,11 @@ int syscon_write(syscon_t *syscon, uint64_t addr, size_t size, const void *data)
         syscon->reg.sys_ctrl = value;
         switch (syscon->reg.sys_ctrl) {
         case 1: {
-            poweroff_requested = true;
+            syscon->poweroff = true;
             break;
         }
         case 2: {
-            reboot_requested        = true;
+            syscon->reboot          = true;
             syscon->reg.reset_cause = RESET_CAUSE_REBOOT;
             break;
         }
@@ -86,4 +84,12 @@ int syscon_read(syscon_t *syscon, uint64_t addr, size_t size, void *data) {
     }
     memcpy(data, &value, size);
     return 0;
+}
+
+bool syscon_reboot_requested(const syscon_t *syscon) {
+    return syscon->reboot;
+}
+
+bool syscon_poweroff_requested(const syscon_t *syscon) {
+    return syscon->poweroff;
 }

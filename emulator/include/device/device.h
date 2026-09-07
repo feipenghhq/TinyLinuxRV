@@ -8,9 +8,8 @@
 
 typedef struct {
     void    *device;
-    uint64_t size;
     uint64_t base;
-    uint64_t end;
+    uint64_t size;
 } device_t;
 
 typedef struct {

@@ -6,16 +6,10 @@
 #include "mmio.h"
 #include "uart16550_reg.h"
 
-#define REG_WRITE_BYTE(addr, data) *((volatile uint8_t *)addr) = (data)
-
-#define REG_READ_BYTE(addr, data) *((volatile uint8_t *)addr)
-
-#define REG_FIELD_READ(reg, bit, width) (((reg) >> (bit)) & BIT_MASK(width))
-
 /**
  * Write a character c to UART device
  */
-int uart_putchar(uint64_t base, const int c) {
+int uart_putchar(uint64_t base, int c) {
     // Wait till the TX FIFO is empty. Although this is not efficient as the FIFO can hold more data
     // But there is no other way to check if the FIFO is full or not so just be safe and not so efficient
     while (REG_FIELD_GET(mmio_read8(base + UART_LSR_OFFSET), UART_LSR_TEMT_MASK, UART_LSR_TEMT_OFFSET) == 0)
@@ -54,7 +48,7 @@ size_t uart_readline(uint64_t base, char *buf, size_t size) {
     if (size == 0) {
         return 0;
     }
-    while(1) {
+    while (1) {
         c = (char)uart_getchar(base);
         if (c == '\n') {
             *buf = '\0';
@@ -65,5 +59,4 @@ size_t uart_readline(uint64_t base, char *buf, size_t size) {
         }
         n++;
     }
-    return 0;
 }

@@ -1,4 +1,4 @@
-#include "memory.h"
+#include "memory/memory.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -6,21 +6,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "device.h"
-#include "log.h"
-
-// ----------------------------------------------
-// Helper Function
-// ----------------------------------------------
-
-static inline bool check_addr_range(const memory_t *memory, uint64_t addr, size_t size) {
-    // check address range
-    if (addr < memory->base || addr > memory->end || size > memory->end - addr) { // out of range
-        LOG_ERROR("Address out of memory range: %lx", addr);
-        return false;
-    }
-    return true;
-}
+#include "utils/log.h"
+#include "utils/address_range.h"
 
 // ----------------------------------------------
 // Memory initialize
@@ -34,7 +21,6 @@ static inline bool check_addr_range(const memory_t *memory, uint64_t addr, size_
 int memory_init(memory_t *memory, bool poison_ram, size_t ram_size) {
     memory->size = ram_size;
     memory->base = RAM_BASE;
-    memory->end  = RAM_BASE + ram_size;
     memory->data = calloc(ram_size, sizeof(uint8_t));
     if (memory->data == NULL) {
         LOG_ERROR("Can't allocate memory data");
@@ -72,7 +58,7 @@ static inline bool cpu_access_check(const memory_t *memory, uint64_t addr, size_
         return false;
     }
     // check address range
-    return check_addr_range(memory, addr, size);
+    return check_addr_range(addr, size, memory->base, memory->size);
 }
 
 /**
@@ -117,53 +103,9 @@ int ram_write(memory_t *memory, uint64_t addr, size_t size, const void *data) {
 void *memory_set(memory_t *memory, uint64_t start_addr, int c, size_t n) {
 
     // check address range
-    if (!check_addr_range(memory, start_addr, n)) {
+    if (!check_addr_range(start_addr, n, memory->base, memory->size)) {
         return NULL;
     }
     uint64_t offset = start_addr - memory->base;
     return memset(&memory->data[offset], c, n);
-}
-
-// ----------------------------------------------
-// CPU access dispatch
-// ----------------------------------------------
-// Placeholder dispatcher before the device is implemented
-#define DISPATCH_ERR(dev, op)                                         \
-    do {                                                              \
-        if (addr >= devs->dev.base && addr <= devs->dev.end - size) { \
-            LOG_ERROR("Unsupported devices: %s", #dev);               \
-            LOG_ERROR("Address: %lx", addr);                          \
-            return -1;                                                \
-        }                                                             \
-    } while (0)
-
-#define DISPATCH(dev, op)                                             \
-    do {                                                              \
-        if (addr >= devs->dev.base && addr <= devs->dev.end - size) { \
-            return op(devs->dev.device, addr, size, data);            \
-        }                                                             \
-    } while (0)
-
-// CPU read dispatch
-int memory_cpu_read(const memory_t *memory, dev_list_t *devs, uint64_t addr, size_t size, void *data) {
-    DISPATCH_ERR(bootROM, read);
-    DISPATCH_ERR(aclint, read);
-    DISPATCH_ERR(plic, read);
-    DISPATCH_ERR(virtio, read);
-
-    DISPATCH(syscon, syscon_read);
-    DISPATCH(uart0, uart16550_read);
-    return ram_read(memory, addr, size, data);
-}
-
-// CPU write dispatch
-int memory_cpu_write(memory_t *memory, dev_list_t *devs, uint64_t addr, size_t size, const void *data) {
-    DISPATCH_ERR(bootROM, write);
-    DISPATCH_ERR(aclint, write);
-    DISPATCH_ERR(plic, write);
-    DISPATCH_ERR(virtio, write);
-
-    DISPATCH(syscon, syscon_write);
-    DISPATCH(uart0, uart16550_write);
-    return ram_write(memory, addr, size, data);
 }
