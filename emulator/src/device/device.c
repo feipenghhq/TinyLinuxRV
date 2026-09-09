@@ -7,6 +7,7 @@
 #include "device/clint.h"
 #include "device/syscon.h"
 #include "device/uart16550.h"
+#include "device/plic.h"
 #include "utils/log.h"
 
 // ----------------------------------------------
@@ -23,12 +24,13 @@
 int device_init(dev_list_t *dev) {
     // Place holder for unimp devices
     INIT_DEVICE(bootROM, BootROM);
-    INIT_DEVICE(plic, PLIC);
+
     INIT_DEVICE(virtio, VirtIO);
 
     INIT_DEVICE(syscon, Syscon);
     INIT_DEVICE(uart0, UART0);
     INIT_DEVICE(clint, CLINT);
+    INIT_DEVICE(plic, PLIC);
 
     // init syscon
     dev->syscon.device = malloc(sizeof(syscon_t));
@@ -54,6 +56,14 @@ int device_init(dev_list_t *dev) {
     }
     clint_init(dev->clint.device, CLINT_BASE);
 
+    // init plic
+    dev->plic.device = malloc(sizeof(plic_t));
+    if (dev->plic.device == NULL) {
+        LOG_ERROR("Failed to initialize plic device.");
+        return -1;
+    }
+    plic_init(dev->plic.device, PLIC_BASE);
+
     return 0;
 }
 
@@ -61,6 +71,7 @@ void device_reset(dev_list_t *dev) {
     syscon_reset(dev->syscon.device);
     uart16550_reset(dev->uart0.device);
     clint_reset(dev->clint.device);
+    plic_reset(dev->plic.device);
 }
 
 void device_free(dev_list_t *dev) {
@@ -70,6 +81,8 @@ void device_free(dev_list_t *dev) {
     dev->uart0.device = NULL;
     free(dev->clint.device);
     dev->clint.device = NULL;
+    free(dev->plic.device);
+    dev->plic.device = NULL;
 }
 
 /**
@@ -88,9 +101,17 @@ int device_update(dev_list_t *dev) {
 }
 
 /**
- *  call device interrupt function to get device interrupt updated
+ * Call device interrupt function to get device interrupt updated
+ * and then send the interrupt to plic
  */
 void device_irq_level(dev_list_t *dev) {
-    uart16550_irq_level(dev->uart0.device);
+    bool irq[PLIC_MAX_INTERRUPT] = {false};
+
+    // clint has timer and software interrupt
     clint_irq_level(dev->clint.device);
+
+    // get device interrupt level
+    irq[10] = uart16550_irq_level(dev->uart0.device);
+
+    plic_irq_update(dev->plic.device, irq);
 }

@@ -114,3 +114,11 @@ bool clint_irq_level(clint_t *clint) {
     }
     return clint->MSIP || clint->MTIP;
 }
+
+bool clint_msip(clint_t *clint) {
+    return clint->MSIP;
+}
+
+bool clint_mtip(clint_t *clint) {
+    return clint->MTIP;
+}

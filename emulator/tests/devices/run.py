@@ -28,7 +28,7 @@ class DeviceTest:
             text=True,
             check=False,
             input=input,
-            timeout=5
+            timeout=5,
         )
         if build.returncode != 0:
             self.returncode = build.returncode
@@ -54,17 +54,12 @@ class DeviceTest:
             ]
         try:
             result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                check=False,
-                input=input,
-                timeout=5
+                cmd, capture_output=True, text=True, check=False, input=input, timeout=5
             )
         except subprocess.TimeoutExpired:
             self.returncode = 1
             print("subprocess timeout")
-            return False;
+            return False
         self.returncode = result.returncode
         if self.returncode != 0:
             self._print_output(result)
@@ -115,6 +110,14 @@ def run_all_tests():
     # special case for uart
     test = DeviceTest("uart16550")
     passed &= test.run(max_inst=0, input="z\n123456789012345\nabcdefg\n")
+    tests.append(test)
+
+    # special case for plic
+    test = DeviceTest("plic")
+    passed &= test.run(
+        max_inst=0,
+        input="z12345678901234567890\n12345678901234567890\n1234678901234567890\n12345678901234567890\n",
+    )
     tests.append(test)
 
     print_test_result(passed)
