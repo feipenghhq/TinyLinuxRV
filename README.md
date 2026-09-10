@@ -29,10 +29,10 @@ Completed:
 - ✅ ELF loading and bare-metal C programs.
 - ✅ RV64M and RV64A extensions.
 - ✅ TinyLinuxRV machine model, MMIO dispatch, and configurable DRAM.
+- ✅ UART, CLINT, and PLIC device support.
 
 Next:
 
-- UART, ACLINT, and PLIC device support.
 - Machine-mode CSRs, exceptions, traps, and interrupts.
 - Supervisor and user privilege modes.
 - Sv39 virtual memory.

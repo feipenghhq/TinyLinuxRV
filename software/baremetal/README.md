@@ -131,3 +131,9 @@ branches, loops, pointers, and different memory access sizes.
 
 The emulator runs its raw binary with RAM filled with `0xA5`. This makes sure
 that `crt0.S`, rather than the ELF loader, clears `.bss`.
+
+## Benchmark
+
+### CoreMark
+
+The CoreMark benchmark is ported to the TinyLinuxRV bare-metal environment.

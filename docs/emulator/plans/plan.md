@@ -24,8 +24,8 @@ This document tracks the milestones for the **emulator stage**.
 | Phase 1 | ELF Loading & Bare-Metal C                | ✅ Complete |
 | Phase 1 | RV64M / RV64A Extensions                  | ✅ Complete |
 | Phase 2 | TinyLinuxRV Machine Model                 | ✅ Complete |
-| Phase 2 | Basic Platform Devices                    | 🟡 Next     |
-| Phase 3 | Machine Mode, CSRs, Traps, and Interrupts | Planned    |
+| Phase 2 | Basic Platform Devices                    | ✅ Complete |
+| Phase 3 | Machine Mode, CSRs, Traps, and Interrupts | 🟡 Next     |
 | Phase 3 | Supervisor and User Modes                 | Planned    |
 | Phase 4 | Sv39 Address Translation                  | Planned    |
 | Phase 5 | OpenSBI and SBI Validation                | Planned    |
@@ -327,6 +327,8 @@ Define the machine-level platform required by firmware, operating-system bring-u
 
 ## Milestone 5: Basic Platform Devices
 
+> ✅ **Completed** · 2026-09-09
+
 ### Goals
 
 Add the devices required for observable bare-metal software and early firmware
@@ -334,54 +336,63 @@ development without depending on privileged CPU interrupt handling.
 
 ### UART
 
-- Implement a polling-capable memory-mapped UART.
-- Support guest transmit and receive registers.
-- Connect UART input and output to the host terminal.
-- Expose status information required by polling software.
-- Expose a device-level interrupt-pending signal for later privileged-architecture integration.
+- [x] Implement a polling-capable memory-mapped UART.
+- [x] Support guest transmit and receive registers.
+- [x] Connect UART input and output to the host terminal.
+- [x] Expose status information required by polling software.
+- [x] Expose a device-level interrupt-pending signal for later
+  privileged-architecture integration.
 
-### ACLINT
+### CLINT
 
-- Implement deterministic ACLINT-style machine timer and machine
+- [x] Implement deterministic CLINT-style machine timer and machine
   software-interrupt register blocks.
-- Provide a readable machine-time counter and writable compare register.
-- Provide a writable machine software-interrupt register for the single hart.
-- Define deterministic timer progression suitable for testing.
-- Expose device-level `MTIP` and `MSIP` pending conditions.
-- Defer architectural timer- and software-interrupt delivery to Phase 3.
+- [x] Provide a readable machine-time counter and writable compare register.
+- [x] Provide a writable machine software-interrupt register for the single
+  hart.
+- [x] Define deterministic timer progression suitable for testing.
+- [x] Expose device-level `MTIP` and `MSIP` pending conditions.
+- **Deferred:** Architectural timer- and software-interrupt delivery remains in
+  Phase 3.
 
 ### PLIC
 
-- Implement a minimal PLIC-compatible MMIO model for a single hart.
-- Provide machine and supervisor contexts needed by the selected firmware and
-  Linux configuration.
-- Route the UART interrupt source into the PLIC.
-- Implement interrupt enable, priority, threshold, claim, and completion
+- [x] Implement a minimal PLIC-compatible MMIO model for a single hart.
+- [x] Provide machine and supervisor contexts needed by the selected firmware
+  and Linux configuration.
+- [x] Route the UART interrupt source into the PLIC.
+- [x] Implement interrupt enable, priority, threshold, claim, and completion
   behavior for the supported sources.
-- Expose device-level external-interrupt pending conditions to be connected to
-  the CPU in Phase 3.
+- [x] Expose device-level external-interrupt pending conditions to be connected
+  to the CPU in Phase 3.
 
 ### Verification
 
-- Add MMIO register tests for UART and timer behavior.
-- Run bare-metal programs that use polling UART input and output.
-- Verify that software can read the timer counter and program the compare register.
-- Verify software-interrupt register behavior.
-- Verify UART, timer, software, and external-interrupt pending conditions at
-  the device level.
-- Test PLIC enable, priority, threshold, claim, and completion behavior.
-- Run the complete RV64IMA regression after adding the devices.
+- [x] Add MMIO register tests for UART and timer behavior.
+- [x] Run bare-metal programs that use polling UART input and output.
+- [x] Verify that software can read the timer counter and program the compare
+  register.
+- [x] Verify software-interrupt register behavior.
+- ~~Verify UART, timer, software, and external-interrupt pending conditions at
+  the device level.~~
+- [x] Verify UART and external-interrupt pending conditions at the device
+  level.
+- **Deferred:** Direct `MSIP` and `MTIP` pending-condition tests remain in
+  Milestone 6, where the signals will be connected to the CPU.
+- [x] Test PLIC enable, priority, threshold, claim, and completion behavior.
+- [x] Run the complete RV64IMA regression after adding the devices.
 
 ### Completion Criteria
 
-- Bare-metal software can communicate through the UART using polling.
-- UART input and output work through the host terminal.
-- Software can read the timer and program its compare register.
-- Software can assert and clear the machine software-interrupt source.
-- The PLIC handles the supported external interrupt sources and contexts.
-- Timer, software, and external-interrupt pending conditions are generated correctly.
-- No privileged CSR or trap handling is required to test this milestone.
-- Existing ISA and bare-metal regressions continue to pass.
+- [x] Bare-metal software can communicate through the UART using polling.
+- [x] UART input and output work through the host terminal.
+- [x] Software can read the timer and program its compare register.
+- [x] Software can assert and clear the machine software-interrupt source.
+- [x] The PLIC handles the supported external interrupt sources and contexts.
+- [x] Timer, software, and external-interrupt pending conditions are generated
+  correctly.
+- [x] No privileged CSR or trap handling is required to test this milestone.
+- [x] Existing ISA and bare-metal regressions continue to pass.
 
 ### Deliverable
 

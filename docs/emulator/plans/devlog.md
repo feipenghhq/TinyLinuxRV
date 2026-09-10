@@ -115,3 +115,20 @@ the Git history.
   * Added tests for the syscon device and configurable DRAM.
 
 * **2026-08-26** — Completed the TinyLinuxRV Machine Model Milestone.
+
+### Milestone 5: Basic Platform Devices
+
+> ✅ **Completed** · 2026-09-09
+
+* **2026-08-29** — Added UART16550 host I/O, a bare-metal driver, and device
+  tests.
+
+* **2026-09-06** — Added the CLINT timer and software-interrupt registers.
+
+* **2026-09-08** — Added the PLIC and routed the UART interrupt to source 10.
+
+* **2026-09-09** — Completed the Basic Platform Devices milestone.
+
+  * Added focused PLIC unit tests to the emulator regression.
+  * CoreMark uses the deterministic CLINT time counter and validates correctly.
+  * Direct `MSIP` and `MTIP` delivery tests remain deferred to Milestone 6.

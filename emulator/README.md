@@ -13,7 +13,10 @@ planned development milestones.
 - RV64IMA.
 - Configurable DRAM.
 - MMIO dispatch.
-- Syscon device.
+- Syscon.
+- UART16550 with host terminal I/O.
+- CLINT timer and software-interrupt sources.
+- PLIC external interrupt controller.
 
 ### Emulator
 
@@ -33,6 +36,8 @@ planned development milestones.
 - `riscv-tests`: RV64UI, RV64UM, and RV64UA regression.
 - `baremetal-test`: Covers basic software use cases.
 - `devices`: Verifies implemented devices.
+- `device-unit-tests`: Runs focused host-side device tests.
+- `regression`: Runs all emulator tests.
 
 ## Prerequisites
 
@@ -91,14 +96,15 @@ For example:
 
 The currently available options are:
 
-| Option                    | Description                                                                                      |
-| ------------------------- | ------------------------------------------------------------------------------------------------ |
-| `--help`                  | Print the command-line help.                                                                     |
-| `--max-instruction COUNT` | Stop with an error if the program exceeds the instruction limit.                                 |
-| `--format auto\|elf\|bin` | Select automatic detection, RISC-V ELF64 loading, or raw-binary loading. The default is `auto`.  |
-| `--riscv-tests`           | Interpret program termination using the emulator-specific `riscv-tests` PASS/FAIL protocol.      |
-| `--poison-ram`            | Fill RAM with `0xA5` before loading the program. Used for testing.                               |
-| `--dram-size SIZE`        | Set the DRAM size in MiB. The default is 128 MiB; the supported range is 1–512 MiB.              |
+| Option                    | Description                                                                                     |
+| ------------------------- | ----------------------------------------------------------------------------------------------- |
+| `--help`                  | Print the command-line help.                                                                    |
+| `--max-instruction COUNT` | Stop with an error if the program exceeds the instruction limit.                                |
+| `--format auto\|elf\|bin` | Select automatic detection, RISC-V ELF64 loading, or raw-binary loading. The default is `auto`. |
+| `--riscv-tests`           | Interpret program termination using the emulator-specific `riscv-tests` PASS/FAIL protocol.     |
+| `--poison-ram`            | Fill RAM with `0xA5` before loading the program. Used for testing.                              |
+| `--dram-size SIZE`        | Set the DRAM size in MiB. The default is 128 MiB; the supported range is 1–512 MiB.             |
+| `--trace`                 | Dump debug trace when cpu execution failed.                                                     |
 
 The `--riscv-tests` option is intended for the automated test environment, not
 for general programs.

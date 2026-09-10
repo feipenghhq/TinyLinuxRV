@@ -16,8 +16,8 @@ where practical.
 - Accesses to unmapped addresses must fail with an access fault once trap
   handling is implemented. Until then, the emulator must report an execution
   error.
-- Planned devices are reserved in the address map but are not currently
-  visible to guest software.
+- Devices marked as planned are reserved in the address map but are not
+  currently visible to guest software.
 
 ## Physical Address Map
 
@@ -25,9 +25,9 @@ where practical.
 | ------------------------ | -----------: | --------------------: | ------------: | :----: | ----------- |
 | Boot ROM                 | `0x00001000` |          `0x0000f000` |  `0x00010000` |  R-X   | Planned     |
 | Reset/syscon             | `0x00100000` |          `0x00001000` |  `0x00101000` |  RW-   | Implemented |
-| ACLINT                   | `0x02000000` |          `0x00010000` |  `0x02010000` |  RW-   | Planned     |
-| PLIC                     | `0x0c000000` | `0x04000000` reserved |  `0x10000000` |  RW-   | Planned     |
-| UART0 (16550-compatible) | `0x10000000` | `0x00001000` reserved |  `0x10001000` |  RW-   | Planned     |
+| CLINT                    | `0x02000000` |          `0x00010000` |  `0x02010000` |  RW-   | Implemented |
+| PLIC                     | `0x0c000000` | `0x04000000` reserved |  `0x10000000` |  RW-   | Implemented |
+| UART0 (16550-compatible) | `0x10000000` | `0x00001000` reserved |  `0x10001000` |  RW-   | Implemented |
 | VirtIO MMIO (8 slots)    | `0x10001000` |          `0x00008000` |  `0x10009000` |  RW-   | Planned     |
 | DRAM                     | `0x80000000` |  `0x08000000` default |  `0x88000000` |  RWX   | Implemented |
 
@@ -52,24 +52,24 @@ serve as the platform backend for SBI system reset operations.
 See the [syscon device documentation](../devices/syscon.md) for its behavior
 and register layout.
 
-### ACLINT
+### CLINT
 
-The ACLINT window is reserved for machine-level timer and software-interrupt
-functions. Timer and software interrupts connect directly to a hart and do not
-pass through the PLIC.
+The CLINT provides machine-level timer and software-interrupt functions. Their
+pending conditions will connect directly to a hart and do not pass through the
+PLIC.
 
 ### PLIC
 
 The PLIC window reserves all addresses through the start of UART0. The
-implemented register range will be smaller and will depend on the supported
-interrupt-source and hart-context counts. No memory is allocated for unused
-addresses in the reserved window.
+implemented register range contains only the supported interrupt sources and
+hart contexts. No memory is allocated for unused addresses in the reserved
+window.
 
 ### UART0
 
-UART0 reserves one 4 KiB page even if the implemented 16550-compatible
-register block is smaller. It will provide both transmit and receive data and
-will signal external interrupts through the PLIC.
+UART0 reserves one 4 KiB page even though the implemented 16550-compatible
+register block is smaller. It provides transmit and receive data and signals
+external interrupts through the PLIC.
 
 ### VirtIO MMIO
 
@@ -97,12 +97,12 @@ The emulator provides 128 MiB of DRAM by default at
 
 ## Interrupt Map
 
-| Source                    | Route          |               Interrupt ID | Status  |
-| ------------------------- | -------------- | -------------------------: | ------- |
-| VirtIO MMIO slots 0-7     | PLIC           |                        1-8 | Planned |
-| UART0                     | PLIC           |                         10 | Planned |
-| ACLINT software interrupt | Direct to hart | Machine software interrupt | Planned |
-| ACLINT timer interrupt    | Direct to hart |    Machine timer interrupt | Planned |
+| Source                   | Route          |               Interrupt ID | Status       |
+| ------------------------ | -------------- | -------------------------: | ------------ |
+| VirtIO MMIO slots 0-7    | PLIC           |                        1-8 | Planned      |
+| UART0                    | PLIC           |                         10 | Implemented  |
+| CLINT software interrupt | Direct to hart | Machine software interrupt | Pending only |
+| CLINT timer interrupt    | Direct to hart |    Machine timer interrupt | Pending only |
 
 PLIC interrupt source 9 and source IDs above 10 are reserved for future
 devices. Interrupt IDs describe PLIC sources and are independent of MMIO
