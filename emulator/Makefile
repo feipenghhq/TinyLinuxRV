@@ -112,9 +112,14 @@ riscv-tests: $(EMULATOR)
 #-------------------------------------------------
 
 DEVICE_TESTS_DIR := tests/devices
+DEVICE_UNIT_TESTS_DIR := tests/unit
 
 device-tests: $(EMULATOR)
 	python3 $(DEVICE_TESTS_DIR)/run.py
+
+
+device-unit-tests: $(EMULATOR)
+	$(MAKE) -C $(DEVICE_UNIT_TESTS_DIR)
 
 #-------------------------------------------------
 # Full regression test list for emulator

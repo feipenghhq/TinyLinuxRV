@@ -105,6 +105,7 @@ static reg_info_t addr_decode(plic_t *plic, uint64_t addr, size_t size) {
     return info;
 }
 
+//
 static void plic_gateway_irq(plic_t *plic, int id, bool irq) {
     int pending_idx = id / 32;
     int bit_idx     = id % 32;
@@ -114,17 +115,29 @@ static void plic_gateway_irq(plic_t *plic, int id, bool irq) {
         // set the corresponding pending bit
         plic->regs.pending[pending_idx] |= (1U << bit_idx);
     }
+    // Restore pending[0] back to 0 incase the user connects irq[0] to something that can produce interrupt
+    plic->regs.pending[0] &= ~1U;
+    plic->gw_busy[0] = false;
 }
 
 static void plic_claim(plic_t *plic, int id) {
     int pending_idx = id / 32;
     int bit_idx     = id % 32;
-
-    plic->regs.pending[pending_idx] &= ~(1U << bit_idx);
+    if (id < PLIC_MAX_INTERRUPT) {
+        plic->regs.pending[pending_idx] &= ~(1U << bit_idx);
+    }
 }
 
-static void plic_complete(plic_t *plic, int id) {
-    plic->gw_busy[id] = false;
+// Note:
+// 1. (From spec) If the completion ID does not match an interrupt source that is currently enabled for the target
+// 2. ID need to be unsigned here to avoid being treated as negative value
+static void plic_complete(plic_t *plic, uint32_t id, int context) {
+    uint32_t reg_idx = id / 32;
+    uint32_t bit_idx = id % 32;
+    uint32_t mask    = 1U << bit_idx;
+    if (id < PLIC_MAX_INTERRUPT && (plic->regs.enable[context][reg_idx] & mask) != 0) {
+        plic->gw_busy[id] = false;
+    }
 }
 
 // check if a specific context has interrupt
@@ -147,6 +160,10 @@ static bool interrupt_per_context(plic_t *plic, int context) {
     return irq_pending;
 }
 
+// Note:
+// 1. (From sepc) The PLIC can perform a claim at any time and the claim operation is not affected by the setting of the
+// priority threshold register.
+// 2. But the we can only claim enabled interrupt
 static int get_claim_id(plic_t *plic, int context) {
     uint32_t enabled_pending[PLIC_INTERRUPT_WORDS];
     int      id = 0;
@@ -160,8 +177,7 @@ static int get_claim_id(plic_t *plic, int context) {
         int      bit_idx = i % 32;
         uint32_t mask    = 1U << bit_idx;
         if ((enabled_pending[reg_idx] & mask) != 0) {
-            if (plic->regs.priority[i] > 0 && plic->regs.priority[i] > plic->regs.threshold[context] &&
-                plic->regs.priority[i] > plic->regs.priority[id]) {
+            if (plic->regs.priority[i] > 0 && plic->regs.priority[i] > plic->regs.priority[id]) {
                 id = i;
             }
         }
@@ -178,6 +194,7 @@ void plic_reset(plic_t *plic) {
     plic->MEIP = false;
     plic->SEIP = false;
     memset(&plic->regs, 0, sizeof(plic->regs));
+    memset(plic->gw_busy, false, sizeof(plic->gw_busy));
 }
 
 void plic_init(plic_t *plic, uint64_t base) {
@@ -208,10 +225,10 @@ int plic_write(plic_t *plic, uint64_t addr, size_t size, const void *data) {
         break;
     }
     case R_CLAIM: {
-        int value;
+        uint32_t value;
         memcpy(&value, data, 4);
         // write claim/complete register will complete the interrupt
-        plic_complete(plic, value);
+        plic_complete(plic, value, info.context);
         break;
     }
     case R_INVALID: {
@@ -268,6 +285,10 @@ int plic_read(plic_t *plic, uint64_t addr, size_t size, void *data) {
     return 0;
 }
 
+/**
+ * Add interrupt to PLIC.
+ * !NOTE: irq[x] is connected to ID X. irq[0] should be always tied to false as ID0 is reserved.
+ */
 void plic_irq_update(plic_t *plic, bool *irq) {
     for (int i = 0; i < PLIC_MAX_INTERRUPT; i++) {
         plic_gateway_irq(plic, i, irq[i]);

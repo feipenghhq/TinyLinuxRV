@@ -9,6 +9,7 @@ REG_LIST = (
     "sanity-test",
     "riscv-tests",
     "device-tests",
+    "device-unit-tests",
     "run-fib",
     "run-baremetal-test",
 )

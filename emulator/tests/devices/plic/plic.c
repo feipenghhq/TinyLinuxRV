@@ -169,7 +169,7 @@ static int test3(void) {
     return error;
 }
 
-// test 4: check threshold
+// test 4: check threshold does not affect claim
 static int test4(void) {
     int      error = 0;
     uint32_t pending;
@@ -181,7 +181,8 @@ static int test4(void) {
     mmio_write32(PLIC_BASE + 0x002080, 0);          // disable the interrupt on context 1
     // Set priority to 10
     mmio_write32(PLIC_BASE + 0x4 * 10, 10);
-    // Set threshold to 15
+    // Set threshold equal to the interrupt priority. This suppresses the
+    // interrupt notification, but it must not prevent a claim.
     mmio_write32(PLIC_BASE + 0x200000, 10);
 
     // User input
@@ -192,27 +193,17 @@ static int test4(void) {
 
     // Claim the interrupt for context 0
     id = mmio_read32(PLIC_BASE + 0x200004);
-    // We should get ID as 0 as it is not exceeding threshold
-    if (id != 0) {
+    // Claim is not affected by threshold, so we should still get ID 10
+    if (id != 10) {
         putstr("test4: (1) claim context 0 return incorrect ID: ");
         putnum(id);
         putchar('\n');
         error = 1;
     }
-    // We should see pending still valid
-    pending = mmio_read32(PLIC_BASE + 0x1000);
-    if (pending != (1U << 10)) {
-        putstr("test4: (2) pending is not set.\n");
-        error = 1;
-    }
-    // Set threshold to 9
-    mmio_write32(PLIC_BASE + 0x200000, 9);
-    // Claim the interrupt for context 0
-    id = mmio_read32(PLIC_BASE + 0x200004);
-    // We should see pending becomes zero
+    // A successful claim should clear pending
     pending = mmio_read32(PLIC_BASE + 0x1000);
     if (pending != 0) {
-        putstr("test4: (3) pending is not cleared.\n");
+        putstr("test4: (2) pending is not cleared.\n");
         error = 1;
     }
     // Now resolve the interrupt by reading from UART
