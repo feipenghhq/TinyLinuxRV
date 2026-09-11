@@ -4,9 +4,14 @@
 #include <stdio.h>
 
 #include "bus/bus.h"
+#include "cpu/csr.h"
 #include "cpu/decode.h"
 #include "memory/memory.h"
 #include "utils/log.h"
+
+// ----------------------------------------------
+// Defines and data types
+// ----------------------------------------------
 
 // Instruction Opcode
 #define OPCODE_LUI       0x37
@@ -38,7 +43,12 @@ typedef struct {
     uint8_t  rs2;
     uint8_t  rd;
     uint64_t imm; // Sign-extended immediate stored as an RV64 bit pattern.
+    int      csr; // CSR address
 } inst_dec_t;
+
+// ----------------------------------------------
+// Local function
+// ----------------------------------------------
 
 // Sign-extend the low "bits" bits of value to the 64-bit register width.
 static inline uint64_t sext(uint64_t value, int bits) {
@@ -211,6 +221,7 @@ static void decode(uint32_t inst, inst_dec_t *inst_dec) {
     inst_dec->rs2    = (inst >> 20) & 0x1F;
     inst_dec->rd     = (inst >> 7) & 0x1F;
     inst_dec->imm    = 0;
+    inst_dec->csr    = (int)(inst >> 20) & 0xFFF;
 
     switch (opcode) {
     case (OPCODE_LOAD):      // fall-through
@@ -239,6 +250,10 @@ static void decode(uint32_t inst, inst_dec_t *inst_dec) {
         inst_dec->imm = sext((((uint64_t)(inst >> 31) & 0x1) << 12) | (((uint64_t)(inst >> 7) & 0x1) << 11) |
                                  (((uint64_t)(inst >> 25) & 0x3F) << 5) | (((uint64_t)(inst >> 8) & 0xF) << 1),
                              13);
+        break;
+    }
+    case (OPCODE_SYSTEM): { // System-type (CSR)
+        inst_dec->imm = (inst >> 15) & 0x1F;
         break;
     }
     }
@@ -330,6 +345,28 @@ static void decode(uint32_t inst, inst_dec_t *inst_dec) {
 #define CMP64(a, b, op) ((int64_t)(a)op(int64_t)(b) ? (a) : (b))
 #define CMP32(a, b, op) sext32bit(((int32_t)(a)op(int32_t)(b) ? (a) : (b)))
 
+// Helper Macro for CSR instruction
+#define CSR_OP(cpu, addr, op, value, rd, rs1)                                           \
+    do {                                                                                \
+        uint64_t _rdata;                                                                \
+        bool     _read_csr  = true;                                                     \
+        bool     _write_csr = true;                                                     \
+        if ((rd) == 0 && (op) == CSR_OP_RW) {                                           \
+            _read_csr = false;                                                          \
+        }                                                                               \
+        if ((rs1) == 0 && ((op) == CSR_OP_RS || (op) == CSR_OP_RC)) {                   \
+            _write_csr = false;                                                         \
+        }                                                                               \
+        csr_access(&(cpu)->csr, (addr), (op), (value), &_rdata, _read_csr, _write_csr); \
+        if ((rd) != 0) {                                                                \
+            RD() = _rdata;                                                              \
+        }                                                                               \
+    } while (0)
+
+// ----------------------------------------------
+// Main CPU API
+// ----------------------------------------------
+
 /**
  * Initialize the CPU state to deterministic state.
  * Set PC to reset vector and clear registers to 0. Set halted to false.
@@ -344,6 +381,9 @@ void cpu_init(cpu_t *cpu) {
     }
 
     cpu->res = (reservation_t){false, 0, 0};
+
+    csr_init(&cpu->csr);
+
     LOG_INFO("Initialize CPU done");
 }
 
@@ -466,6 +506,13 @@ int cpu_execute(cpu_t *cpu, uint32_t inst, bus_t *bus) {
         ADD_INST(ECALL, );
         // Treat ebreak as the temporary Phase 1 halt convention
         ADD_INST(EBREAK, cpu->halted = true);
+        // ZICSR
+        ADD_INST(CSRRW, CSR_OP(cpu, inst_dec.csr, CSR_OP_RW, RS1(), inst_dec.rd, inst_dec.rs1));
+        ADD_INST(CSRRS, CSR_OP(cpu, inst_dec.csr, CSR_OP_RS, RS1(), inst_dec.rd, inst_dec.rs1));
+        ADD_INST(CSRRC, CSR_OP(cpu, inst_dec.csr, CSR_OP_RC, RS1(), inst_dec.rd, inst_dec.rs1));
+        ADD_INST(CSRRWI, CSR_OP(cpu, inst_dec.csr, CSR_OP_RW, inst_dec.imm, inst_dec.rd, inst_dec.rs1));
+        ADD_INST(CSRRSI, CSR_OP(cpu, inst_dec.csr, CSR_OP_RS, inst_dec.imm, inst_dec.rd, inst_dec.rs1));
+        ADD_INST(CSRRCI, CSR_OP(cpu, inst_dec.csr, CSR_OP_RC, inst_dec.imm, inst_dec.rd, inst_dec.rs1));
         break;
     }
     case OPCODE_AMO: {

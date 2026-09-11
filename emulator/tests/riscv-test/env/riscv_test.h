@@ -3,11 +3,18 @@
 #ifndef _ENV_PHYSICAL_SINGLE_CORE_H
 #define _ENV_PHYSICAL_SINGLE_CORE_H
 
+#include "encoding.h"
+
 //-----------------------------------------------------------------------
 // Begin Macro
 //-----------------------------------------------------------------------
 
 #define RVTEST_RV64U
+
+#define RVTEST_RV64M                                                    \
+  .macro init;                                                          \
+  RVTEST_ENABLE_MACHINE;                                                \
+  .endm
 
 #define RVTEST_CODE_BEGIN                                               \
         .section .text.init;                                            \

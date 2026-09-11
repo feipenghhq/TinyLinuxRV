@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include "bus/bus.h"
+#include "cpu/csr.h"
 
 // reset to 0x80000000
 #define RST_VEC 0x80000000ULL
@@ -20,6 +21,7 @@ typedef struct {
 typedef struct {
     uint64_t regs[32];
     uint64_t pc;
+    csr_t    csr;
     bool     halted;
 
     reservation_t res;

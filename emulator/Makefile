@@ -34,7 +34,8 @@ EMULATOR := rvemu
 
 BUILD_DIR := build
 
-SOURCES := src/cpu/cpu.c
+SOURCES += src/cpu/cpu.c
+SOURCES += src/cpu/csr.c
 SOURCES += src/memory/memory.c
 SOURCES += src/memory/loader.c
 SOURCES += src/bus/bus.c

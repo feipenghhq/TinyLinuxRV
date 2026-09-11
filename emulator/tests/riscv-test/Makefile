@@ -15,7 +15,7 @@ LINKER_SCRIPT  := $(ENV_DIR)/link.ld
 
 # The test sources include riscv_test.h from our emulator-specific environment
 # and test_macros.h from the upstream scalar test macros.
-CPPFLAGS := -I$(ENV_DIR)
+CPPFLAGS += -I$(ENV_DIR)
 CPPFLAGS += -I$(ISA_DIR)/macros/scalar
 
 ENV_HEADERS := $(wildcard $(ENV_DIR)/*.h)
@@ -38,7 +38,7 @@ LDFLAGS := -T $(LINKER_SCRIPT)
 
 # Only enabled suites are included in `all`. Add a suite when the emulator
 # implements the corresponding ISA extension.
-SUITES ?= rv64ui rv64um rv64ua
+SUITES ?= rv64ui rv64um rv64ua rv64mi
 
 rv64ui_MARCH := rv64i
 rv64ui_MABI  := lp64
@@ -48,6 +48,9 @@ rv64um_MABI  := lp64
 
 rv64ua_MARCH := rv64ia
 rv64ua_MABI  := lp64
+
+rv64mi_MARCH := rv64i
+rv64mi_MABI  := lp64
 
 # Each upstream Makefrag defines a list such as rv64ui_sc_tests.
 include $(addsuffix /Makefrag,$(addprefix $(ISA_DIR)/,$(SUITES)))
