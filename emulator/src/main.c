@@ -267,10 +267,6 @@ int main(int argc, char **argv) {
         // execute the instruction
         if (cpu_execute(&cpu, inst, &bus) != 0) {
             LOG_ERROR("CPU execution failed");
-            if (argument.trace) {
-                iringbuf_print();
-                cpu_print_regs(&cpu);
-            }
             exec_status = CPU_ERROR;
             break;
         }
@@ -318,6 +314,10 @@ int main(int argc, char **argv) {
     case CPU_ERROR:    // fall-through
     case DEVICE_ERROR: // fall-through
     case TIMEOUT: {
+        if (argument.trace) {
+            iringbuf_print();
+            cpu_print_regs(&cpu);
+        }
         return EXIT_FAILURE;
     }
     }
@@ -327,6 +327,9 @@ int main(int argc, char **argv) {
         if (check_riscv_tests_result(&cpu) == 0) {
             return EXIT_SUCCESS;
         } else {
+            if (argument.trace) {
+                iringbuf_print();
+            }
             return EXIT_FAILURE;
         }
     }

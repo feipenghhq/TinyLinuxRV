@@ -67,8 +67,10 @@ static inline void csr_field_set(uint64_t *csr, int pos, int width, uint64_t val
     uint64_t value_shifted = value << pos;
 
     *csr = (*csr & ~mask_shifted) | value_shifted;
-    printf("CSR is set to %lx\n", *csr);
 }
+
+// Note: Other special case not implemented
+// - mepc: mepc[0] is always read as 0
 
 // ----------------------------------------------
 // Main function
@@ -79,7 +81,8 @@ void csr_init(csr_t *csr) {
     // -- MISA --
     // MXL field need to be set to 2 to indicate 64 bit ISA
     csr_field_set(&csr->misa, 62, 2, 2);
-
+    csr_field_set(&csr->misa, 8, 1, 1);
+    csr_field_set(&csr->misa, 12, 1, 1);
     // -- MSTATUS --
     // MPP field should be set to 3 to indicate starting at Machine Mode.
 }
@@ -90,7 +93,7 @@ int csr_access(csr_t *csr, int addr, int op, const uint64_t value, uint64_t *rda
     switch (addr) {
         // Machine Trap Setup (MRW)
         CSR_DECODE_RW_MSTATUS(CSR_MSTATUS, mstatus)
-        CSR_DECODE_RW(CSR_MISA, misa)
+        CSR_DECODE_RO(CSR_MISA, misa)   // make MISA RO
         CSR_DECODE_RW(CSR_MEDELEG, medeleg)
         CSR_DECODE_RW(CSR_MIDELEG, mideleg)
         CSR_DECODE_RW(CSR_MIE, mie)
@@ -137,4 +140,55 @@ int csr_access(csr_t *csr, int addr, int op, const uint64_t value, uint64_t *rda
         }
     }
     return 0;
+}
+
+uint64_t trap_enter(csr_t *csr, uint64_t cause, uint64_t mtval, uint64_t pc) {
+    uint64_t trap_vec_base;
+    uint64_t trap_vec_mode;
+    uint64_t trap_vec;
+    uint64_t mie;
+
+    // update mstatus
+    // Currently only support machine mode
+    // - MPIE is updated with MIE
+    // - MIE is updated to 0
+    // - MPP is updated to the privilege mode before the trap happens
+    mie = csr_field_get(&csr->mstatus, 3, 1);
+    csr_field_set(&csr->mstatus, 7, 1, mie);
+    csr_field_set(&csr->mstatus, 3, 1, 0);
+    csr_field_set(&csr->mstatus, 11, 2, 3);
+
+    // update mtval
+    csr->mtval = mtval;
+
+    // update mcause
+    csr->mcause = cause;
+
+    // update mepc
+    csr->mepc = pc;
+
+    // return the trap vector
+    trap_vec_base = csr->mtvec & ~0x3U;
+    trap_vec_mode = csr->mtvec & 0x3;
+    if (trap_vec_mode == 0) {
+        trap_vec = trap_vec_base;
+    } else {
+        trap_vec = trap_vec_base + 4 * (uint64_t)cause;
+    }
+    return trap_vec;
+}
+
+uint64_t trap_exit(csr_t *csr) {
+    uint64_t mpie;
+
+    // update mstatus
+    // - restore mie and set mpie to 1
+    mpie = csr_field_get(&csr->mstatus, 7, 1);
+    csr_field_set(&csr->mstatus, 3, 1, mpie);
+    csr_field_set(&csr->mstatus, 7, 1, 1);
+    // - set MPP to 0. For now set it to 3 as we only support M mode
+    csr_field_set(&csr->mstatus, 11, 2, 3);
+
+    // return mepc
+    return csr->mepc;
 }

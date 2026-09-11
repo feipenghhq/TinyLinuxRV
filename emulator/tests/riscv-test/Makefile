@@ -17,6 +17,7 @@ LINKER_SCRIPT  := $(ENV_DIR)/link.ld
 # and test_macros.h from the upstream scalar test macros.
 CPPFLAGS += -I$(ENV_DIR)
 CPPFLAGS += -I$(ISA_DIR)/macros/scalar
+CPPFLAGS += -DRVTEST_HAS_CSR
 
 ENV_HEADERS := $(wildcard $(ENV_DIR)/*.h)
 TEST_MACROS := $(ISA_DIR)/macros/scalar/test_macros.h

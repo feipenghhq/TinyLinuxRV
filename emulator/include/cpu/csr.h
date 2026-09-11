@@ -33,7 +33,9 @@ typedef struct {
 
 } csr_t;
 
-void csr_init(csr_t *csr);
-int csr_access(csr_t *csr, int addr, int op, const uint64_t value, uint64_t *rdata, bool read_csr, bool write_csr);
+void     csr_init(csr_t *csr);
+int      csr_access(csr_t *csr, int addr, int op, const uint64_t value, uint64_t *rdata, bool read_csr, bool write_csr);
+uint64_t trap_enter(csr_t *csr, uint64_t cause, uint64_t mtval, uint64_t pc);
+uint64_t trap_exit(csr_t *csr);
 
 #endif

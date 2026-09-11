@@ -91,7 +91,8 @@ jalr_target:
     # Memory ordering and environment instructions. In this phase FENCE and
     # ECALL are recognition-only no-ops in the emulator.
     fence
-    ecall
+    # Can't test ecall anymore after introducing exception
+    #ecall
 
     # End the smoke test using the temporary Phase 1 halt convention.
     addi a0, x0, 0

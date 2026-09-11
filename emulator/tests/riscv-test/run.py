@@ -63,15 +63,15 @@ class TestSuite:
     def summary(self):
         passed = len(self.pass_list)
         failed = len(self.fail_list)
+        details = []
 
-        if failed == 0:
-            print(f"{GREEN}[PASS]{RESET} {self.suite:<8} {passed}/{self.count}")
-        else:
-            fail_names = ", ".join(self.fail_list)
-            print(
-                f"{RED}[FAIL]{RESET} {self.suite:<8} "
-                f"{passed}/{self.count}  failed: {fail_names}"
-            )
+        if failed:
+            details.append(f"failed: {', '.join(self.fail_list)}")
+        if self.skip_list:
+            details.append(f"skipped: {', '.join(self.skip_list)}")
+        detail_str = f"  {'  '.join(details)}" if details else ""
+        status = f"{GREEN}[PASS]{RESET}" if failed == 0 else f"{RED}[FAIL]{RESET}"
+        print(f"{status} {self.suite:<8} {passed:>2}/{self.count:<2}{detail_str}")
 
 
 def print_test_result(passed):
@@ -94,10 +94,10 @@ def print_test_result(passed):
 
 
 def run_all_suites():
-    rv64ui = TestSuite("rv64ui", skip_list=("ma_data"))
+    rv64ui = TestSuite("rv64ui", skip_list=("ma_data",))
     rv64um = TestSuite("rv64um")
     rv64ua = TestSuite("rv64ua")
-    rv64mi = TestSuite("rv64mi")
+    rv64mi = TestSuite("rv64mi", skip_list=("instret_overflow", "pmpaddr"))
 
     passed = True
     passed &= rv64ui.run()

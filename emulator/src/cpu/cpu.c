@@ -282,23 +282,63 @@ static void decode(uint32_t inst, inst_dec_t *inst_dec) {
 
 // Execute a load. ext selects either sign extension or no extension.
 #define noext(value, bits) (value)
-#define EXEC_LOAD(addr, size, ext)                   \
-    do {                                             \
-        uint64_t data = 0;                           \
-        if (bus_read(bus, addr, size, &data) != 0) { \
-            cpu->halted = true;                      \
-            return -1;                               \
-        }                                            \
-        RD() = ext(data, size * 8);                  \
+#define EXEC_LOAD(addr, size, ext)                           \
+    do {                                                     \
+        uint64_t _addr   = (addr);                           \
+        uint64_t data    = 0;                                \
+        bool     ma_addr = false;                            \
+        switch (size) {                                      \
+        case 2: {                                            \
+            ma_addr = (_addr & 0x1) != 0;                    \
+            break;                                           \
+        }                                                    \
+        case 4: {                                            \
+            ma_addr = (_addr & 0x3) != 0;                    \
+            break;                                           \
+        }                                                    \
+        case 8: {                                            \
+            ma_addr = (_addr & 0x7) != 0;                    \
+            break;                                           \
+        }                                                    \
+        }                                                    \
+        if (!ma_addr) {                                      \
+            if (bus_read(bus, _addr, size, &data) != 0) {    \
+                cpu->halted = true;                          \
+                return -1;                                   \
+            }                                                \
+            RD() = ext(data, size * 8);                      \
+        } else {                                             \
+            next_pc = trap_enter(&cpu->csr, 4, _addr, PC()); \
+        }                                                    \
     } while (0)
 
 // Execute a store using the low "size" bytes of rs2.
-#define EXEC_STORE(addr, data, size)                  \
-    do {                                              \
-        if (bus_write(bus, addr, size, &data) != 0) { \
-            cpu->halted = true;                       \
-            return -1;                                \
-        }                                             \
+#define EXEC_STORE(addr, data, size)                         \
+    do {                                                     \
+        uint64_t _addr   = (addr);                           \
+        bool     ma_addr = false;                            \
+        switch (size) {                                      \
+        case 2: {                                            \
+            ma_addr = (_addr & 0x1) != 0;                    \
+            break;                                           \
+        }                                                    \
+        case 4: {                                            \
+            ma_addr = (_addr & 0x3) != 0;                    \
+            break;                                           \
+        }                                                    \
+        case 8: {                                            \
+            ma_addr = (_addr & 0x7) != 0;                    \
+            break;                                           \
+        }                                                    \
+        }                                                    \
+        if (!ma_addr) {                                      \
+            if (bus_write(bus, _addr, size, &data) != 0) {   \
+                cpu->halted = true;                          \
+                return -1;                                   \
+            }                                                \
+        } else {                                             \
+            next_pc = trap_enter(&cpu->csr, 6, _addr, PC()); \
+        }                                                    \
     } while (0)
 
 // Helper Macro for LR/SC/AMO
@@ -363,6 +403,13 @@ static void decode(uint32_t inst, inst_dec_t *inst_dec) {
         }                                                                               \
     } while (0)
 
+// Exception Related
+
+// Instruction address misaligned
+#define CHECK_MA_FETCH()      \
+    if ((next_pc & 0x3) != 0) \
+    next_pc = trap_enter(&cpu->csr, 0, next_pc, PC())
+
 // ----------------------------------------------
 // Main CPU API
 // ----------------------------------------------
@@ -409,20 +456,48 @@ int cpu_execute(cpu_t *cpu, uint32_t inst, bus_t *bus) {
         break;
     }
     case OPCODE_JAL: {
-        ADD_INST(JAL, RD() = PC() + 4; next_pc = PC() + sext(IMM(), 21));
+        ADD_INST(
+            JAL, next_pc = PC() + sext(IMM(), 21); if ((next_pc & 0x3) == 0) { RD() = PC() + 4; } CHECK_MA_FETCH());
         break;
     }
     case OPCODE_JALR: {
-        ADD_INST(JALR, uint64_t target = (sext(IMM(), 12) + RS1()) & ~UINT64_C(1); RD() = next_pc; next_pc = target);
+        ADD_INST(
+            JALR, next_pc = (sext(IMM(), 12) + RS1()) & ~UINT64_C(1);
+            // only write to RD when there is no exception
+            if ((next_pc & 0x3) == 0) { RD() = PC() + 4; } CHECK_MA_FETCH());
         break;
     }
     case OPCODE_BRANCH: {
-        ADD_INST(BEQ, if (RS1() == RS2()) next_pc = PC() + IMM(););
-        ADD_INST(BNE, if (RS1() != RS2()) next_pc = PC() + IMM(););
-        ADD_INST(BLT, if (signed64(RS1()) < signed64(RS2())) next_pc = PC() + IMM(););
-        ADD_INST(BGE, if (signed64(RS1()) >= signed64(RS2())) next_pc = PC() + IMM(););
-        ADD_INST(BLTU, if (RS1() < RS2()) next_pc = PC() + IMM(););
-        ADD_INST(BGEU, if (RS1() >= RS2()) next_pc = PC() + IMM(););
+        ADD_INST(
+            BEQ, if (RS1() == RS2()) {
+                next_pc = PC() + IMM();
+                CHECK_MA_FETCH();
+            });
+        ADD_INST(
+            BNE, if (RS1() != RS2()) {
+                next_pc = PC() + IMM();
+                CHECK_MA_FETCH();
+            });
+        ADD_INST(
+            BLT, if (signed64(RS1()) < signed64(RS2())) {
+                next_pc = PC() + IMM();
+                CHECK_MA_FETCH();
+            });
+        ADD_INST(
+            BGE, if (signed64(RS1()) >= signed64(RS2())) {
+                next_pc = PC() + IMM();
+                CHECK_MA_FETCH();
+            });
+        ADD_INST(
+            BLTU, if (RS1() < RS2()) {
+                next_pc = PC() + IMM();
+                CHECK_MA_FETCH();
+            });
+        ADD_INST(
+            BGEU, if (RS1() >= RS2()) {
+                next_pc = PC() + IMM();
+                CHECK_MA_FETCH();
+            });
         break;
     }
     case OPCODE_LOAD: {
@@ -503,7 +578,7 @@ int cpu_execute(cpu_t *cpu, uint32_t inst, bus_t *bus) {
         break;
     }
     case OPCODE_SYSTEM: {
-        ADD_INST(ECALL, );
+        ADD_INST(ECALL, next_pc = trap_enter(&cpu->csr, 11, 0, PC()));
         // Treat ebreak as the temporary Phase 1 halt convention
         ADD_INST(EBREAK, cpu->halted = true);
         // ZICSR
@@ -513,6 +588,7 @@ int cpu_execute(cpu_t *cpu, uint32_t inst, bus_t *bus) {
         ADD_INST(CSRRWI, CSR_OP(cpu, inst_dec.csr, CSR_OP_RW, inst_dec.imm, inst_dec.rd, inst_dec.rs1));
         ADD_INST(CSRRSI, CSR_OP(cpu, inst_dec.csr, CSR_OP_RS, inst_dec.imm, inst_dec.rd, inst_dec.rs1));
         ADD_INST(CSRRCI, CSR_OP(cpu, inst_dec.csr, CSR_OP_RC, inst_dec.imm, inst_dec.rd, inst_dec.rs1));
+        ADD_INST(MRET, next_pc = trap_exit(&cpu->csr));
         break;
     }
     case OPCODE_AMO: {
@@ -542,13 +618,15 @@ int cpu_execute(cpu_t *cpu, uint32_t inst, bus_t *bus) {
     }
 
     default:
-        break;
+        // Hit an invalid instruction if program execute this default
+        // We should raise an invalid instruction exception
+        LOG_DEBUG("CPU: Hit an invalid instruction at address: %lx, instruction: %x", cpu->pc, inst);
+        next_pc      = trap_enter(&cpu->csr, 2, inst, PC());
+        cpu->regs[0] = 0;
+        PC()         = next_pc;
+        return 0;
     }
-
-    // Hit an invalid instruction if program execute this point.
-    cpu->halted = true;
-    LOG_ERROR("EXECUTE: Invalid instruction at address: %lx, instruction: %x", cpu->pc, inst);
-    return -1;
+    return 0;
 }
 
 void cpu_print_regs(cpu_t *cpu) {
