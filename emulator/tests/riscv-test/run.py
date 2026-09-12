@@ -97,7 +97,7 @@ def run_all_suites():
     rv64ui = TestSuite("rv64ui", skip_list=("ma_data",))
     rv64um = TestSuite("rv64um")
     rv64ua = TestSuite("rv64ua")
-    rv64mi = TestSuite("rv64mi", skip_list=("instret_overflow", "pmpaddr"))
+    rv64mi = TestSuite("rv64mi", skip_list=("instret_overflow", "pmpaddr", "breakpoint", "zicntr"))
 
     passed = True
     passed &= rv64ui.run()

@@ -28,7 +28,7 @@ typedef struct {
 } cpu_t;
 
 void cpu_init(cpu_t *cpu);
-int  cpu_execute(cpu_t *cpu, uint32_t inst, bus_t *bus);
+void cpu_execute(cpu_t *cpu, uint32_t inst, bus_t *bus);
 void cpu_print_regs(cpu_t *cpu);
 
 #endif

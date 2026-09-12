@@ -33,6 +33,23 @@ typedef struct {
 
 } csr_t;
 
+typedef enum {
+    INST_ADDR_MISALIGNED       = 0,
+    INST_ACCESS_FAULT          = 1,
+    ILLEGAL_INSTRUCTION        = 2,
+    BREAKPOINT                 = 3,
+    LOAD_ADDR_MISALIGNED       = 4,
+    LOAD_ACCESS_FAULT          = 5,
+    STORE_AMO_ADDR_MISALIGNED  = 6,
+    STORE_AMO_ACCESS_FAULT     = 7,
+    ECALL_FROM_U_MODE          = 8,
+    ECALL_FROM_S_MODE          = 9,
+    ECALL_FROM_M_MODE          = 11,
+    INST_PAGE_FAULT            = 12,
+    LOAD_PAGE_FAULT            = 13,
+    STORE_AMO_PAGE_FAULT       = 15,
+} exception_code_t;
+
 void     csr_init(csr_t *csr);
 int      csr_access(csr_t *csr, int addr, int op, const uint64_t value, uint64_t *rdata, bool read_csr, bool write_csr);
 uint64_t trap_enter(csr_t *csr, uint64_t cause, uint64_t mtval, uint64_t pc);

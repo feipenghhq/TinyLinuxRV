@@ -265,11 +265,7 @@ int main(int argc, char **argv) {
         }
 
         // execute the instruction
-        if (cpu_execute(&cpu, inst, &bus) != 0) {
-            LOG_ERROR("CPU execution failed");
-            exec_status = CPU_ERROR;
-            break;
-        }
+        cpu_execute(&cpu, inst, &bus);
 
         // check poweroff/reboot
         if (syscon_poweroff_requested(devices.syscon.device)) {
