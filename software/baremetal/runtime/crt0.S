@@ -24,8 +24,17 @@ _start:
     bne t0, t1, 1b
 2:
 
+# call trap init function
+    call mtrap_init
+
 # Call main function
     call main
 
 # ebreak to exit
     ebreak
+
+# placeholder for trap init function
+.weak mtrap_init
+.type mtrap_init, @function
+mtrap_init:
+    ret

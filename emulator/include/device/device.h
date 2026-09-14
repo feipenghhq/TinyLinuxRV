@@ -1,6 +1,7 @@
 #ifndef DEVICES_H
 #define DEVICES_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
 typedef struct {
@@ -22,6 +23,6 @@ int  device_init(dev_list_t *dev);
 void device_reset(dev_list_t *dev);
 void device_free(dev_list_t *dev);
 int  device_update(dev_list_t *dev);
-void device_irq_level(dev_list_t *dev);
+bool device_irq_level(dev_list_t *dev, bool *msip, bool *mtip, bool *meip);
 
 #endif

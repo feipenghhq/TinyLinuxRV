@@ -22,6 +22,7 @@ typedef struct {
     uint64_t regs[32];
     uint64_t pc;
     csr_t    csr;
+    bool     msip, mtip, meip;
     bool     halted;
 
     reservation_t res;

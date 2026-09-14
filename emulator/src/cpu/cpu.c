@@ -45,6 +45,8 @@ typedef struct {
     int      csr; // CSR address
 } inst_dec_t;
 
+#define TRAP_INTERRUPT (UINT64_C(1) << 63)
+
 // ----------------------------------------------
 // Local Variable
 // ----------------------------------------------
@@ -407,16 +409,9 @@ static void decode(uint32_t inst, inst_dec_t *inst_dec) {
  * Set PC to reset vector and clear registers to 0. Set halted to false.
  */
 void cpu_init(cpu_t *cpu) {
-    cpu->halted = false;
-    cpu->pc     = RST_VEC;
-
-    // initialize all the register to 0 to make sure the emulator is deterministic
-    memset(cpu->regs, 0, sizeof(cpu->regs));
-    // init reservation area
-    cpu->res = (reservation_t){false, 0, 0};
-    // initialize csr
+    memset(cpu, 0, sizeof(*cpu)); // reset everything to 0/false
+    cpu->pc = RST_VEC;
     csr_init(&cpu->csr);
-
     LOG_INFO("Initialize CPU done");
 }
 
@@ -432,6 +427,26 @@ void cpu_execute(cpu_t *cpu, uint32_t inst, bus_t *bus) {
 
     decode(inst, &inst_dec);
     next_pc = PC() + 4; // precalculate next pc, for most of the instruction it is pc + 4
+
+    // update interrupt pending (MIP) for CSR
+    csr_interrupt_update(&cpu->csr, cpu->meip, cpu->msip, cpu->mtip);
+
+    // Check if there are pending interrupt
+    // external > software > timer
+    if (cpu->meip && is_trap_enable(&cpu->csr, INT_MEIP, 3)) {
+        trap_cause = TRAP_INTERRUPT | INT_MEIP;
+        goto raise_exception;
+    }
+    if (cpu->msip && is_trap_enable(&cpu->csr, INT_MSIP, 3)) {
+        trap_cause = TRAP_INTERRUPT | INT_MSIP;
+        goto raise_exception;
+    }
+    if (cpu->mtip && is_trap_enable(&cpu->csr, INT_MTIP, 3)) {
+        trap_cause = TRAP_INTERRUPT | INT_MTIP;
+        goto raise_exception;
+    }
+
+    // execute the instruction
     switch (inst_dec.opcode) {
     case OPCODE_LUI:
         INSTPAT(LUI, RD() = IMM());
@@ -584,8 +599,8 @@ illegal_instruction:
     trap_val   = inst;
 
 raise_exception:
-    LOG_DEBUG("CPU: Raise an instruction at PC: %lx, instruction: %x. Cause: %ld. Val: %lx", cpu->pc, inst, trap_cause,
-              trap_val);
+    LOG_DEBUG("CPU: Raise an exception/interrupt at PC: %lx, instruction: %x. Cause: %lx. Val: %lx", cpu->pc, inst,
+              trap_cause, trap_val);
     next_pc = trap_enter(&cpu->csr, trap_cause, trap_val, PC());
 
 end_exec:

@@ -5,9 +5,9 @@
 
 #include "addrmap.h"
 #include "device/clint.h"
+#include "device/plic.h"
 #include "device/syscon.h"
 #include "device/uart16550.h"
-#include "device/plic.h"
 #include "utils/log.h"
 
 // ----------------------------------------------
@@ -104,7 +104,7 @@ int device_update(dev_list_t *dev) {
  * Call device interrupt function to get device interrupt updated
  * and then send the interrupt to plic
  */
-void device_irq_level(dev_list_t *dev) {
+bool device_irq_level(dev_list_t *dev, bool *msip, bool *mtip, bool *meip) {
     bool irq[PLIC_MAX_INTERRUPT] = {false};
 
     // clint has timer and software interrupt
@@ -114,4 +114,10 @@ void device_irq_level(dev_list_t *dev) {
     irq[10] = uart16550_irq_level(dev->uart0.device);
 
     plic_irq_update(dev->plic.device, irq);
+
+    *msip = ((clint_t *)dev->clint.device)->MSIP;
+    *mtip = ((clint_t *)dev->clint.device)->MTIP;
+    *meip = ((plic_t *)dev->plic.device)->MEIP;
+
+    return *msip | *mtip | *meip;
 }

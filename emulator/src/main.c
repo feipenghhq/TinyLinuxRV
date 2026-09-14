@@ -293,7 +293,7 @@ int main(int argc, char **argv) {
             exec_status = DEVICE_ERROR;
             break;
         }
-        device_irq_level(&devices);
+        device_irq_level(&devices, &cpu.msip, &cpu.mtip, &cpu.meip);
     }
 
     // free up memory

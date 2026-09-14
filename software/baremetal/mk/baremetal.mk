@@ -52,34 +52,43 @@ LDFLAGS  += -T $(LINKER_SCRIPT)
 
 .PHONY: all clean
 
+# source c code
 OBJS += $(patsubst %.c, $(BUILD_DIR)/%.o, $(SRCS))
 ELFS += $(addsuffix .elf,$(BUILD_DIR)/$(PROGRAM))
-BINS += $(addsuffix .bin,$(BUILD_DIR)/$(PROGRAM))
 
-RUNTIME_SRCS += $(RUNTIME_DIR)/crt0.S
-RUNTIME_OBJS += $(patsubst $(RUNTIME_DIR)/%.S, $(BAREMETAL_ROOT)/build/runtime/%.o, $(RUNTIME_SRCS))
+# source ASM
+ASM_OBJS += $(patsubst %.S, $(BUILD_DIR)/%.o, $(ASM_SRCS))
 
+# run time ASM
+RUNTIME_ASMS += $(RUNTIME_DIR)/crt0.S
+RUNTIME_OBJS += $(patsubst $(RUNTIME_DIR)/%.S, $(BAREMETAL_ROOT)/build/runtime/%.o, $(RUNTIME_ASMS))
+
+# driver
 DRIVERS_SRCS += $(DRIVERS_DIR)/uart16550/uart16550.c
 DRIVERS_SRCS += $(DRIVERS_DIR)/clint/clint.c
 DRIVERS_OBJS += $(patsubst $(DRIVERS_DIR)/%.c, $(BAREMETAL_ROOT)/build/drivers/%.o, $(DRIVERS_SRCS))
 
+ALL_OBJS += $(OBJS) $(ASM_OBJS) $(RUNTIME_OBJS) $(DRIVERS_OBJS)
+
 DEPS += $(OBJS:.o=.d) $(DRIVERS_OBJS:.o=.d)
 
-all: $(ELFS) $(BINS) $(RUNTIME_OBJS) $(DRIVERS_OBJS)
+all: $(ELFS) $(ALL_OBJS)
 
 -include $(DEPS)
 
-$(BUILD_DIR)/%.bin: $(BUILD_DIR)/%.elf
-	$(OBJCOPY) $< -O binary $@
-
-$(ELFS): $(OBJS) $(RUNTIME_OBJS) $(DRIVERS_OBJS) $(LINKER_SCRIPT)
+$(ELFS): $(ALL_OBJS)
 	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
 
 $(BUILD_DIR)/%.o: %.c
 	mkdir -p $(@D)
 	$(CC) -c $(CPPFLAGS) $(CFLAGS) $(DEPFLAGS) $< -o $@
 
-# runtime
+# source asm
+$(BUILD_DIR)/%.o: %.S
+	mkdir -p $(@D)
+	$(CC) -c $(CPPFLAGS) $(ASFLAGS) $< -o $@
+
+# runtime asm
 $(BAREMETAL_ROOT)/build/runtime/%.o: $(RUNTIME_DIR)/%.S
 	mkdir -p $(@D)
 	$(CC) -c $(CPPFLAGS) $(ASFLAGS) $< -o $@

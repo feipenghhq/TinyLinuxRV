@@ -1,5 +1,6 @@
 #include "cpu/csr.h"
 
+#include <assert.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
@@ -88,8 +89,9 @@ void csr_init(csr_t *csr) {
 }
 
 int csr_access(csr_t *csr, int addr, int op, const uint64_t value, uint64_t *rdata, bool read_csr, bool write_csr) {
-    uint64_t *csr_reg   = NULL;
-    bool      read_only = false;
+    uint64_t *csr_reg       = NULL;
+    bool      read_only     = false;
+    bool      imp_read_only = false;
 
     switch (addr) {
         // Machine Trap Setup (MRW)
@@ -130,14 +132,24 @@ int csr_access(csr_t *csr, int addr, int op, const uint64_t value, uint64_t *rda
         case CSR_MSTATUS:
             *rdata = *csr_reg | 0x1800;
             break;
+        //case CSR_MIP:
+        //    *rdata = *csr_reg;
+        //    break;
         default:
             *rdata = *csr_reg;
             break;
         }
     }
 
+    // In our implementation, we make these CSR read only to Software
+    switch (addr) {
+    case CSR_MISA:
+    case CSR_MIP:
+        imp_read_only = true;
+    }
+
     // process write operation
-    if (csr_reg && write_csr) {
+    if (csr_reg && write_csr && !imp_read_only) {
         switch (op) {
         // swap the csr and the value
         case CSR_OP_RW: {
@@ -154,15 +166,8 @@ int csr_access(csr_t *csr, int addr, int op, const uint64_t value, uint64_t *rda
             *csr_reg &= ~value;
             break;
         }
-        default: {
-            LOG_ERROR("CPU: Unsupported CSR operation");
-            return 1;
-        }
         }
     }
-
-    // Restore MISA default value as MISA is RW but we don't want SW to change the field
-    misa_default(csr);
 
     return 0;
 }
@@ -219,4 +224,21 @@ uint64_t trap_exit(csr_t *csr) {
 
     // return mepc
     return csr->mepc & ~UINT64_C(0x3);
+}
+
+bool is_trap_enable(csr_t *csr, interrupt_code_t id, int mode) {
+    assert(mode == 1 || mode == 3);
+
+    bool mstatus_mie = csr_field_get(&csr->mstatus, mode, 1);
+    bool mie_enable  = csr_field_get(&csr->mie, (int)id, 1);
+    return mstatus_mie & mie_enable;
+}
+
+void csr_interrupt_update(csr_t *csr, bool eip, bool sip, bool tip) {
+    // update the MIP CSR register
+
+    // We currently only support Machine mode
+    csr_field_set(&csr->mip, INT_MEIP, 1, eip);
+    csr_field_set(&csr->mip, INT_MSIP, 1, sip);
+    csr_field_set(&csr->mip, INT_MTIP, 1, tip);
 }
