@@ -1,10 +1,16 @@
 
 BAREMETAL_ROOT = ../../../../software/baremetal
 EMULATOR_ROOT = ../../..
+RUNTIME_ROOT = $(BAREMETAL_ROOT)/runtime
 
 BUILD_DIR := build
 
-SRCS := plic.c
+SRCS += plic.c
+ASM_SRCS += trap.S
+
+RUNTIME_ASMS += $(RUNTIME_ROOT)/mtrap.S
+
+CPPFLAGS += -I$(RUNTIME_ROOT)
 
 PROGRAM := plic
 

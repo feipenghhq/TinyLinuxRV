@@ -24,8 +24,6 @@ typedef struct {
     uint64_t   base;
     plic_reg_t regs;
     bool       gw_busy[PLIC_MAX_INTERRUPT];
-    bool       MEIP;
-    bool       SEIP;
 } plic_t;
 
 void plic_reset(plic_t *plic);

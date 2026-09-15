@@ -4,6 +4,7 @@
 
 #include "addrmap.h"
 #include "mmio.h"
+#include "mtrap.h"
 #include "uart16550.h"
 
 #define putstr(str)         uart_putstr(UART0_BASE, str)
@@ -11,219 +12,95 @@
 #define putchar(ch)         uart_putchar(UART0_BASE, ch)
 #define getchar()           uart_getchar(UART0_BASE)
 #define readline(buf, size) uart_readline(UART0_BASE, buf, size)
+#define INTERRUPT_MASK      (UINT64_C(1) << 63)
 
-// test 1: check if interrupt process
-static int test1(void) {
-    int      error = 0;
-    uint32_t pending;
-    uint32_t id;
-    char     buf[100];
+#define write_csr(csr, value)                                            \
+    do {                                                                 \
+        __asm__ volatile("csrw " #csr ", %0" : : "r"(value) : "memory"); \
+    } while (0)
 
-    // Enabled the interrupt on both of the context
-    mmio_write32(PLIC_BASE + 0x002000, (1U << 10)); // enable the interrupt on context 0
-    mmio_write32(PLIC_BASE + 0x002080, (1U << 10)); // enable the interrupt on context 1
-    // Set priority to 1
-    mmio_write32(PLIC_BASE + 0x4 * 10, 1);
+#define read_csr(csr, value)                                           \
+    do {                                                               \
+        __asm__ volatile("csrr %0, " #csr : "=r"(value) : : "memory"); \
+    } while (0)
 
-    // User input
-    uart_putstr(UART0_BASE, "Please enter something less then 32 character\n");
+#define extract_mip(mip, bit) (mip & ((UINT64_C(1) << (bit))))
 
-    // read a character to make sure the user has entered something before checking PLIC status
-    buf[0] = (char)getchar();
-
-    // Check PLIC register to make sure we have the pending bit set
-    pending = mmio_read32(PLIC_BASE + 0x1000);
-    if (pending != (1U << 10)) {
-        putstr("test1: pending not set.\n");
-        error = 1;
-    }
-    // Claim the interrupt for context 0
-    id = mmio_read32(PLIC_BASE + 0x200004);
-    // We should get ID as 10
-    if (id != 10) {
-        putstr("test1: claim return incorrect ID: ");
-        putnum(id);
-        putchar('\n');
-        error = 1;
-    }
-    // We should see pending becomes zero
-    pending = mmio_read32(PLIC_BASE + 0x1000);
-    if (pending != 0) {
-        putstr("test1: pending not clear.\n");
-        error = 1;
-    }
-    // Now resolve the interrupt by reading from UART
-    readline(buf + 1, 32);
-    // Now complete the interrupt for context 0
-    mmio_write32(PLIC_BASE + 0x200004, 10);
-
-    return error;
-}
-
-// test 2: check enable
-static int test2(void) {
-    int      error = 0;
-    uint32_t pending;
-    uint32_t id;
-    char     buf[100];
-
-    // Enabled the interrupt on context 1
-    mmio_write32(PLIC_BASE + 0x002000, 0);          // disable the interrupt on context 0
-    mmio_write32(PLIC_BASE + 0x002080, (1U << 10)); // enable the interrupt on context 1
-    // Set priority to 1
-    mmio_write32(PLIC_BASE + 0x4 * 10, 1);
-
-    // User input
-    uart_putstr(UART0_BASE, "Please enter something less then 32 character\n");
-
-    // read a character to make sure the user has entered something before checking PLIC status
-    buf[0] = (char)getchar();
-
-    // Claim the interrupt for context 0
-    id = mmio_read32(PLIC_BASE + 0x200004);
-    // We should get ID as 0 as it is not enabled
-    if (id != 0) {
-        putstr("test2: claim context 0 return incorrect ID: ");
-        putnum(id);
-        putchar('\n');
-        error = 1;
-    }
-    // We should see pending still valid
-    pending = mmio_read32(PLIC_BASE + 0x1000);
-    if (pending != (1U << 10)) {
-        putstr("test2 pending is not set.\n");
-        error = 1;
-    }
-    // Claim the interrupt for context 1
-    id = mmio_read32(PLIC_BASE + 0x200004 + 0x1000);
-    // We should get ID as 10.
-    if (id != 10) {
-        putstr("test2: claim context 1 return incorrect ID: ");
-        putnum(id);
-        putchar('\n');
-        error = 1;
-    }
-    // We should see pending becomes zero
-    pending = mmio_read32(PLIC_BASE + 0x1000);
-    if (pending != 0) {
-        putstr("test2:  pending is not cleared.\n");
-        error = 1;
-    }
-    // Now resolve the interrupt by reading from UART
-    readline(buf + 1, 32);
-    // Now complete the interrupt for context 1
-    mmio_write32(PLIC_BASE + 0x200004 + 0x1000, 10);
-
-    return error;
-}
-
-// test 3: check priority = 0
-static int test3(void) {
-    int      error = 0;
-    uint32_t pending;
-    uint32_t id;
-    char     buf[100];
-
-    // Enabled the interrupt on context 0
-    mmio_write32(PLIC_BASE + 0x002000, (1U << 10)); // enable the interrupt on context 0
-    mmio_write32(PLIC_BASE + 0x002080, 0);          // disable the interrupt on context 1
-    // Set priority to 0
-    mmio_write32(PLIC_BASE + 0x4 * 10, 0);
-
-    // User input
-    uart_putstr(UART0_BASE, "Please enter something less then 32 character\n");
-
-    // read a character to make sure the user has entered something before checking PLIC status
-    buf[0] = (char)getchar();
-
-    // Claim the interrupt for context 0
-    id = mmio_read32(PLIC_BASE + 0x200004);
-    // We should get ID as 0 as it is not enabled
-    if (id != 0) {
-        putstr("test3: claim context 0 return incorrect ID: ");
-        putnum(id);
-        putchar('\n');
-        error = 1;
-    }
-    // We should see pending still valid
-    pending = mmio_read32(PLIC_BASE + 0x1000);
-    if (pending != (1U << 10)) {
-        putstr("test3 pending is not set.\n");
-        error = 1;
-    }
-    // Set priority to 1
-    mmio_write32(PLIC_BASE + 0x4 * 10, 1);
-    // Claim the interrupt for context 0
-    id = mmio_read32(PLIC_BASE + 0x200004);
-    // We should see pending becomes zero
-    pending = mmio_read32(PLIC_BASE + 0x1000);
-    if (pending != 0) {
-        putstr("test3:  pending is not cleared.\n");
-        error = 1;
-    }
-    // Now resolve the interrupt by reading from UART
-    readline(buf + 1, 32);
-    // Now complete the interrupt for context 0
-    mmio_write32(PLIC_BASE + 0x200004, 10);
-
-    return error;
-}
-
-// test 4: check threshold does not affect claim
-static int test4(void) {
-    int      error = 0;
-    uint32_t pending;
-    uint32_t id;
-    char     buf[100];
-
-    // Enabled the interrupt on context 0
-    mmio_write32(PLIC_BASE + 0x002000, (1U << 10)); // enable the interrupt on context 0
-    mmio_write32(PLIC_BASE + 0x002080, 0);          // disable the interrupt on context 1
-    // Set priority to 10
-    mmio_write32(PLIC_BASE + 0x4 * 10, 10);
-    // Set threshold equal to the interrupt priority. This suppresses the
-    // interrupt notification, but it must not prevent a claim.
-    mmio_write32(PLIC_BASE + 0x200000, 10);
-
-    // User input
-    uart_putstr(UART0_BASE, "Please enter something less then 32 character\n");
-
-    // read a character to make sure the user has entered something before checking PLIC status
-    buf[0] = (char)getchar();
-
-    // Claim the interrupt for context 0
-    id = mmio_read32(PLIC_BASE + 0x200004);
-    // Claim is not affected by threshold, so we should still get ID 10
-    if (id != 10) {
-        putstr("test4: (1) claim context 0 return incorrect ID: ");
-        putnum(id);
-        putchar('\n');
-        error = 1;
-    }
-    // A successful claim should clear pending
-    pending = mmio_read32(PLIC_BASE + 0x1000);
-    if (pending != 0) {
-        putstr("test4: (2) pending is not cleared.\n");
-        error = 1;
-    }
-    // Now resolve the interrupt by reading from UART
-    readline(buf + 1, 32);
-    // Now complete the interrupt for context 0
-    mmio_write32(PLIC_BASE + 0x200004, 10);
-
-    return error;
-}
+int  error     = 0;
+bool mip_meip  = false;
+bool processed = false;
+char buf[100];
 
 int main(void) {
-    int error;
     // enable uart RX buffer interrupt
     mmio_write8(UART0_BASE + 1, 1);
+    // enable PLIC context 0 which is meip
+    mmio_write32(PLIC_BASE + 0x002000, (1U << 10)); // enable the interrupt on context 0
+    // Set UART0 priority to 1
+    mmio_write32(PLIC_BASE + 0x4 * 10, 1);
 
-    error = test1();
-    error += test2();
-    error += test3();
-    error += test4();
+    // wait for the interrupt to complete
+    while (!processed)
+        ;
 
-    // Now the MIP/EIP interrupt should be removed
-    return error;
+    // check what user entered
+    putstr("User entered:\n");
+    putstr(buf);
+    putstr("\n");
+
+    if (!mip_meip)
+        return 1;
+    else
+        return error;
+}
+
+void trap_handler(trap_frame_t *tf) {
+    bool interrupt = false;
+
+    uint64_t cause;
+    uint64_t mip_value;
+    uint32_t pending;
+    uint32_t id;
+
+    // make sure we get an interrupt
+    interrupt = tf->mcause & INTERRUPT_MASK;
+    if (!interrupt) {
+        error = 1;
+        return;
+    }
+
+    cause = tf->mcause & (INTERRUPT_MASK - 1);
+    switch (cause) {
+    case 11: // MEIP
+        read_csr(mip, mip_value);
+        mip_meip = extract_mip(mip_value, 11) != 0;
+        // Check PLIC register to make sure we have the pending bit set
+        pending = mmio_read32(PLIC_BASE + 0x1000);
+        if (pending != (1U << 10)) {
+            error = 3;
+            return;
+        }
+        // Claim the interrupt for context 0
+        id = mmio_read32(PLIC_BASE + 0x200004);
+        if (id != 10) {
+            error = 4;
+            return;
+        }
+        // pending should be zero now
+        pending = mmio_read32(PLIC_BASE + 0x1000);
+        if (pending != 0) {
+            error = 5;
+            return;
+        }
+        // Resolve the interrupt by reading from UART
+        readline(buf, 32);
+        // Complete the interrupt for context 0
+        mmio_write32(PLIC_BASE + 0x200004, 10);
+        processed = true;
+        break;
+
+    default:
+        error = 2;
+        break;
+    }
 }

@@ -191,8 +191,6 @@ static int get_claim_id(plic_t *plic, int context) {
 //---------------------------------------------------------
 
 void plic_reset(plic_t *plic) {
-    plic->MEIP = false;
-    plic->SEIP = false;
     memset(&plic->regs, 0, sizeof(plic->regs));
     memset(plic->gw_busy, false, sizeof(plic->gw_busy));
 }

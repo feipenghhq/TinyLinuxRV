@@ -117,7 +117,7 @@ bool device_irq_level(dev_list_t *dev, bool *msip, bool *mtip, bool *meip) {
 
     *msip = ((clint_t *)dev->clint.device)->MSIP;
     *mtip = ((clint_t *)dev->clint.device)->MTIP;
-    *meip = ((plic_t *)dev->plic.device)->MEIP;
+    *meip = plic_meip(dev->plic.device);
 
     return *msip | *mtip | *meip;
 }
