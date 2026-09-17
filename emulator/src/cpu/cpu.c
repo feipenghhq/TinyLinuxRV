@@ -7,6 +7,7 @@
 #include "bus/bus.h"
 #include "cpu/csr.h"
 #include "cpu/decode.h"
+#include "device/clint.h"
 #include "utils/log.h"
 
 // ----------------------------------------------
@@ -339,19 +340,19 @@ static void decode(uint32_t inst, inst_dec_t *inst_dec) {
     } while (0)
 
 // Execute CSR instruction
-#define EXEC_CSR(op, value, rd, rs1)                                                        \
-    do {                                                                                    \
-        uint64_t rdata;                                                                     \
-        bool     read  = !((rd) == 0 && (op) == CSR_OP_RW);                                 \
-        bool     write = !((rs1) == 0 && ((op) == CSR_OP_RS || (op) == CSR_OP_RC));         \
-        if (csr_access(&cpu->csr, inst_dec.csr, (op), (value), &rdata, read, write) != 0) { \
-            trap_cause = ILLEGAL_INSTRUCTION;                                               \
-            trap_val   = inst;                                                              \
-            goto raise_exception;                                                           \
-        }                                                                                   \
-        if ((rd) != 0) {                                                                    \
-            RD() = rdata;                                                                   \
-        }                                                                                   \
+#define EXEC_CSR(op, value, rd, rs1)                                                                    \
+    do {                                                                                                \
+        uint64_t rdata;                                                                                 \
+        bool     read  = !((rd) == 0 && (op) == CSR_OP_RW);                                             \
+        bool     write = !((rs1) == 0 && ((op) == CSR_OP_RS || (op) == CSR_OP_RC));                     \
+        if (csr_access(&cpu->csr, inst_dec.csr, (op), (value), &rdata, read, write, time_value) != 0) { \
+            trap_cause = ILLEGAL_INSTRUCTION;                                                           \
+            trap_val   = inst;                                                                          \
+            goto raise_exception;                                                                       \
+        }                                                                                               \
+        if ((rd) != 0) {                                                                                \
+            RD() = rdata;                                                                               \
+        }                                                                                               \
     } while (0)
 
 // Helper Macro for LR/SC/AMO
@@ -424,9 +425,14 @@ void cpu_execute(cpu_t *cpu, uint32_t inst, bus_t *bus) {
 
     uint64_t trap_cause = 0;
     uint64_t trap_val   = 0;
+    bool     enter_trap = false;
+
+    uint64_t time_value;
 
     decode(inst, &inst_dec);
     next_pc = PC() + 4; // precalculate next pc, for most of the instruction it is pc + 4
+
+    time_value = clint_mtime(bus->devices->clint.device);
 
     // update interrupt pending (MIP) for CSR
     csr_interrupt_update(&cpu->csr, cpu->meip, cpu->msip, cpu->mtip);
@@ -601,11 +607,17 @@ illegal_instruction:
 raise_exception:
     LOG_DEBUG("CPU: Raise an exception/interrupt at PC: %lx, instruction: %x. Cause: %lx. Val: %lx", cpu->pc, inst,
               trap_cause, trap_val);
-    next_pc = trap_enter(&cpu->csr, trap_cause, trap_val, PC());
+    next_pc    = trap_enter(&cpu->csr, trap_cause, trap_val, PC());
+    enter_trap = true;
 
 end_exec:
     cpu->regs[0] = 0; // restore reg[0] to zero
     PC()         = next_pc;
+    csr_cycle_inc(&cpu->csr);
+    if (!enter_trap) {
+        csr_inst_retire(&cpu->csr);
+    }
+    csr_update_saved_mcountinhibit(&cpu->csr);
 }
 
 void cpu_print_regs(cpu_t *cpu) {

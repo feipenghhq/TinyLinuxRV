@@ -122,3 +122,7 @@ bool clint_msip(clint_t *clint) {
 bool clint_mtip(clint_t *clint) {
     return clint->MTIP;
 }
+
+uint64_t clint_mtime(clint_t *clint) {
+    return clint->reg.mtime;
+}

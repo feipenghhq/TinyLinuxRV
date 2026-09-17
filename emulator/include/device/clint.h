@@ -26,5 +26,6 @@ void clint_mtime_tick(clint_t *clint);
 bool clint_irq_level(clint_t *clint);
 bool clint_msip(clint_t *clint);
 bool clint_mtip(clint_t *clint);
+uint64_t clint_mtime(clint_t *clint);
 
 #endif

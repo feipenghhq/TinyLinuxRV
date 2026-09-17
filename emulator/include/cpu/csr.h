@@ -24,13 +24,23 @@ typedef struct {
     uint64_t mcause;
     uint64_t mtval;
     uint64_t mip;
+    uint64_t mcountinhibit;
+    uint64_t mcycle;
+    uint64_t minstret;
     uint64_t mvendorid;
     uint64_t marchid;
     uint64_t mimpid;
     uint64_t mhartid;
-    // counter CSR
-    // TBD
 
+    // Not a CSR register but required from C implementation perspective.
+    uint64_t mtime; // a copy of the mtime register in CLINT. Get updated, when csr_access is called
+} csr_reg_t;
+
+typedef struct {
+    csr_reg_t csr_reg;
+    uint64_t  saved_mcountinhibit; // save mcountinhibit as the mcycle/minstret is based on the value before written
+    bool      wrote_mcycle;
+    bool      wrote_minstret;
 } csr_t;
 
 typedef enum {
@@ -63,10 +73,14 @@ typedef enum {
 } interrupt_code_t;
 
 void     csr_init(csr_t *csr);
-int      csr_access(csr_t *csr, int addr, int op, const uint64_t value, uint64_t *rdata, bool read_csr, bool write_csr);
+int      csr_access(csr_t *csr, int addr, int op, const uint64_t value, uint64_t *rdata, bool read_csr, bool write_csr,
+                    uint64_t time_value);
 uint64_t trap_enter(csr_t *csr, uint64_t cause, uint64_t mtval, uint64_t pc);
 uint64_t trap_exit(csr_t *csr);
 bool     is_trap_enable(csr_t *csr, interrupt_code_t id, int mode);
 void     csr_interrupt_update(csr_t *csr, bool eip, bool sip, bool tip);
+void     csr_inst_retire(csr_t *csr);
+void     csr_cycle_inc(csr_t *csr);
+void     csr_update_saved_mcountinhibit(csr_t *csr);
 
 #endif
