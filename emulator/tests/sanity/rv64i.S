@@ -94,9 +94,12 @@ jalr_target:
     # Can't test ecall anymore after introducing exception
     #ecall
 
-    # End the smoke test using the temporary Phase 1 halt convention.
     addi a0, x0, 0
-    ebreak
+
+    # write to syscon with poweroff command to indicate test end
+    li t0, 0x00100000
+    li t1, 0x1
+    sw t1, 0(t0)
 
     .balign 8
 scratch:

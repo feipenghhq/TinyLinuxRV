@@ -83,11 +83,11 @@ run-elf: rvemu
 
 run-fib: rvemu
 	$(MAKE) -C $(BAREMETAL_DIR) fib
-	./rvemu --format elf $(BAREMETAL_DIR)/build/examples/fib/fib.elf
+	./rvemu  $(BAREMETAL_DIR)/build/examples/fib/fib.elf
 
 run-baremetal-test: rvemu
 	$(MAKE) -C $(BAREMETAL_DIR) baremetal-test
-	./rvemu --format bin --poison-ram $(BAREMETAL_DIR)/build/examples/baremetal-test/baremetal-test.bin
+	./rvemu --poison-ram $(BAREMETAL_DIR)/build/examples/baremetal-test/baremetal-test.elf
 
 #-------------------------------------------------
 # Run sanity test

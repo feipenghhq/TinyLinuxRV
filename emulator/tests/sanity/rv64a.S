@@ -103,8 +103,10 @@ pass:
     addi a0, x0, 0
     j end
 end:
-    # End the smoke test using the temporary Phase 1 halt convention.
-    ebreak
+    # write to syscon with poweroff command to indicate test end
+    li t0, 0x00100000
+    li t1, 0x1
+    sw t1, 0(t0)
 
 
     .section .data

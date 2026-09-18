@@ -562,8 +562,7 @@ void cpu_step(cpu_t *cpu, bus_t *bus, uint32_t inst, bool inst_valid) {
 
     case OPCODE_SYSTEM:
         INSTPAT(ECALL, trap_cause = ECALL_FROM_M_MODE; trap_val = 0; goto raise_exception);
-        // Treat ebreak as the temporary halt convention
-        INSTPAT(EBREAK, cpu->halted = true);
+        INSTPAT(EBREAK, trap_cause = BREAKPOINT; trap_val = PC(); goto raise_exception);
         // ZICSR
         INSTPAT(CSRRW, EXEC_CSR(CSR_OP_RW, RS1(), inst_dec.rd, inst_dec.rs1));
         INSTPAT(CSRRS, EXEC_CSR(CSR_OP_RS, RS1(), inst_dec.rd, inst_dec.rs1));

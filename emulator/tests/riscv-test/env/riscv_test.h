@@ -43,17 +43,23 @@
 // Pass/Fail Macro
 //-----------------------------------------------------------------------
 
+// write to syscon with poweroff command to indicate test end
+#define TEST_END       \
+    li t0, 0x00100000; \
+    li t1, 0x1;        \
+    sw t1, 0(t0)
+
 #define RVTEST_PASS \
     fence;          \
     li a0, 0;       \
-    ebreak
+    TEST_END
 
 #define TESTNUM gp
 #define RVTEST_FAIL \
     fence;          \
     li a0, 1;       \
     mv a1, TESTNUM; \
-    ebreak
+    TEST_END
 
 //-----------------------------------------------------------------------
 // Data Section Macro
