@@ -38,9 +38,9 @@ typedef struct {
 
 typedef struct {
     csr_reg_t csr_reg;
-    uint64_t  saved_mcountinhibit; // save mcountinhibit as the mcycle/minstret is based on the value before written
-    bool      wrote_mcycle;
-    bool      wrote_minstret;
+    uint64_t  starting_mcountinhibit; // save mcountinhibit as the mcycle/minstret is based on the value before written
+    bool      mcycle_written;
+    bool      minstret_written;
 } csr_t;
 
 typedef enum {
@@ -78,9 +78,7 @@ int      csr_access(csr_t *csr, int addr, int op, const uint64_t value, uint64_t
 uint64_t trap_enter(csr_t *csr, uint64_t cause, uint64_t mtval, uint64_t pc);
 uint64_t trap_exit(csr_t *csr);
 bool     is_trap_enable(csr_t *csr, interrupt_code_t id, int mode);
-void     csr_interrupt_update(csr_t *csr, bool eip, bool sip, bool tip);
-void     csr_inst_retire(csr_t *csr);
-void     csr_cycle_inc(csr_t *csr);
-void     csr_update_saved_mcountinhibit(csr_t *csr);
+void     csr_begin_update(csr_t *csr, bool eip, bool sip, bool tip);
+void     csr_end_update(csr_t *csr, bool retired);
 
 #endif

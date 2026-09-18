@@ -6,8 +6,8 @@
 
 #include "bus/bus.h"
 #include "cpu/cpu.h"
+#include "cpu/cpu_exec.h"
 #include "device/device.h"
-#include "device/syscon.h"
 #include "memory/memory.h"
 #include "utils/iringbuf.h"
 #include "utils/log.h"
@@ -18,8 +18,6 @@
 typedef enum FILE_TYPE { AUTO, BIN, ELF } FILE_TYPE_t;
 
 typedef enum RUN_MODE { NORMAL, RISCV_TESTS } RUN_MODE_t;
-
-typedef enum EXEC_STATUS { FINISH, MEM_ERROR, CPU_ERROR, DEVICE_ERROR, POWEROFF, TIMEOUT } EXEC_STATUS_t;
 
 typedef struct {
     long        max_instruction;
@@ -209,34 +207,22 @@ static int boot(memory_t *memory, dev_list_t *devices, cpu_t *cpu, argument_t *a
 }
 
 // -------------------------------------------------------------------
-// Common reset function
-// -------------------------------------------------------------------
-static void reset(dev_list_t *devices, cpu_t *cpu) {
-    // re-initialize cpu
-    cpu_init(cpu);
-    // reset device
-    device_reset(devices);
-    // Noting to be done for memory
-}
-
-// -------------------------------------------------------------------
 // Main function
 // -------------------------------------------------------------------
 int main(int argc, char **argv) {
-    argument_t    argument = {.max_instruction = 0,
-                              .format          = AUTO,
-                              .mode            = NORMAL,
-                              .file            = NULL,
-                              .poison_ram      = false,
-                              .dram_size       = RAM_SIZE,
-                              .trace           = false};
-    cpu_t         cpu;
-    dev_list_t    devices;
-    memory_t      memory;
-    bus_t         bus;
-    uint32_t      inst;
-    long          inst_count  = 0;
-    EXEC_STATUS_t exec_status = FINISH;
+    argument_t argument = {.max_instruction = 0,
+                           .format          = AUTO,
+                           .mode            = NORMAL,
+                           .file            = NULL,
+                           .poison_ram      = false,
+                           .dram_size       = RAM_SIZE,
+                           .trace           = false};
+    cpu_t      cpu;
+    dev_list_t devices;
+    memory_t   memory;
+    bus_t      bus;
+
+    CPU_EXEC_STATUS_t exec_status = FINISH;
 
     bus.devices = &devices;
     bus.memory  = &memory;
@@ -251,50 +237,7 @@ int main(int argc, char **argv) {
         return EXIT_FAILURE;
     }
 
-    // main instruction execution loop
-    while (!cpu.halted) {
-        // read instruction from memory
-        if (bus_read(&bus, cpu.pc, 4, &inst) != 0) {
-            LOG_ERROR("Memory read failed. Unable to fetch instruction");
-            exec_status = MEM_ERROR;
-            break;
-        }
-
-        if (argument.trace) {
-            iringbuf_write(cpu.pc, inst);
-        }
-
-        // execute the instruction
-        cpu_execute(&cpu, inst, &bus);
-
-        // check poweroff/reboot
-        if (syscon_poweroff_requested(devices.syscon.device)) {
-            LOG_INFO("Poweroff requested");
-            exec_status = POWEROFF;
-            break;
-        }
-
-        if (syscon_reboot_requested(devices.syscon.device)) {
-            LOG_INFO("Reboot requested");
-            reset(&devices, &cpu);
-        }
-
-        // check instruction limit
-        inst_count++;
-        if (argument.max_instruction > 0 && argument.max_instruction <= inst_count) {
-            LOG_ERROR("Reach maximum instruction count but the program has not finished yet");
-            exec_status = TIMEOUT;
-            break;
-        }
-
-        // Device update
-        if (device_update(&devices) != 0) {
-            LOG_ERROR("Device poll input failed. Exiting.");
-            exec_status = DEVICE_ERROR;
-            break;
-        }
-        device_irq_level(&devices, &cpu.msip, &cpu.mtip, &cpu.meip);
-    }
+    exec_status = cpu_exec(&cpu, &bus, &devices, argument.trace, argument.max_instruction);
 
     // free up memory
     poweroff(&memory, &devices);

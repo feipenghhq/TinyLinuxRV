@@ -63,16 +63,16 @@ enum {
 // ----------------------------------------------
 
 static inline uint64_t csr_field_get(uint64_t *reg, int pos, int width) {
-    uint64_t mask = (1U << width) - 1;
+    uint64_t mask = (UINT64_C(1) << width) - 1;
     return (*reg >> pos) & mask;
 }
 
 static inline void csr_field_set(uint64_t *reg, int pos, int width, uint64_t value) {
-    uint64_t mask          = (1U << width) - 1;
+    uint64_t mask          = (UINT64_C(1) << width) - 1;
     uint64_t mask_shifted  = mask << pos;
     uint64_t value_shifted = value << pos;
 
-    *reg = (*reg & ~mask_shifted) | value_shifted;
+    *reg = (*reg & ~mask_shifted) | (value_shifted & mask_shifted);
 }
 
 static void misa_default(csr_t *csr) {
@@ -103,10 +103,7 @@ int csr_access(csr_t *csr, int addr, int op, const uint64_t value, uint64_t *rda
     bool      read_only     = false;
     bool      imp_read_only = false;
 
-    csr->wrote_mcycle        = false;
-    csr->wrote_minstret      = false;
-    csr->saved_mcountinhibit = csr->csr_reg.mcountinhibit;
-    csr->csr_reg.mtime       = time_value;
+    csr->csr_reg.mtime = time_value;
 
     switch (addr) {
         // Machine Trap Setup (MRW)
@@ -199,10 +196,10 @@ int csr_access(csr_t *csr, int addr, int op, const uint64_t value, uint64_t *rda
         // handling specific register
         switch (addr) {
         case CSR_MCYCLE:
-            csr->wrote_mcycle = true;
+            csr->mcycle_written = true;
             break;
         case CSR_MINSTRET:
-            csr->wrote_minstret = true;
+            csr->minstret_written = true;
             break;
         }
     }
@@ -216,6 +213,7 @@ uint64_t trap_enter(csr_t *csr, uint64_t cause, uint64_t mtval, uint64_t pc) {
     uint64_t trap_vec;
     uint64_t mie;
     uint64_t interrupt;
+    uint64_t cause_code;
 
     // update mstatus
     // Currently only support machine mode
@@ -239,10 +237,11 @@ uint64_t trap_enter(csr_t *csr, uint64_t cause, uint64_t mtval, uint64_t pc) {
 
     // return the trap vector
     interrupt     = csr_field_get(&csr->csr_reg.mcause, 63, 1);
+    cause_code    = csr_field_get(&csr->csr_reg.mcause, 0, 63);
     trap_vec_base = csr->csr_reg.mtvec & ~UINT64_C(0x3);
     trap_vec_mode = csr->csr_reg.mtvec & 0x3;
     if (trap_vec_mode == 1 && interrupt) {
-        trap_vec = trap_vec_base + 4 * (uint64_t)cause;
+        trap_vec = trap_vec_base + 4 * (uint64_t)cause_code;
     } else {
         trap_vec = trap_vec_base;
     }
@@ -272,34 +271,28 @@ bool is_trap_enable(csr_t *csr, interrupt_code_t id, int mode) {
     return mstatus_mie & mie_enable;
 }
 
-void csr_interrupt_update(csr_t *csr, bool eip, bool sip, bool tip) {
-    // update the MIP CSR register
+void csr_begin_update(csr_t *csr, bool eip, bool sip, bool tip) {
+    // update csr internal status at the beginning of execution
+    csr->mcycle_written         = false;
+    csr->minstret_written       = false;
+    csr->starting_mcountinhibit = csr->csr_reg.mcountinhibit;
 
-    // We currently only support Machine mode
+    // Update mip register
     csr_field_set(&csr->csr_reg.mip, INT_MEIP, 1, eip);
     csr_field_set(&csr->csr_reg.mip, INT_MSIP, 1, sip);
     csr_field_set(&csr->csr_reg.mip, INT_MTIP, 1, tip);
 }
 
-void csr_inst_retire(csr_t *csr) {
-    if (!csr_field_get(&csr->saved_mcountinhibit, 2, 1) && !csr->wrote_minstret) {
+void csr_end_update(csr_t *csr, bool retired) {
+
+    if (!csr_field_get(&csr->starting_mcountinhibit, 2, 1) && !csr->minstret_written && retired) {
         csr->csr_reg.minstret++;
     }
-    // csr_inst_retire will always be executed for every instruction so it will always be reset at end of the cycle.
-    csr->wrote_minstret = false;
 
-}
-
-void csr_cycle_inc(csr_t *csr) {
-    if (!csr_field_get(&csr->saved_mcountinhibit, 0, 1) && !csr->wrote_mcycle) {
+    if (!csr_field_get(&csr->starting_mcountinhibit, 0, 1) && !csr->mcycle_written) {
         // assuming each instruction takes 1 clock for the emulator
         csr->csr_reg.mcycle++;
     }
-    // csr_cycle_inc is not executed for every instruction but
-    // if exception/interrupt is triggered, then this flag will not be set.
-    csr->wrote_mcycle = false;
-}
-
-void csr_update_saved_mcountinhibit(csr_t *csr) {
-    csr->saved_mcountinhibit = csr->csr_reg.mcountinhibit;
+    csr->minstret_written = false;
+    csr->mcycle_written   = false;
 }

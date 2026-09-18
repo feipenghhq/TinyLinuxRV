@@ -343,8 +343,9 @@ static void decode(uint32_t inst, inst_dec_t *inst_dec) {
 #define EXEC_CSR(op, value, rd, rs1)                                                                    \
     do {                                                                                                \
         uint64_t rdata;                                                                                 \
-        bool     read  = !((rd) == 0 && (op) == CSR_OP_RW);                                             \
-        bool     write = !((rs1) == 0 && ((op) == CSR_OP_RS || (op) == CSR_OP_RC));                     \
+        bool     read       = !((rd) == 0 && (op) == CSR_OP_RW);                                        \
+        bool     write      = !((rs1) == 0 && ((op) == CSR_OP_RS || (op) == CSR_OP_RC));                \
+        uint64_t time_value = clint_mtime(bus->devices->clint.device);                                  \
         if (csr_access(&cpu->csr, inst_dec.csr, (op), (value), &rdata, read, write, time_value) != 0) { \
             trap_cause = ILLEGAL_INSTRUCTION;                                                           \
             trap_val   = inst;                                                                          \
@@ -419,7 +420,7 @@ void cpu_init(cpu_t *cpu) {
 /**
  * Execute a SINGLE instruction
  */
-void cpu_execute(cpu_t *cpu, uint32_t inst, bus_t *bus) {
+void cpu_step(cpu_t *cpu, bus_t *bus, uint32_t inst, bool inst_valid) {
     inst_dec_t inst_dec;
     uint64_t   next_pc;
 
@@ -427,15 +428,19 @@ void cpu_execute(cpu_t *cpu, uint32_t inst, bus_t *bus) {
     uint64_t trap_val   = 0;
     bool     enter_trap = false;
 
-    uint64_t time_value;
+    // connect interrupt to csr and also reset some csr internal status
+    csr_begin_update(&cpu->csr, cpu->meip, cpu->msip, cpu->mtip);
+
+    // check if instruction is valid or not, if not then just raise exception and do nothing
+    // if at the same time there is interrupt pending, the emulator choose to handle the exception first
+    if (!inst_valid) {
+        trap_cause = INST_ACCESS_FAULT;
+        trap_val   = PC();
+        goto raise_exception;
+    }
 
     decode(inst, &inst_dec);
     next_pc = PC() + 4; // precalculate next pc, for most of the instruction it is pc + 4
-
-    time_value = clint_mtime(bus->devices->clint.device);
-
-    // update interrupt pending (MIP) for CSR
-    csr_interrupt_update(&cpu->csr, cpu->meip, cpu->msip, cpu->mtip);
 
     // Check if there are pending interrupt
     // external > software > timer
@@ -613,11 +618,7 @@ raise_exception:
 end_exec:
     cpu->regs[0] = 0; // restore reg[0] to zero
     PC()         = next_pc;
-    csr_cycle_inc(&cpu->csr);
-    if (!enter_trap) {
-        csr_inst_retire(&cpu->csr);
-    }
-    csr_update_saved_mcountinhibit(&cpu->csr);
+    csr_end_update(&cpu->csr, !enter_trap);
 }
 
 void cpu_print_regs(cpu_t *cpu) {
