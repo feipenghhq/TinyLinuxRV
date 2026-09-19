@@ -10,6 +10,12 @@ typedef enum {
     CSR_OP_RC = 3,
 } csr_op_t;
 
+typedef enum {
+    PRIV_U = 0,
+    PRIV_S = 1,
+    PRIV_M = 3,
+} priv_mode_t;
+
 typedef struct {
     // Machine Mode
     uint64_t mstatus;
@@ -31,7 +37,18 @@ typedef struct {
     uint64_t marchid;
     uint64_t mimpid;
     uint64_t mhartid;
-
+    // Supervisor Mode
+    uint64_t sstatus; // sstatus is a dummy csr register sstatus is subset of mstatus
+    uint64_t sie;     // sie is a dummy csr register sstatus is subset of mie
+    uint64_t stvec;
+    uint64_t scounteren;
+    uint64_t scountinhibit;
+    uint64_t sscratch;
+    uint64_t sepc;
+    uint64_t scause;
+    uint64_t stval;
+    uint64_t sip; // sip is a dummy csr register sstatus is subset of mip
+    uint64_t stap;
     // Not a CSR register but required from C implementation perspective.
     uint64_t mtime; // a copy of the mtime register in CLINT. Get updated, when csr_access is called
 } csr_reg_t;
@@ -75,10 +92,13 @@ typedef enum {
 void     csr_init(csr_t *csr);
 int      csr_access(csr_t *csr, int addr, int op, const uint64_t value, uint64_t *rdata, bool read_csr, bool write_csr,
                     uint64_t time_value);
-uint64_t trap_enter(csr_t *csr, uint64_t cause, uint64_t mtval, uint64_t pc);
-uint64_t trap_exit(csr_t *csr);
-bool     is_trap_enable(csr_t *csr, interrupt_code_t id, int mode);
+uint64_t trap_enter(csr_t *csr, uint64_t cause, uint64_t mtval, uint64_t pc, priv_mode_t *priv);
+uint64_t trap_exit_mret(csr_t *csr, priv_mode_t *priv);
+uint64_t trap_exit_sret(csr_t *csr, priv_mode_t *priv);
+bool     interrupt_pending_and_enabled(csr_t *csr, priv_mode_t priv, interrupt_code_t *id);
+bool     interrupt_pending(csr_t *csr);
 void     csr_begin_update(csr_t *csr, bool eip, bool sip, bool tip);
 void     csr_end_update(csr_t *csr, bool retired);
+bool     check_sret_trap(csr_t *csr, priv_mode_t priv);
 
 #endif

@@ -1,5 +1,6 @@
-from pathlib import Path
 import subprocess
+from pathlib import Path
+
 # import shlex
 
 RED = "\033[1;31m"
@@ -98,18 +99,21 @@ def run_all_suites():
     rv64um = TestSuite("rv64um")
     rv64ua = TestSuite("rv64ua")
     rv64mi = TestSuite("rv64mi", skip_list=("pmpaddr", "breakpoint"))
+    rv64si = TestSuite("rv64si", skip_list=("dirty", "icache-alias"))
 
     passed = True
     passed &= rv64ui.run()
     passed &= rv64um.run()
     passed &= rv64ua.run()
     passed &= rv64mi.run()
+    passed &= rv64si.run()
 
     print_test_result(passed)
     rv64ui.summary()
     rv64um.summary()
     rv64ua.summary()
     rv64mi.summary()
+    rv64si.summary()
 
     if passed:
         return 0

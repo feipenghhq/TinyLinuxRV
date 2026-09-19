@@ -414,6 +414,8 @@ void cpu_init(cpu_t *cpu) {
     memset(cpu, 0, sizeof(*cpu)); // reset everything to 0/false
     cpu->pc = RST_VEC;
     csr_init(&cpu->csr);
+    cpu->wfi  = false;
+    cpu->priv = PRIV_M; // starting from M mode
     LOG_INFO("Initialize CPU done");
 }
 
@@ -427,6 +429,20 @@ void cpu_step(cpu_t *cpu, bus_t *bus, uint32_t inst, bool inst_valid) {
     uint64_t trap_cause = 0;
     uint64_t trap_val   = 0;
     bool     enter_trap = false;
+
+    interrupt_code_t int_id;
+
+    // if in WFI state, check if there are interrupt
+    if (cpu->wfi) {
+        // if there are interrupt then wake up the cpu
+        if (interrupt_pending(&cpu->csr)) {
+            cpu->wfi = false;
+        }
+        // no interrupt, keep waiting
+        else {
+            return;
+        }
+    }
 
     // connect interrupt to csr and also reset some csr internal status
     csr_begin_update(&cpu->csr, cpu->meip, cpu->msip, cpu->mtip);
@@ -443,17 +459,8 @@ void cpu_step(cpu_t *cpu, bus_t *bus, uint32_t inst, bool inst_valid) {
     next_pc = PC() + 4; // precalculate next pc, for most of the instruction it is pc + 4
 
     // Check if there are pending interrupt
-    // external > software > timer
-    if (cpu->meip && is_trap_enable(&cpu->csr, INT_MEIP, 3)) {
-        trap_cause = TRAP_INTERRUPT | INT_MEIP;
-        goto raise_exception;
-    }
-    if (cpu->msip && is_trap_enable(&cpu->csr, INT_MSIP, 3)) {
-        trap_cause = TRAP_INTERRUPT | INT_MSIP;
-        goto raise_exception;
-    }
-    if (cpu->mtip && is_trap_enable(&cpu->csr, INT_MTIP, 3)) {
-        trap_cause = TRAP_INTERRUPT | INT_MTIP;
+    if (interrupt_pending_and_enabled(&cpu->csr, cpu->priv, &int_id)) {
+        trap_cause = TRAP_INTERRUPT | int_id;
         goto raise_exception;
     }
 
@@ -561,7 +568,10 @@ void cpu_step(cpu_t *cpu, bus_t *bus, uint32_t inst, bool inst_valid) {
         goto illegal_instruction;
 
     case OPCODE_SYSTEM:
-        INSTPAT(ECALL, trap_cause = ECALL_FROM_M_MODE; trap_val = 0; goto raise_exception);
+        INSTPAT(ECALL, trap_cause = cpu->priv == PRIV_M   ? ECALL_FROM_U_MODE
+                                    : cpu->priv == PRIV_S ? ECALL_FROM_S_MODE
+                                                          : ECALL_FROM_U_MODE;
+                trap_val = 0; goto raise_exception);
         INSTPAT(EBREAK, trap_cause = BREAKPOINT; trap_val = PC(); goto raise_exception);
         // ZICSR
         INSTPAT(CSRRW, EXEC_CSR(CSR_OP_RW, RS1(), inst_dec.rd, inst_dec.rs1));
@@ -570,7 +580,18 @@ void cpu_step(cpu_t *cpu, bus_t *bus, uint32_t inst, bool inst_valid) {
         INSTPAT(CSRRWI, EXEC_CSR(CSR_OP_RW, inst_dec.imm, inst_dec.rd, inst_dec.rs1));
         INSTPAT(CSRRSI, EXEC_CSR(CSR_OP_RS, inst_dec.imm, inst_dec.rd, inst_dec.rs1));
         INSTPAT(CSRRCI, EXEC_CSR(CSR_OP_RC, inst_dec.imm, inst_dec.rd, inst_dec.rs1));
-        INSTPAT(MRET, next_pc = trap_exit(&cpu->csr));
+        INSTPAT(MRET, next_pc = trap_exit_mret(&cpu->csr, &cpu->priv));
+        INSTPAT(
+            SRET, do {
+                if (check_sret_trap(&cpu->csr, cpu->priv)) {
+                    trap_cause = ILLEGAL_INSTRUCTION;
+                    trap_val   = inst;
+                    goto raise_exception;
+                } else {
+                    next_pc = trap_exit_sret(&cpu->csr, &cpu->priv);
+                }
+            } while (0));
+        INSTPAT(WFI, cpu->wfi = true;);
         goto illegal_instruction;
 
     case OPCODE_AMO:
@@ -611,7 +632,7 @@ illegal_instruction:
 raise_exception:
     LOG_DEBUG("CPU: Raise an exception/interrupt at PC: %lx, instruction: %x. Cause: %lx. Val: %lx", cpu->pc, inst,
               trap_cause, trap_val);
-    next_pc    = trap_enter(&cpu->csr, trap_cause, trap_val, PC());
+    next_pc    = trap_enter(&cpu->csr, trap_cause, trap_val, PC(), &cpu->priv);
     enter_trap = true;
 
 end_exec:

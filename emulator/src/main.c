@@ -268,6 +268,7 @@ int main(int argc, char **argv) {
         } else {
             if (argument.trace) {
                 iringbuf_print();
+                cpu_print_regs(&cpu);
             }
             return EXIT_FAILURE;
         }
