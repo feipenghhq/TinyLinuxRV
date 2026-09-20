@@ -4,3 +4,6 @@
 [submodule "third-party/coremark"]
 	path = third-party/coremark
 	url = git@github.com:eembc/coremark.git
+[submodule "third-party/freertos-kernel"]
+	path = third-party/freertos-kernel
+	url = https://github.com/FreeRTOS/FreeRTOS-Kernel.git
