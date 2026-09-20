@@ -97,12 +97,12 @@ The emulator provides 128 MiB of DRAM by default at
 
 ## Interrupt Map
 
-| Source                   | Route          |               Interrupt ID | Status       |
-| ------------------------ | -------------- | -------------------------: | ------------ |
-| VirtIO MMIO slots 0-7    | PLIC           |                        1-8 | Planned      |
-| UART0                    | PLIC           |                         10 | Implemented  |
-| CLINT software interrupt | Direct to hart | Machine software interrupt | Pending only |
-| CLINT timer interrupt    | Direct to hart |    Machine timer interrupt | Pending only |
+| Source                   | Route          |               Interrupt ID | Status      |
+| ------------------------ | -------------- | -------------------------: | ----------- |
+| VirtIO MMIO slots 0-7    | PLIC           |                        1-8 | Planned     |
+| UART0                    | PLIC           |                         10 | Implemented |
+| CLINT software interrupt | Direct to hart | Machine software interrupt | Implemented |
+| CLINT timer interrupt    | Direct to hart |    Machine timer interrupt | Implemented |
 
 PLIC interrupt source 9 and source IDs above 10 are reserved for future
 devices. Interrupt IDs describe PLIC sources and are independent of MMIO

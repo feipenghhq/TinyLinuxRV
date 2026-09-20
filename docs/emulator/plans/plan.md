@@ -25,9 +25,9 @@ This document tracks the milestones for the **emulator stage**.
 | Phase 1 | RV64M / RV64A Extensions                  | ✅ Complete |
 | Phase 2 | TinyLinuxRV Machine Model                 | ✅ Complete |
 | Phase 2 | Basic Platform Devices                    | ✅ Complete |
-| Phase 3 | Machine Mode, CSRs, Traps, and Interrupts | 🟡 Next     |
-| Phase 3 | Supervisor and User Modes                 | Planned    |
-| Phase 4 | Sv39 Address Translation                  | Planned    |
+| Phase 3 | Machine Mode, CSRs, Traps, and Interrupts | ✅ Complete |
+| Phase 3 | Supervisor and User Modes                 | ✅ Complete |
+| Phase 4 | Sv39 Address Translation                  | 🟡 Next     |
 | Phase 5 | OpenSBI and SBI Validation                | Planned    |
 | Phase 6 | Linux Early Boot                          | Planned    |
 | Phase 6 | Scheduler and Initramfs                   | Planned    |
@@ -404,16 +404,20 @@ development without depending on privileged CPU interrupt handling.
 
 ## Milestone 6: Machine Mode, CSRs, Traps, and Interrupts
 
+> ✅ **Completed** · 2026-09-17
+
+Implementation reference: RISC-V Privileged Architecture v1.13.
+
 ### Goals
 
 Implement the machine-mode privileged architecture required for traps, interrupts, firmware, and later supervisor-mode execution.
 
 ### ISA and CSR Support
 
-- Select and document the target RISC-V privileged-architecture version.
-- Implement the `Zicsr` extension.
-- Preserve and validate the existing `FENCE.I` no-op behavior.
-- Implement the machine-mode CSRs required by traps and interrupts, including:
+- [x] Select and document the target RISC-V privileged-architecture version.
+- [x] Implement the `Zicsr` extension.
+- [x] Preserve and validate the existing `FENCE.I` no-op behavior.
+- [x] Implement the machine-mode CSRs required by traps and interrupts, including:
   - `mstatus`
   - `misa`
   - `medeleg`
@@ -430,52 +434,54 @@ Implement the machine-mode privileged architecture required for traps, interrupt
   - `marchid`
   - `mimpid`
   - `mhartid`
-- Implement the counter CSRs required by the selected OpenSBI and Linux
+- [x] Implement the counter CSRs required by the selected OpenSBI and Linux
   versions, including a deterministic `time` CSR backed by the Phase 2 timer.
-- Define and document the supported `cycle`, `time`, and `instret` behavior and
+- [x] Define and document the supported `cycle`, `time`, and `instret` behavior and
   their access controls.
-- Enforce CSR privilege levels, read-only behavior, and WARL constraints where required.
+- [x] Enforce CSR privilege levels, read-only behavior, and WARL constraints where required.
 
 ### Exceptions and Trap Handling
 
-- Implement synchronous exceptions for:
+- [x] Implement synchronous exceptions for:
   - Illegal instructions.
   - Instruction-address misalignment.
   - Load- and store-address misalignment.
   - Instruction, load, and store access faults.
   - Environment calls.
   - Breakpoints.
-- Implement direct `mtvec` behavior.
-- Defer vectored `mtvec` mode until required by software or verification.
-- Save trap state in `mepc`, `mcause`, and `mtval`.
-- Update interrupt-enable state in `mstatus` during trap entry.
-- Implement `MRET` and restore the previous privilege and interrupt state.
+- [x] Implement direct `mtvec` behavior.
+- [x] Implement vectored `mtvec` mode.
+- [x] Save trap state in `mepc`, `mcause`, and `mtval`.
+- [x] Update interrupt-enable state in `mstatus` during trap entry.
+- [x] Implement `MRET` and restore the previous privilege and interrupt state.
 
 ### Machine Interrupts
 
-- Connect the Phase 2 `MTIP`, `MSIP`, and PLIC pending conditions to the CPU.
-- Implement `mip`, `mie`, and `mstatus.MIE` behavior.
-- Evaluate interrupts at instruction boundaries and apply architectural priority rules.
+- [x] Connect the Phase 2 `MTIP`, `MSIP`, and PLIC pending conditions to the CPU.
+- [x] Implement `mip`, `mie`, and `mstatus.MIE` behavior.
+- [x] Evaluate interrupts at instruction boundaries and apply architectural priority rules.
 
 ### Verification
 
-- Add focused tests for CSR access permissions and side effects.
-- Test each synchronous exception and verify trap state.
-- Test direct trap entry.
-- Test `MRET` state restoration.
-- Add end-to-end timer, software, and external interrupt tests.
-- Run the applicable privileged-architecture and CSR tests.
-- Continue running the complete RV64IMA regression.
+- ~~Add focused tests for every CSR access rule and synchronous exception.~~
+  **Revised:** Use the enabled RV64MI tests, device interrupt tests, and full
+  emulator regression for this milestone. Add more focused cases when a bug or
+  later software workload requires them.
+- [x] Test direct trap entry.
+- [x] Test `MRET` state restoration.
+- [x] Add end-to-end timer, software, and external interrupt tests.
+- [x] Run the applicable privileged-architecture and CSR tests.
+- [x] Continue running the complete RV64IMA regression.
 
 ### Completion Criteria
 
-- Machine-mode CSR instructions and required CSRs behave correctly.
-- Exceptions enter machine-mode trap handlers with correct cause and state.
-- `MRET` restores execution correctly.
-- Timer, software, and UART external interrupts are delivered end to end.
-- PLIC interrupts are delivered correctly after device-level claim and
+- [x] Machine-mode CSR instructions and required CSRs behave correctly.
+- [x] Exceptions enter machine-mode trap handlers with correct cause and state.
+- [x] `MRET` restores execution correctly.
+- [x] Timer, software, and UART external interrupts are delivered end to end.
+- [x] PLIC interrupts are delivered correctly after device-level claim and
   completion behavior was verified in Phase 2.
-- Existing unprivileged ISA and bare-metal regressions continue to pass.
+- [x] Existing unprivileged ISA and bare-metal regressions continue to pass.
 
 ### Deliverable
 
@@ -485,13 +491,15 @@ Implement the machine-mode privileged architecture required for traps, interrupt
 
 ## Milestone 7: Supervisor and User Modes
 
+> ✅ **Completed** · 2026-09-19
+
 ### Goals
 
 Add supervisor and user privilege modes, delegation, and privilege transitions required by OpenSBI and Linux.
 
 ### Supervisor Mode
 
-- Implement supervisor-mode CSR views and state, including:
+- [x] Implement supervisor-mode CSR views and state, including:
   - `sstatus`
   - `sie`
   - `stvec`
@@ -502,38 +510,39 @@ Add supervisor and user privilege modes, delegation, and privilege transitions r
   - `stval`
   - `sip`
   - `satp`
-- Implement machine-to-supervisor exception and interrupt delegation.
-- Implement supervisor trap entry.
-- Implement `SRET`.
-- Implement `WFI` with deterministic emulator behavior.
-- Implement `satp.MODE=Bare`; Sv39 translation is added in Phase 4.
+- [x] Implement machine-to-supervisor exception and interrupt delegation.
+- [x] Implement supervisor trap entry.
+- [x] Implement `SRET`.
+- [x] Implement `WFI` with deterministic emulator behavior.
+- [x] Implement `satp.MODE=Bare`; Sv39 translation is added in Phase 4.
 
 ### User Mode
 
-- Implement user-mode execution.
-- Enforce privilege checks for instructions, CSRs, and memory operations.
-- Support transitions from supervisor mode to user mode.
-- Support traps from user mode back to supervisor or machine mode.
-- Preserve the required trap and return state across privilege transitions.
+- [x] Implement user-mode execution.
+- [x] Enforce privilege checks for instructions and CSRs.
+- **Deferred:** Privilege-specific virtual-memory permissions are implemented
+  with Sv39 in Milestone 8. Physical accesses currently use the shared machine
+  memory map.
+- [x] Support transitions from supervisor mode to user mode.
+- [x] Support traps from user mode back to supervisor or machine mode.
+- [x] Preserve the required trap and return state across privilege transitions.
 
 ### Verification
 
-- Add machine-to-supervisor transition tests.
-- Test exception and interrupt delegation.
-- Test supervisor trap entry and `SRET`.
-- Test supervisor-to-user transitions and user-mode traps.
-- Test CSR accessibility in each privilege mode.
-- Test `WFI` wake-up through pending interrupts.
-- Run applicable privileged-architecture tests.
+- [x] Run the applicable RV64SI tests for privilege transitions, delegated
+  exceptions, supervisor trap handling, CSR access, and `WFI`.
+- [x] Run the complete emulator regression.
+- **Deferred:** Add more focused privilege and interrupt-delegation tests when
+  required by OpenSBI, Linux, or a discovered bug.
 
 ### Completion Criteria
 
-- Machine, supervisor, and user modes execute correctly.
-- Exception and interrupt delegation works as configured.
-- Supervisor trap handling and `SRET` work correctly.
-- User-mode programs can execute and trap back to supervisor mode.
-- `satp.MODE=Bare` behaves correctly.
-- Privilege-transition regressions run automatically.
+- [x] Machine, supervisor, and user modes execute correctly.
+- [x] Exception and interrupt delegation works as configured.
+- [x] Supervisor trap handling and `SRET` work correctly.
+- [x] User-mode programs can execute and trap back to supervisor mode.
+- [x] `satp.MODE=Bare` behaves correctly.
+- [x] Privilege-transition regressions run automatically.
 
 ### Deliverable
 

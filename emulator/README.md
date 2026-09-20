@@ -10,7 +10,9 @@ planned development milestones.
 
 ### Platform
 
-- RV64IMA.
+- RV64IMA with `Zicsr`.
+- Machine, supervisor, and user privilege modes.
+- Machine and supervisor CSRs, trap delegation, and trap returns.
 - Configurable DRAM.
 - MMIO dispatch.
 - Syscon.
@@ -33,7 +35,7 @@ planned development milestones.
 
 - `sanity`: Tests basic instruction identification and covers corner cases not
   covered by `riscv-tests`.
-- `riscv-tests`: RV64UI, RV64UM, and RV64UA regression.
+- `riscv-tests`: RV64UI, RV64UM, RV64UA, RV64MI, and RV64SI regression.
 - `baremetal-test`: Covers basic software use cases.
 - `devices`: Verifies implemented devices.
 - `device-unit-tests`: Runs focused host-side device tests.
@@ -146,9 +148,12 @@ then generates a manifest consumed by the Python runner. The runner executes
 the ELF image directly and returns a nonzero host exit status if any test fails
 or times out.
 
-At the current milestone, all 53 RV64UI, 13 RV64UM, and 19 RV64UA tests pass.
-`ma_data` is reported as skipped because the current execution environment
-does not handle misaligned load/store traps.
+At the current milestone, all 53 RV64UI, 13 RV64UM, 19 RV64UA, 15 RV64MI,
+and 5 enabled RV64SI tests pass.
+
+The current skips are `ma_data`, the RV64MI PMP and debug-trigger tests, and
+the RV64SI virtual-memory tests. Their required features are outside the
+current milestone.
 
 For a concise explanation of the emulator and test build system, see
 [makefiles.md](../docs/emulator/notes/makefiles.md).

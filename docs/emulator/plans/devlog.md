@@ -132,3 +132,35 @@ the Git history.
   * Added focused PLIC unit tests to the emulator regression.
   * CoreMark uses the deterministic CLINT time counter and validates correctly.
   * Direct `MSIP` and `MTIP` delivery tests remain deferred to Milestone 6.
+
+---
+
+## Phase 3 — Privileged Architecture
+
+> ✅ **Completed** · 2026-09-19
+
+### Milestone 6 — Machine Mode, CSRs, Traps, and Interrupts
+
+> ✅ **Completed** · 2026-09-17
+
+* **2026-09-17** — Completed machine-mode privileged execution.
+
+  * Implemented `Zicsr`, machine CSRs, synchronous traps, `MRET`, `WFI`, and
+    direct and vectored trap entry.
+  * Connected CLINT and PLIC interrupt sources to the CPU.
+  * Added end-to-end machine software, timer, and external interrupt tests.
+  * All 15 enabled RV64MI tests and the complete emulator regression pass.
+
+### Milestone 7 — Supervisor and User Modes
+
+> ✅ **Completed** · 2026-09-19
+
+* **2026-09-18** — Implemented supervisor and user execution, supervisor CSR
+  views, trap delegation, supervisor trap entry, `SRET`, and counter access
+  control.
+* **2026-09-19** — Completed the privilege implementation review.
+
+  * Kept `satp` fixed to `MODE=Bare`; Sv39 remains in Milestone 8.
+  * Corrected U-mode `WFI`, the `sstatus` read view, and unsupported `satp`
+    writes.
+  * All 5 enabled RV64SI tests and the complete emulator regression pass.

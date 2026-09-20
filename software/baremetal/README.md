@@ -26,7 +26,7 @@ Emulator loads ELF PT_LOAD segments
               ↓
   main return value stays in a0
               ↓
-            EBREAK
+        syscon poweroff
 ```
 
 For direct boot, `a0` contains hart ID `0` and `a1` contains `0` because a
@@ -95,7 +95,8 @@ at its runtime address.
 2. Initializes the stack pointer.
 3. Clears `.bss`.
 4. Calls `main`.
-5. Executes `EBREAK` without changing the return value in `a0`.
+5. Writes the poweroff command to syscon without changing the return value in
+   `a0`.
 
 The initial C entry point is:
 
@@ -107,15 +108,15 @@ int main(void)
 
 The temporary completion convention is:
 
-| Value of `a0` at `EBREAK` | Result               |
-| ------------------------- | -------------------- |
-| `0`                       | Guest program passed |
-| Nonzero                   | Guest program failed |
+| Value of `a0` at program exit | Result               |
+| ----------------------------- | -------------------- |
+| `0`                           | Guest program passed |
+| Nonzero                       | Guest program failed |
 
 Emulator errors such as invalid instructions, invalid memory accesses, and
 timeouts are separate from the guest return value.
 
-`EBREAK` is temporary. A shutdown/reset device will replace it later.
+Writing the poweroff command to syscon terminates the program.
 
 ## Programs
 
