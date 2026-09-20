@@ -340,20 +340,20 @@ static void decode(uint32_t inst, inst_dec_t *inst_dec) {
     } while (0)
 
 // Execute CSR instruction
-#define EXEC_CSR(op, value, rd, rs1)                                                                    \
-    do {                                                                                                \
-        uint64_t rdata;                                                                                 \
-        bool     read       = !((rd) == 0 && (op) == CSR_OP_RW);                                        \
-        bool     write      = !((rs1) == 0 && ((op) == CSR_OP_RS || (op) == CSR_OP_RC));                \
-        uint64_t time_value = clint_mtime(bus->devices->clint.device);                                  \
-        if (csr_access(&cpu->csr, inst_dec.csr, (op), (value), &rdata, read, write, time_value) != 0) { \
-            trap_cause = ILLEGAL_INSTRUCTION;                                                           \
-            trap_val   = inst;                                                                          \
-            goto raise_exception;                                                                       \
-        }                                                                                               \
-        if ((rd) != 0) {                                                                                \
-            RD() = rdata;                                                                               \
-        }                                                                                               \
+#define EXEC_CSR(op, value, rd, rs1)                                                                               \
+    do {                                                                                                           \
+        uint64_t rdata;                                                                                            \
+        bool     read       = !((rd) == 0 && (op) == CSR_OP_RW);                                                   \
+        bool     write      = !((rs1) == 0 && ((op) == CSR_OP_RS || (op) == CSR_OP_RC));                           \
+        uint64_t time_value = clint_mtime(bus->devices->clint.device);                                             \
+        if (csr_access(&cpu->csr, inst_dec.csr, (op), (value), &rdata, read, write, time_value, cpu->priv) != 0) { \
+            trap_cause = ILLEGAL_INSTRUCTION;                                                                      \
+            trap_val   = inst;                                                                                     \
+            goto raise_exception;                                                                                  \
+        }                                                                                                          \
+        if ((rd) != 0) {                                                                                           \
+            RD() = rdata;                                                                                          \
+        }                                                                                                          \
     } while (0)
 
 // Helper Macro for LR/SC/AMO
@@ -432,6 +432,9 @@ void cpu_step(cpu_t *cpu, bus_t *bus, uint32_t inst, bool inst_valid) {
 
     interrupt_code_t int_id;
 
+    // connect interrupt to csr and also reset some csr internal status
+    csr_begin_update(&cpu->csr, cpu->meip, cpu->msip, cpu->mtip);
+
     // if in WFI state, check if there are interrupt
     if (cpu->wfi) {
         // if there are interrupt then wake up the cpu
@@ -443,9 +446,6 @@ void cpu_step(cpu_t *cpu, bus_t *bus, uint32_t inst, bool inst_valid) {
             return;
         }
     }
-
-    // connect interrupt to csr and also reset some csr internal status
-    csr_begin_update(&cpu->csr, cpu->meip, cpu->msip, cpu->mtip);
 
     // check if instruction is valid or not, if not then just raise exception and do nothing
     // if at the same time there is interrupt pending, the emulator choose to handle the exception first
@@ -475,11 +475,21 @@ void cpu_step(cpu_t *cpu, bus_t *bus, uint32_t inst, bool inst_valid) {
         goto illegal_instruction;
 
     case OPCODE_JAL:
-        INSTPAT(JAL, next_pc = PC() + IMM(); CHECK_MA_FETCH(next_pc); RD() = PC() + 4);
+        INSTPAT(
+            JAL, do {
+                next_pc = PC() + IMM();
+                CHECK_MA_FETCH(next_pc);
+                RD() = PC() + 4;
+            } while (0));
         goto illegal_instruction;
 
     case OPCODE_JALR:
-        INSTPAT(JALR, next_pc = (IMM() + RS1()) & ~UINT64_C(1); CHECK_MA_FETCH(next_pc); RD() = PC() + 4;);
+        INSTPAT(
+            JALR, do {
+                next_pc = (IMM() + RS1()) & ~UINT64_C(1);
+                CHECK_MA_FETCH(next_pc);
+                RD() = PC() + 4;
+            } while (0));
         goto illegal_instruction;
 
     case OPCODE_BRANCH:
@@ -568,11 +578,6 @@ void cpu_step(cpu_t *cpu, bus_t *bus, uint32_t inst, bool inst_valid) {
         goto illegal_instruction;
 
     case OPCODE_SYSTEM:
-        INSTPAT(ECALL, trap_cause = cpu->priv == PRIV_M   ? ECALL_FROM_U_MODE
-                                    : cpu->priv == PRIV_S ? ECALL_FROM_S_MODE
-                                                          : ECALL_FROM_U_MODE;
-                trap_val = 0; goto raise_exception);
-        INSTPAT(EBREAK, trap_cause = BREAKPOINT; trap_val = PC(); goto raise_exception);
         // ZICSR
         INSTPAT(CSRRW, EXEC_CSR(CSR_OP_RW, RS1(), inst_dec.rd, inst_dec.rs1));
         INSTPAT(CSRRS, EXEC_CSR(CSR_OP_RS, RS1(), inst_dec.rd, inst_dec.rs1));
@@ -580,7 +585,30 @@ void cpu_step(cpu_t *cpu, bus_t *bus, uint32_t inst, bool inst_valid) {
         INSTPAT(CSRRWI, EXEC_CSR(CSR_OP_RW, inst_dec.imm, inst_dec.rd, inst_dec.rs1));
         INSTPAT(CSRRSI, EXEC_CSR(CSR_OP_RS, inst_dec.imm, inst_dec.rd, inst_dec.rs1));
         INSTPAT(CSRRCI, EXEC_CSR(CSR_OP_RC, inst_dec.imm, inst_dec.rd, inst_dec.rs1));
-        INSTPAT(MRET, next_pc = trap_exit_mret(&cpu->csr, &cpu->priv));
+        INSTPAT(
+            ECALL, do {
+                trap_cause = cpu->priv == PRIV_M   ? ECALL_FROM_M_MODE
+                             : cpu->priv == PRIV_S ? ECALL_FROM_S_MODE
+                                                   : ECALL_FROM_U_MODE;
+                trap_val   = 0;
+                goto raise_exception;
+            } while (0));
+        INSTPAT(
+            EBREAK, do {
+                trap_cause = BREAKPOINT;
+                trap_val   = PC();
+                goto raise_exception;
+            } while (0));
+        INSTPAT(
+            MRET, do {
+                if (check_mret_privilege(cpu->priv)) {
+                    trap_cause = ILLEGAL_INSTRUCTION;
+                    trap_val   = inst;
+                    goto raise_exception;
+                } else {
+                    next_pc = trap_exit_mret(&cpu->csr, &cpu->priv);
+                }
+            } while (0));
         INSTPAT(
             SRET, do {
                 if (check_sret_trap(&cpu->csr, cpu->priv)) {
@@ -591,7 +619,16 @@ void cpu_step(cpu_t *cpu, bus_t *bus, uint32_t inst, bool inst_valid) {
                     next_pc = trap_exit_sret(&cpu->csr, &cpu->priv);
                 }
             } while (0));
-        INSTPAT(WFI, cpu->wfi = true;);
+        INSTPAT(
+            WFI, do {
+                if (check_wfi_trap(&cpu->csr, cpu->priv)) {
+                    trap_cause = ILLEGAL_INSTRUCTION;
+                    trap_val   = inst;
+                    goto raise_exception;
+                } else {
+                    cpu->wfi = true;
+                }
+            } while (0));
         goto illegal_instruction;
 
     case OPCODE_AMO:
