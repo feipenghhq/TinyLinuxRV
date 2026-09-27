@@ -22,4 +22,4 @@ build-demo:
 
 run-demo: build-demo
 	$(MAKE) -C $(EMULATOR_DIR) build
-	$(EMULATOR) --max-instruction 1000000  demo/$(BUILD_DIR)/demo.elf
+	$(EMULATOR) demo/$(BUILD_DIR)/demo.elf

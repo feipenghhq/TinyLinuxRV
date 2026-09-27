@@ -80,7 +80,7 @@ _start:
 	csrs        mstatus, t0
 #endif
 
-	// Ported: Add freertos_risc_v_trap_handler to mtvec
+	//Add freertos_risc_v_trap_handler to mtvec
 	la 			t0, freertos_risc_v_trap_handler
 	csrw 		mtvec, t0
 

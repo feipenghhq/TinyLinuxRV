@@ -74,21 +74,49 @@ int clint_read(clint_t *clint, uint64_t addr, size_t size, void *data) {
         return 0;
     }
     case 0x4000: { // mtimecmp
-        // size should be 8 for mtimecmp
-        if (size != 8) {
-            LOG_ERROR("Clint mtimecmp only support 8 byte access. Received %zu byte", size);
+        // size should be 4 or 8 for mtimecmp
+        if (size == 8) {
+            memcpy(data, &clint->reg.mtimecmp, 8);
+        } else if (size == 4) {
+            memcpy(data, &clint->reg.mtimecmp, 4);
+        } else {
+            LOG_ERROR("Clint mtimecmp only support 4 or 8 byte access. Received %zu byte", size);
             return -1;
         }
-        memcpy(data, &clint->reg.mtimecmp, 8);
+        return 0;
+    }
+    case 0x4004: { // mtimecmp[63:32]
+        // size should be 4
+        uint32_t mtimecmph = clint->reg.mtimecmp >> 32;
+        if (size == 4) {
+            memcpy(data, &mtimecmph, 4);
+        } else {
+            LOG_ERROR("Clint mtimecmp only support 4 or 8 byte access. Received %zu byte", size);
+            return -1;
+        }
         return 0;
     }
     case 0xBFF8: { // mtime
-        // size should be 8 for mtime
-        if (size != 8) {
-            LOG_ERROR("Clint mtime only support 8 byte access. Received %zu byte", size);
+        // size should be 4 or 8 byte for mtime
+        if (size == 8) {
+            memcpy(data, &clint->reg.mtime, 8);
+        } else if (size == 4) {
+            memcpy(data, &clint->reg.mtime, 4);
+        } else {
+            LOG_ERROR("Clint mtime only support 4 or 8 byte access. Received %zu byte", size);
             return -1;
         }
-        memcpy(data, &clint->reg.mtime, 8);
+        return 0;
+    }
+    case 0xBFFC: { // mtime[63:32]
+        // size should be 4
+        uint32_t mtimeh = clint->reg.mtime >> 32;
+        if (size == 4) {
+            memcpy(data, &mtimeh, 4);
+        } else {
+            LOG_ERROR("Clint mtime only support 4 or 8 byte access. Received %zu byte", size);
+            return -1;
+        }
         return 0;
     }
     default: {
