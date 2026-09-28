@@ -6,6 +6,7 @@
 
 #include "bus/bus.h"
 #include "cpu/csr.h"
+#include "cpu/riscv.h"
 
 // reset to 0x80000000
 #define RST_VEC 0x80000000ULL
@@ -32,7 +33,7 @@ typedef struct {
 } cpu_t;
 
 void cpu_init(cpu_t *cpu);
-void cpu_step(cpu_t *cpu, bus_t *bus, uint32_t inst, bool inst_valid);
+void cpu_step(cpu_t *cpu, bus_t *bus, bool trace);
 void cpu_print_regs(cpu_t *cpu);
 
 #endif

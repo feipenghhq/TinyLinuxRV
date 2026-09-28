@@ -87,7 +87,7 @@ int clint_read(clint_t *clint, uint64_t addr, size_t size, void *data) {
     }
     case 0x4004: { // mtimecmp[63:32]
         // size should be 4
-        uint32_t mtimecmph = clint->reg.mtimecmp >> 32;
+        uint32_t mtimecmph = (uint32_t)(clint->reg.mtimecmp >> 32);
         if (size == 4) {
             memcpy(data, &mtimecmph, 4);
         } else {
@@ -110,7 +110,7 @@ int clint_read(clint_t *clint, uint64_t addr, size_t size, void *data) {
     }
     case 0xBFFC: { // mtime[63:32]
         // size should be 4
-        uint32_t mtimeh = clint->reg.mtime >> 32;
+        uint32_t mtimeh = (uint32_t)(clint->reg.mtime >> 32);
         if (size == 4) {
             memcpy(data, &mtimeh, 4);
         } else {

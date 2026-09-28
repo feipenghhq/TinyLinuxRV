@@ -150,6 +150,13 @@ enum {
 #define COUNTEREN_WRITE_MASK     (CSR_BIT(COUNTER_CY_POS) | CSR_BIT(COUNTER_TM_POS) | CSR_BIT(COUNTER_IR_POS))
 #define MCOUNTINHIBIT_WRITE_MASK (CSR_BIT(COUNTER_CY_POS) | CSR_BIT(COUNTER_IR_POS))
 
+// satp
+#define SATP_PPN_POS    0
+#define SATP_MODE_POS   60
+#define SATP_WRITE_MASK (CSR_FIELD_MASK(SATP_PPN_POS, 44) | CSR_FIELD_MASK(SATP_MODE_POS, 4))
+
+#define SATP_SV39_MODE 8
+
 // CSR address encoding
 #define CSR_ADDR_PRIV_POS   8
 #define CSR_ADDR_PRIV_WIDTH 2
@@ -402,7 +409,6 @@ int csr_access(csr_t *csr, int addr, int op, const uint64_t value, uint64_t *rda
     // In our implementation, we make these CSR read only to Software
     switch (addr) {
     case CSR_MISA:
-    case CSR_SATP:
         imp_read_only = true;
     }
 
@@ -460,6 +466,10 @@ int csr_access(csr_t *csr, int addr, int op, const uint64_t value, uint64_t *rda
             write_value      = value & SIP_WRITE_MASK & csr->csr_reg.mideleg;
             csr_non_writable = *csr_reg & ~(SIP_WRITE_MASK & csr->csr_reg.mideleg);
             break;
+        case CSR_SATP:
+            write_value      = value & SATP_WRITE_MASK;
+            csr_non_writable = *csr_reg & ~(SATP_WRITE_MASK);
+            break;
         }
 
         // the actual write operation
@@ -499,6 +509,12 @@ int csr_access(csr_t *csr, int addr, int op, const uint64_t value, uint64_t *rda
         case CSR_MEPC:
             *csr_reg = *csr_reg & TRAP_PC_ALIGN_MASK;
             break;
+        case CSR_SATP: {// only support bare and Sv39 mode
+            int field = (int) csr_field_get(*csr_reg, SATP_MODE_POS, 4);
+            if ((field != 0) && (field != 8)) {
+                csr_field_set(csr_reg, SATP_MODE_POS, 4, SATP_SV39_MODE);
+            }
+        }
         }
     }
 

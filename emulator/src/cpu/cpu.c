@@ -7,7 +7,10 @@
 #include "bus/bus.h"
 #include "cpu/csr.h"
 #include "cpu/decode.h"
+#include "cpu/mmu.h"
+#include "cpu/riscv.h"
 #include "device/clint.h"
+#include "utils/iringbuf.h"
 #include "utils/log.h"
 
 // ----------------------------------------------
@@ -309,28 +312,43 @@ static void decode(uint32_t inst, inst_dec_t *inst_dec) {
         }                            \
     } while (0)
 
+#define MMU(vaddr, paddr, mode)                                                                                   \
+    do {                                                                                                          \
+        mmu_translation_type mmu_result =                                                                         \
+            mmu_translation(vaddr, paddr, bus, cpu->csr.csr_reg.satp, cpu->csr.csr_reg.mstatus, mode, cpu->priv); \
+        if (mmu_result != MMU_VALID) {                                                                            \
+            trap_cause = (uint64_t)mmu_result;                                                                    \
+            trap_val   = vaddr;                                                                                   \
+            goto raise_exception;                                                                                 \
+        }                                                                                                         \
+    } while (0)
+
 // Execute a load. ext selects either sign extension or no extension.
 #define NOEXT(value, bits) (value)
-#define EXEC_LOAD_HELPER(addr, size, ext, target, access_fault_cause) \
-    do {                                                              \
-        uint64_t _addr = (addr);                                      \
-        uint64_t _size = (size);                                      \
-        uint64_t data  = 0;                                           \
-        CHECK_MA_LS(_addr, _size, LOAD_ADDR_MISALIGNED);              \
-        if (bus_read(bus, _addr, size, &data) != 0) {                 \
-            trap_cause = access_fault_cause;                          \
-            trap_val   = _addr;                                       \
-            goto raise_exception;                                     \
-        }                                                             \
-        target = ext(data, size * 8);                                 \
+#define EXEC_LOAD_HELPER(vaddr, size, ext, target, access_fault_cause) \
+    do {                                                               \
+        uint64_t _vaddr = (vaddr);                                     \
+        uint64_t _addr  = 0;                                           \
+        uint64_t _size  = (size);                                      \
+        uint64_t data   = 0;                                           \
+        MMU(_vaddr, &_addr, MMU_READ);                                 \
+        CHECK_MA_LS(_addr, _size, LOAD_ADDR_MISALIGNED);               \
+        if (bus_read(bus, _addr, size, &data) != 0) {                  \
+            trap_cause = access_fault_cause;                           \
+            trap_val   = _addr;                                        \
+            goto raise_exception;                                      \
+        }                                                              \
+        target = ext(data, size * 8);                                  \
     } while (0)
 #define EXEC_LOAD(addr, size, ext) EXEC_LOAD_HELPER(addr, size, ext, RD(), LOAD_ACCESS_FAULT)
 
 // Execute a store.
-#define EXEC_STORE(addr, data, size)                          \
+#define EXEC_STORE(vaddr, data, size)                         \
     do {                                                      \
-        uint64_t _addr = (addr);                              \
-        uint64_t _size = (size);                              \
+        uint64_t _vaddr = (vaddr);                            \
+        uint64_t _addr  = 0;                                  \
+        uint64_t _size  = (size);                             \
+        MMU(_vaddr, &_addr, MMU_WRITE);                       \
         CHECK_MA_LS(_addr, _size, STORE_AMO_ADDR_MISALIGNED); \
         if (bus_write(bus, _addr, size, &data) != 0) {        \
             trap_cause = STORE_AMO_ACCESS_FAULT;              \
@@ -422,13 +440,13 @@ void cpu_init(cpu_t *cpu) {
 /**
  * Execute a SINGLE instruction
  */
-void cpu_step(cpu_t *cpu, bus_t *bus, uint32_t inst, bool inst_valid) {
+void cpu_step(cpu_t *cpu, bus_t *bus, bool trace) {
     inst_dec_t inst_dec;
     uint64_t   next_pc;
-
-    uint64_t trap_cause = 0;
-    uint64_t trap_val   = 0;
-    bool     enter_trap = false;
+    uint32_t   inst;
+    uint64_t   trap_cause = 0;
+    uint64_t   trap_val   = 0;
+    bool       enter_trap = false;
 
     interrupt_code_t int_id;
 
@@ -447,12 +465,28 @@ void cpu_step(cpu_t *cpu, bus_t *bus, uint32_t inst, bool inst_valid) {
         }
     }
 
-    // check if instruction is valid or not, if not then just raise exception and do nothing
-    // if at the same time there is interrupt pending, the emulator choose to handle the exception first
-    if (!inst_valid) {
+    // translate PC
+    uint64_t pc_paddr;
+
+    mmu_translation_type pc_xlate_result =
+        mmu_translation(PC(), &pc_paddr, bus, cpu->csr.csr_reg.satp, cpu->csr.csr_reg.mstatus, MMU_EXECUTE, cpu->priv);
+
+    if (pc_xlate_result != MMU_VALID) {
+        trap_cause = pc_xlate_result;
+        trap_val   = PC();
+        goto raise_exception;
+    }
+
+    // read instruction from memory
+    if (bus_read(bus, pc_paddr, 4, &inst) != 0) {
+        LOG_ERROR("Memory read failed. Unable to fetch instruction");
         trap_cause = INST_ACCESS_FAULT;
         trap_val   = PC();
         goto raise_exception;
+    }
+
+    if (trace) {
+        iringbuf_write(cpu->pc, inst);
     }
 
     decode(inst, &inst_dec);
