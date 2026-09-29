@@ -147,6 +147,7 @@ static bool check_riscv_tests_result(cpu_t *cpu) {
         LOG_INFO("RISCV TESTS SUITE: TEST PASS");
     } else {
         LOG_ERROR("RISCV TESTS SUITE: TEST FAILED");
+        LOG_ERROR("Return code: %ld", cpu->regs[10]);
         LOG_ERROR("Failed test case: %ld", cpu->regs[11]);
     }
     return cpu->regs[10];

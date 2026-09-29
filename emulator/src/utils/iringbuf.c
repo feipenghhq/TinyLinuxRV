@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#define IRINGBUF_LEN 16
+#define IRINGBUF_LEN 64
 
 typedef struct {
     uint64_t addr[IRINGBUF_LEN];
@@ -35,7 +35,7 @@ void iringbuf_print(void) {
     int physical_pos = 0;
 
     fprintf(stderr, "Instruction sequence to error instruction (Dump from iringbuf):\n");
-    if (iringbuf.count == 16) {
+    if (iringbuf.count == IRINGBUF_LEN) {
         first_pos = iringbuf.ptr;
     }
 

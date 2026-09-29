@@ -46,9 +46,7 @@ OBJCOPY := $(CROSS_COMPILE)objcopy
 
 # Only enabled suites are included in `all`. Add a suite when the emulator
 # implements the corresponding ISA extension.
-SUITES-all ?= rv64ui rv64um rv64ua rv64mi rv64si
-
-SUITES-v ?= rv64ui
+SUITES ?= rv64ui rv64um rv64ua rv64mi rv64si
 
 MABI  := lp64
 
@@ -65,7 +63,7 @@ rv64mi_v_MARCH := rv64imaf
 rv64si_v_MARCH := rv64imaf
 
 # Each upstream Makefrag defines a list such as rv64ui_sc_tests.
-include $(addsuffix /Makefrag,$(addprefix $(ISA_DIR)/,$(SUITES-all)))
+include $(addsuffix /Makefrag,$(addprefix $(ISA_DIR)/,$(SUITES)))
 
 # -----------------------------------------------------------------------------
 # Additional Source file
@@ -118,17 +116,17 @@ $$($(1)_$(2)_MANIFEST): Makefile $(ISA_DIR)/$(1)/Makefrag | $$($(1)_$(2)_BINS)
 
 endef
 
-$(foreach suite,$(SUITES-all),$(eval $(call SUITE_template,$(suite),p)))
-$(foreach suite,$(SUITES-v),$(eval $(call SUITE_template,$(suite),v)))
+$(foreach suite,$(SUITES),$(eval $(call SUITE_template,$(suite),p)))
+$(foreach suite,$(SUITES),$(eval $(call SUITE_template,$(suite),v)))
 
 # -----------------------------------------------------------------------------
 # Top-level targets
 # -----------------------------------------------------------------------------
 
-.PHONY: all clean $(SUITES-all)
+.PHONY: all clean $(SUITES)
 
-P_TARGETS := $(addsuffix -p,$(SUITES-all))
-V_TARGETS := $(addsuffix -v,$(SUITES-v))
+P_TARGETS := $(addsuffix -p,$(SUITES))
+V_TARGETS := $(addsuffix -v,$(SUITES))
 
 all: $(P_TARGETS) $(V_TARGETS)
 

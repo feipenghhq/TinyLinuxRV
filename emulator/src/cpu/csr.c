@@ -57,6 +57,7 @@ enum {
 #define MSTATUS_MPIE_POS 7
 #define MSTATUS_SPP_POS  8
 #define MSTATUS_MPP_POS  11
+#define MSTATUS_SUM_POS  18
 #define MSTATUS_TW_POS   21
 #define MSTATUS_TSR_POS  22
 #define MSTATUS_UXL_POS  32
@@ -68,16 +69,18 @@ enum {
 #define MSTATUS_MPIE CSR_BIT(MSTATUS_MPIE_POS)
 #define MSTATUS_SPP  CSR_BIT(MSTATUS_SPP_POS)
 #define MSTATUS_MPP  CSR_FIELD_MASK(MSTATUS_MPP_POS, 2)
+#define MSTATUS_SUM  CSR_BIT(MSTATUS_SUM_POS)
 #define MSTATUS_TW   CSR_BIT(MSTATUS_TW_POS)
 #define MSTATUS_TSR  CSR_BIT(MSTATUS_TSR_POS)
 #define MSTATUS_UXL  CSR_FIELD_MASK(MSTATUS_UXL_POS, 2)
 #define MSTATUS_SXL  CSR_FIELD_MASK(MSTATUS_SXL_POS, 2)
 
-#define MSTATUS_WRITE_MASK \
-    (MSTATUS_SIE | MSTATUS_MIE | MSTATUS_SPIE | MSTATUS_MPIE | MSTATUS_SPP | MSTATUS_MPP | MSTATUS_TW | MSTATUS_TSR)
+#define MSTATUS_WRITE_MASK                                                                                            \
+    (MSTATUS_SIE | MSTATUS_MIE | MSTATUS_SPIE | MSTATUS_MPIE | MSTATUS_SPP | MSTATUS_MPP | MSTATUS_SUM | MSTATUS_TW | \
+     MSTATUS_TSR)
 
-#define SSTATUS_READ_MASK  (MSTATUS_SIE | MSTATUS_SPIE | MSTATUS_SPP | MSTATUS_UXL)
-#define SSTATUS_WRITE_MASK (MSTATUS_SIE | MSTATUS_SPIE | MSTATUS_SPP)
+#define SSTATUS_READ_MASK  (MSTATUS_SIE | MSTATUS_SPIE | MSTATUS_SPP | MSTATUS_SUM | MSTATUS_UXL)
+#define SSTATUS_WRITE_MASK (MSTATUS_SIE | MSTATUS_SPIE | MSTATUS_SPP | MSTATUS_SUM)
 
 // Interrupt fields
 #define INT_BIT_SSIP CSR_BIT(INT_SSIP)
@@ -128,7 +131,8 @@ enum {
     (CSR_BIT(EXC_INST_ADDR_MISALIGNED) | CSR_BIT(EXC_INST_ACCESS_FAULT) | CSR_BIT(EXC_ILLEGAL_INST) | \
      CSR_BIT(EXC_BREAKPOINT) | CSR_BIT(EXC_LOAD_ADDR_MISALIGNED) | CSR_BIT(EXC_LOAD_ACCESS_FAULT) |   \
      CSR_BIT(EXC_STORE_ADDR_MISALIGNED) | CSR_BIT(EXC_STORE_ACCESS_FAULT) | CSR_BIT(EXC_ECALL_U) |    \
-     CSR_BIT(EXC_ECALL_S))
+     CSR_BIT(EXC_ECALL_S) | CSR_BIT(EXC_INST_PAGE_FAULT) | CSR_BIT(EXC_LOAD_PAGE_FAULT) |             \
+     CSR_BIT(EXC_STORE_PAGE_FAULT))
 
 // misa fields
 #define MISA_EXT_A_POS 0
@@ -509,8 +513,8 @@ int csr_access(csr_t *csr, int addr, int op, const uint64_t value, uint64_t *rda
         case CSR_MEPC:
             *csr_reg = *csr_reg & TRAP_PC_ALIGN_MASK;
             break;
-        case CSR_SATP: {// only support bare and Sv39 mode
-            int field = (int) csr_field_get(*csr_reg, SATP_MODE_POS, 4);
+        case CSR_SATP: { // only support bare and Sv39 mode
+            int field = (int)csr_field_get(*csr_reg, SATP_MODE_POS, 4);
             if ((field != 0) && (field != 8)) {
                 csr_field_set(csr_reg, SATP_MODE_POS, 4, SATP_SV39_MODE);
             }
@@ -585,9 +589,9 @@ uint64_t trap_enter(csr_t *csr, uint64_t cause, uint64_t tval, uint64_t pc, priv
     else {
         // update mstatus (sstatus)
         mstatus_sie = csr_field_get(csr->csr_reg.mstatus, MSTATUS_SIE_POS, 1);
-        csr_field_set(&csr->csr_reg.mstatus, MSTATUS_SPIE_POS, 1, mstatus_sie);    // SPIE = SIE
-        csr_field_set(&csr->csr_reg.mstatus, MSTATUS_SIE_POS, 1, 0);               // SIE = 0
-        csr_field_set(&csr->csr_reg.mstatus, MSTATUS_SPP_POS, 1, *priv == PRIV_S); // SPP = previous privilege
+        csr_field_set(&csr->csr_reg.mstatus, MSTATUS_SPIE_POS, 1, mstatus_sie); // SPIE = SIE
+        csr_field_set(&csr->csr_reg.mstatus, MSTATUS_SIE_POS, 1, 0);            // SIE = 0
+        csr_field_set(&csr->csr_reg.mstatus, MSTATUS_SPP_POS, 1, *priv);        // SPP = previous privilege
         // update stval
         csr->csr_reg.stval = tval;
         // update scause

@@ -88,7 +88,7 @@ typedef enum {
 #define PTE_PPN_OFFSET  10
 #define PTE_PPN0_OFFSET 10
 #define PTE_PPN1_OFFSET 19
-#define PTE_PPN2_OFFSET 27
+#define PTE_PPN2_OFFSET 28
 #define PTE_PBMT_OFFSET 61
 #define PTE_N_OFFSET    63
 
