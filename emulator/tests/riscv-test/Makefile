@@ -19,19 +19,26 @@ CPPFLAGS += -I$(ENV_DIR)
 CPPFLAGS += -I$(ISA_DIR)/macros/scalar
 CPPFLAGS += -DRVTEST_HAS_CSR
 
-ENV_HEADERS := $(wildcard $(ENV_DIR)/*.h)
+# Get C library header from picolibc
+PICOLIBC_SPECS := -specs=/usr/lib/picolibc/riscv64-unknown-elf/picolibc.specs
+
+CFLAGS += -nostdlib
+CFLAGS += -static
+CFLAGS += -mcmodel=medany
+CFLAGS += -T $(LINKER_SCRIPT)
+CFLAGS += $(PICOLIBC_SPECS)
+CFLAGS += -DENTROPY=1
+
 TEST_MACROS := $(ISA_DIR)/macros/scalar/test_macros.h
 
 # -----------------------------------------------------------------------------
 # RISC-V cross-toolchain
 # -----------------------------------------------------------------------------
 
-CROSS_COMPILE ?= riscv64-linux-gnu-
+CROSS_COMPILE ?= riscv64-unknown-elf-
 CC      := $(CROSS_COMPILE)gcc
 LD      := $(CROSS_COMPILE)ld
 OBJCOPY := $(CROSS_COMPILE)objcopy
-
-LDFLAGS := -T $(LINKER_SCRIPT)
 
 # -----------------------------------------------------------------------------
 # Enabled test suites and their compiler settings
@@ -39,25 +46,35 @@ LDFLAGS := -T $(LINKER_SCRIPT)
 
 # Only enabled suites are included in `all`. Add a suite when the emulator
 # implements the corresponding ISA extension.
-SUITES ?= rv64ui rv64um rv64ua rv64mi rv64si
+SUITES-all ?= rv64ui rv64um rv64ua rv64mi rv64si
 
-rv64ui_MARCH := rv64i
-rv64ui_MABI  := lp64
+SUITES-v ?= rv64ui
 
-rv64um_MARCH := rv64im
-rv64um_MABI  := lp64
+MABI  := lp64
 
-rv64ua_MARCH := rv64ia
-rv64ua_MABI  := lp64
+rv64ui_p_MARCH := rv64if
+rv64um_p_MARCH := rv64imf
+rv64ua_p_MARCH := rv64iaf
+rv64mi_p_MARCH := rv64if
+rv64si_p_MARCH := rv64if
 
-rv64mi_MARCH := rv64i
-rv64mi_MABI  := lp64
-
-rv64si_MARCH := rv64i
-rv64si_MABI  := lp64
+rv64ui_v_MARCH := rv64imaf
+rv64um_v_MARCH := rv64imaf
+rv64ua_v_MARCH := rv64imaf
+rv64mi_v_MARCH := rv64imaf
+rv64si_v_MARCH := rv64imaf
 
 # Each upstream Makefrag defines a list such as rv64ui_sc_tests.
-include $(addsuffix /Makefrag,$(addprefix $(ISA_DIR)/,$(SUITES)))
+include $(addsuffix /Makefrag,$(addprefix $(ISA_DIR)/,$(SUITES-all)))
+
+# -----------------------------------------------------------------------------
+# Additional Source file
+# -----------------------------------------------------------------------------
+
+p_EXTRA_SRCS :=
+v_EXTRA_SRCS := $(ENV_DIR)/v/entry.S \
+                $(ENV_DIR)/v/vm.c \
+                $(ENV_DIR)/v/string.c
 
 # -----------------------------------------------------------------------------
 # Per-suite build rules
@@ -72,43 +89,48 @@ include $(addsuffix /Makefrag,$(addprefix $(ISA_DIR)/,$(SUITES)))
 # $@ and $< until the generated rule is evaluated.
 define SUITE_template
 
-$(1)_NAMES    := $$($(1)_sc_tests)
-$(1)_OBJECTS  := $$(addprefix $(BUILD_DIR)/$(1)/,$$(addsuffix .o,$$($(1)_NAMES)))
-$(1)_ELFS     := $$(addprefix $(BUILD_DIR)/$(1)/,$$(addsuffix .elf,$$($(1)_NAMES)))
-$(1)_BINS     := $$(addprefix $(BUILD_DIR)/$(1)/,$$(addsuffix .bin,$$($(1)_NAMES)))
-$(1)_MANIFEST := $(BUILD_DIR)/$(1)/tests.txt
+ENV_HEADERS := $(wildcard $(ENV_DIR)/$(2)/*.h)
 
-$(1): $$($(1)_OBJECTS) $$($(1)_ELFS) $$($(1)_BINS) $$($(1)_MANIFEST)
+$(1)_$(2)_NAMES    := $$($(1)_sc_tests)
+$(1)_$(2)_OBJECTS  := $$(addprefix $(BUILD_DIR)/$(2)/$(1)/,$$(addsuffix .o,$$($(1)_$(2)_NAMES)))
+$(1)_$(2)_ELFS     := $$(addprefix $(BUILD_DIR)/$(2)/$(1)/,$$(addsuffix .elf,$$($(1)_$(2)_NAMES)))
+$(1)_$(2)_BINS     := $$(addprefix $(BUILD_DIR)/$(2)/$(1)/,$$(addsuffix .bin,$$($(1)_$(2)_NAMES)))
+$(1)_$(2)_MANIFEST := $(BUILD_DIR)/$(2)/$(1)/tests.txt
 
-$(BUILD_DIR)/$(1)/%.o: $(ISA_DIR)/$(1)/%.S $(ENV_HEADERS) $(TEST_MACROS)
+$(1)-$(2): $$($(1)_$(2)_ELFS) $$($(1)_$(2)_BINS) $$($(1)_$(2)_MANIFEST)
+
+$(BUILD_DIR)/$(2)/$(1)/%.elf: $(ISA_DIR)/$(1)/%.S $(ENV_HEADERS) $(TEST_MACROS) $($(2)_EXTRA_SRCS)
 	mkdir -p $$(@D)
-	$$(CC) -c \
-		-march=$$($(1)_MARCH) \
-		-mabi=$$($(1)_MABI) \
+	$$(CC) \
+		-march=$$($(1)_$(2)_MARCH) \
+		-mabi=$$(MABI) \
 		$$(CPPFLAGS) \
-		$$< -o $$@
+		$$(CFLAGS) \
+		-I$(ENV_DIR)/$(2) \
+		$$< $($(2)_EXTRA_SRCS) \
+		-o $$@
 
-$(BUILD_DIR)/$(1)/%.elf: $(BUILD_DIR)/$(1)/%.o $(LINKER_SCRIPT)
-	$$(LD) $$(LDFLAGS) $$< -o $$@
-
-$(BUILD_DIR)/$(1)/%.bin: $(BUILD_DIR)/$(1)/%.elf
+$(BUILD_DIR)/$(2)/$(1)/%.bin: $(BUILD_DIR)/$(2)/$(1)/%.elf
 	$$(OBJCOPY) -O binary $$< $$@
 
-
-$$($(1)_MANIFEST): Makefile $(ISA_DIR)/$(1)/Makefrag | $$($(1)_BINS)
-	@printf '%s\n' $$($(1)_BINS) > $$@
+$$($(1)_$(2)_MANIFEST): Makefile $(ISA_DIR)/$(1)/Makefrag | $$($(1)_$(2)_BINS)
+	@printf '%s\n' $$($(1)_$(2)_BINS) > $$@
 
 endef
 
-$(foreach suite,$(SUITES),$(eval $(call SUITE_template,$(suite))))
+$(foreach suite,$(SUITES-all),$(eval $(call SUITE_template,$(suite),p)))
+$(foreach suite,$(SUITES-v),$(eval $(call SUITE_template,$(suite),v)))
 
 # -----------------------------------------------------------------------------
 # Top-level targets
 # -----------------------------------------------------------------------------
 
-.PHONY: all clean $(SUITES)
+.PHONY: all clean $(SUITES-all)
 
-all: $(SUITES)
+P_TARGETS := $(addsuffix -p,$(SUITES-all))
+V_TARGETS := $(addsuffix -v,$(SUITES-v))
+
+all: $(P_TARGETS) $(V_TARGETS)
 
 clean:
 	rm -rf $(BUILD_DIR)

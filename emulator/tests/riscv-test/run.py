@@ -18,16 +18,17 @@ rvemu = Path(emulator_path) / "rvemu"
 
 
 class TestSuite:
-    def __init__(self, suite, skip_list=()):
+    def __init__(self, suite, mode, skip_list=()):
         self.suite = suite
+        self.mode = mode
         self.skip_list = skip_list
 
     def run(self):
         self.pass_list = []
         self.fail_list = []
         self.count = 0
-        print(f"Running test suite: {self.suite}")
-        with open(riscv_tests_path / f"build/{self.suite}/tests.txt") as tests_manifest:
+        print(f"Running test suite: {self.suite}-{self.mode}")
+        with open(riscv_tests_path / f"build/{self.mode}/{self.suite}/tests.txt") as tests_manifest:
             for line in tests_manifest:
                 test = Path(line.strip()).stem
                 if test in self.skip_list:
@@ -95,25 +96,22 @@ def print_test_result(passed):
 
 
 def run_all_suites():
-    rv64ui = TestSuite("rv64ui", skip_list=("ma_data",))
-    rv64um = TestSuite("rv64um")
-    rv64ua = TestSuite("rv64ua")
-    rv64mi = TestSuite("rv64mi", skip_list=("pmpaddr", "breakpoint"))
-    rv64si = TestSuite("rv64si", skip_list=("dirty", "icache-alias"))
+    tests = []
+    tests.append(TestSuite("rv64ui", 'p', skip_list=("ma_data",)))
+    tests.append(TestSuite("rv64um", 'p'))
+    tests.append(TestSuite("rv64ua", 'p'))
+    tests.append(TestSuite("rv64mi", 'p', skip_list=("pmpaddr", "breakpoint")))
+    tests.append(TestSuite("rv64si", 'p', skip_list=("dirty", "icache-alias")))
+    tests.append(TestSuite("rv64ui", 'v', skip_list=("ma_data",)))
+
 
     passed = True
-    passed &= rv64ui.run()
-    passed &= rv64um.run()
-    passed &= rv64ua.run()
-    passed &= rv64mi.run()
-    passed &= rv64si.run()
+    for test in tests:
+        passed &= test.run()
 
     print_test_result(passed)
-    rv64ui.summary()
-    rv64um.summary()
-    rv64ua.summary()
-    rv64mi.summary()
-    rv64si.summary()
+    for test in tests:
+        test.summary()
 
     if passed:
         return 0

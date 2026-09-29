@@ -79,6 +79,13 @@
     RVTEST_CSR_INIT
 // clang-format on
 
+#define INIT_RNMI                      \
+    la    t0, 1f;                      \
+    csrw  mtvec, t0;                   \
+    csrwi CSR_MNSTATUS, MNSTATUS_NMIE; \
+    .align 2;                          \
+    1:
+
 //-----------------------------------------------------------------------
 // End Macro
 //-----------------------------------------------------------------------
