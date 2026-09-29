@@ -663,6 +663,8 @@ void cpu_step(cpu_t *cpu, bus_t *bus, bool trace) {
                     cpu->wfi = true;
                 }
             } while (0));
+        // SFENCE.VMA: Nop as we haven't implemented the TLB yet
+        INSTPAT(SFENCE_VMA, );
         goto illegal_instruction;
 
     case OPCODE_AMO:

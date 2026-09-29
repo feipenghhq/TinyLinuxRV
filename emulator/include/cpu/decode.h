@@ -394,4 +394,8 @@
 #define MASK_WFI       UINT32_C(0xffffffff)
 #define GOLDEN_WFI     UINT32_C(0x10500073)
 
+// SFENCE_VMA: 0001_001?_????_????_?000_0000_0111_0011
+#define MASK_SFENCE_VMA UINT32_C(0xfe007fff)
+#define GOLDEN_SFENCE_VMA UINT32_C(0x12000073)
+
 #endif
