@@ -9,8 +9,10 @@
 #include "cpu/cpu_exec.h"
 #include "device/device.h"
 #include "memory/memory.h"
+#include "utils/func_trace.h"
 #include "utils/iringbuf.h"
 #include "utils/log.h"
+#include "utils/symtable.h"
 
 // -------------------------------------------------------------------
 // Different type enum
@@ -186,7 +188,7 @@ static int boot(memory_t *memory, dev_list_t *devices, cpu_t *cpu, argument_t *a
     // read the program
     switch (argument->format) {
     case AUTO: {
-        result = memory_load_auto(memory, argument->file, &cpu->pc);
+        result = memory_load_auto(memory, argument->file, &cpu->pc, argument->trace);
         break;
     }
     case BIN: {
@@ -194,7 +196,7 @@ static int boot(memory_t *memory, dev_list_t *devices, cpu_t *cpu, argument_t *a
         break;
     }
     case ELF: {
-        result = memory_load_elf(memory, argument->file, &cpu->pc);
+        result = memory_load_elf(memory, argument->file, &cpu->pc, argument->trace);
         break;
     }
     }
@@ -204,6 +206,16 @@ static int boot(memory_t *memory, dev_list_t *devices, cpu_t *cpu, argument_t *a
         poweroff(memory, devices);
         return -1;
     }
+
+    // initialize function trace
+    const char *func_trace_file = "func_trace.log";
+    if (argument->trace) {
+        result = func_trace_init(func_trace_file);
+        if (result != 0) {
+            return -1;
+        }
+    }
+
     return 0;
 }
 
@@ -242,6 +254,12 @@ int main(int argc, char **argv) {
 
     // free up memory
     poweroff(&memory, &devices);
+
+    // close the trace
+    if (argument.trace) {
+        func_trace_end();
+        symbol_table_free();
+    }
 
     // Check execution status
     switch (exec_status) {

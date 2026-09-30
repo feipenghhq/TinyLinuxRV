@@ -30,7 +30,7 @@ void *memory_set(memory_t *memory, uint64_t start_addr, int c, size_t n);
 // Loader
 int memory_load_binary(memory_t *memory, const char *file);
 // ELF loaders return the address where CPU execution should begin.
-int memory_load_elf(memory_t *memory, const char *file, uint64_t *entry_point);
-int memory_load_auto(memory_t *memory, const char *file, uint64_t *entry_point);
+int memory_load_elf(memory_t *memory, const char *file, uint64_t *entry_point, bool trace);
+int memory_load_auto(memory_t *memory, const char *file, uint64_t *entry_point, bool trace);
 
 #endif

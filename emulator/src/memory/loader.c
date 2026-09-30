@@ -10,6 +10,9 @@
 #include "memory/memory.h"
 #include "utils/address_range.h"
 #include "utils/log.h"
+#include "utils/symtable.h"
+
+#define MAX_FUNC_NAME 256
 
 typedef enum { NOT_ELF, BAD_ELF, ELF_HEADER_OK, IO_ERROR, BAD_FILE } elf_probe_result_t;
 
@@ -190,6 +193,97 @@ static int load_elf_segments(memory_t *memory, FILE *fp, const Elf64_Ehdr *ehdr,
     return 0;
 }
 
+static int load_symbol_table(FILE *fp, const Elf64_Ehdr *ehdr) {
+    Elf64_Shdr shdr, shdr_strtab;
+    Elf64_Off  next_shoff;
+    Elf64_Sym *symbols = NULL;
+    char      *strtab  = NULL;
+    size_t     count;
+    char      *fun_name;
+    long       num_symbols;
+
+    // initialize the symbol table. Will only be initialized when trace is enabled
+    symbol_table_init(1);
+
+    next_shoff = ehdr->e_shoff;
+
+    for (int i = 0; i < ehdr->e_shnum; i++) {
+
+        if (elf_seek(fp, next_shoff) != 0)
+            return -1;
+        count = fread(&shdr, 1, sizeof(shdr), fp);
+        if (count != sizeof(shdr)) {
+            LOG_ERROR("Failed to read file");
+            return -1;
+        }
+
+        next_shoff += ehdr->e_shentsize;
+
+        // We are looking for SYMTAB or DYNSYM
+        if (shdr.sh_type != SHT_SYMTAB && shdr.sh_type != SHT_DYNSYM)
+            continue;
+
+        num_symbols = (long)(shdr.sh_size / shdr.sh_entsize);
+
+        // The sh_link tell us which section header holds the string table of current shdr
+        // The shdr_strtab.sh_offset tells us the location in the ELF file that holds the string table
+        if (elf_seek(fp, ehdr->e_shoff + shdr.sh_link * ehdr->e_shentsize) != 0)
+            return -1;
+        count = fread(&shdr_strtab, 1, sizeof(shdr), fp);
+        if (count != sizeof(shdr_strtab)) {
+            LOG_ERROR("Failed to read file");
+            return -1;
+        }
+
+        // Read the entire symbol section
+        if (shdr.sh_entsize != sizeof(Elf64_Sym)) {
+            LOG_ERROR("Invalid symbol entry size");
+            return -1;
+        }
+        symbols = malloc(shdr.sh_size);
+        if (!symbols)
+            goto cleanup;
+        if (elf_seek(fp, shdr.sh_offset) != 0)
+            goto cleanup;
+        count = fread(symbols, 1, shdr.sh_size, fp);
+        if (count != shdr.sh_size)
+            goto cleanup;
+
+        // Read the entire string table
+        strtab = malloc(shdr_strtab.sh_size);
+        if (!symbols)
+            goto cleanup;
+        if (elf_seek(fp, shdr_strtab.sh_offset) != 0)
+            goto cleanup;
+        count = fread(strtab, 1, shdr_strtab.sh_size, fp);
+        if (count != shdr_strtab.sh_size)
+            goto cleanup;
+
+        for (int j = 0; j < num_symbols; j++) {
+            int type = ELF64_ST_TYPE(symbols[j].st_info);
+            if (type == STT_FUNC || type == STT_NOTYPE) {
+                // This offset is where the function name string is located in the ELF file
+                fun_name = strtab + symbols[j].st_name;
+                symbol_table_add(type, symbols[j].st_value, symbols[j].st_size, fun_name);
+                //printf("Function: %s, st_value = %lx\n", fun_name, symbols[j].st_value);
+            }
+        }
+
+        free(symbols);
+        free(strtab);
+        symbols = NULL;
+        strtab  = NULL;
+    }
+
+    return 0;
+
+cleanup:
+    LOG_ERROR("Failed to read file or malloc");
+    free(symbols);
+    free(strtab);
+    return -1;
+}
+
 int memory_load_binary(memory_t *memory, const char *file) {
     FILE *fp = NULL;
     int   result;
@@ -204,7 +298,7 @@ int memory_load_binary(memory_t *memory, const char *file) {
     return result;
 }
 
-int memory_load_elf(memory_t *memory, const char *file, uint64_t *entry_point) {
+int memory_load_elf(memory_t *memory, const char *file, uint64_t *entry_point, bool trace) {
     FILE      *fp = NULL;
     Elf64_Ehdr ehdr;
     int        result = 0;
@@ -232,6 +326,8 @@ int memory_load_elf(memory_t *memory, const char *file, uint64_t *entry_point) {
     }
     case ELF_HEADER_OK: {
         result = load_elf_segments(memory, fp, &ehdr, entry_point);
+        if (trace)
+            load_symbol_table(fp, &ehdr);
     }
     }
 
@@ -239,7 +335,7 @@ int memory_load_elf(memory_t *memory, const char *file, uint64_t *entry_point) {
     return result;
 }
 
-int memory_load_auto(memory_t *memory, const char *file, uint64_t *entry_point) {
+int memory_load_auto(memory_t *memory, const char *file, uint64_t *entry_point, bool trace) {
     FILE      *fp = NULL;
     Elf64_Ehdr ehdr;
     int        result = 0;
@@ -259,6 +355,8 @@ int memory_load_auto(memory_t *memory, const char *file, uint64_t *entry_point) 
     }
     case ELF_HEADER_OK: {
         result = load_elf_segments(memory, fp, &ehdr, entry_point);
+        if (trace)
+            load_symbol_table(fp, &ehdr);
         break;
     }
     case NOT_ELF: {

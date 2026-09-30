@@ -7,3 +7,6 @@ emulator/rvemu
 
 # AI
 AGENTS.md
+
+# MISC
+*.log

@@ -10,6 +10,7 @@
 #include "cpu/mmu.h"
 #include "cpu/riscv.h"
 #include "device/clint.h"
+#include "utils/func_trace.h"
 #include "utils/iringbuf.h"
 #include "utils/log.h"
 
@@ -513,6 +514,13 @@ void cpu_step(cpu_t *cpu, bus_t *bus, bool trace) {
             JAL, do {
                 next_pc = PC() + IMM();
                 CHECK_MA_FETCH(next_pc);
+                if (trace) {
+                    if (inst_dec.rd == 1) {
+                        trace_call(PC(), next_pc, cpu->priv);
+                    } else if (inst_dec.rd == 0) {
+                        trace_jump(PC(), next_pc, cpu->priv);
+                    }
+                }
                 RD() = PC() + 4;
             } while (0));
         goto illegal_instruction;
@@ -522,6 +530,12 @@ void cpu_step(cpu_t *cpu, bus_t *bus, bool trace) {
             JALR, do {
                 next_pc = (IMM() + RS1()) & ~UINT64_C(1);
                 CHECK_MA_FETCH(next_pc);
+                if (trace) {
+                    if (inst_dec.rd == 1)
+                        trace_call(PC(), next_pc, cpu->priv);
+                    if ((inst_dec.rd == 0) && (inst_dec.rs1 == 1) && (IMM() == 0))
+                        trace_return(PC(), next_pc, cpu->priv);
+                }
                 RD() = PC() + 4;
             } while (0));
         goto illegal_instruction;
@@ -640,7 +654,10 @@ void cpu_step(cpu_t *cpu, bus_t *bus, bool trace) {
                     trap_val   = inst;
                     goto raise_exception;
                 } else {
-                    next_pc = trap_exit_mret(&cpu->csr, &cpu->priv);
+                    priv_mode_t prev_priv = cpu->priv;
+                    next_pc               = trap_exit_mret(&cpu->csr, &cpu->priv);
+                    if (trace)
+                        trace_return(PC(), next_pc, prev_priv);
                 }
             } while (0));
         INSTPAT(
@@ -650,7 +667,10 @@ void cpu_step(cpu_t *cpu, bus_t *bus, bool trace) {
                     trap_val   = inst;
                     goto raise_exception;
                 } else {
-                    next_pc = trap_exit_sret(&cpu->csr, &cpu->priv);
+                    priv_mode_t prev_priv = cpu->priv;
+                    next_pc               = trap_exit_sret(&cpu->csr, &cpu->priv);
+                    if (trace)
+                        trace_return(PC(), next_pc, prev_priv);
                 }
             } while (0));
         INSTPAT(
@@ -713,8 +733,11 @@ raise_exception:
     LOG_DEBUG(
         "CPU: Raise an exception/interrupt at PC: %lx, instruction: %x. Cause: %lx. Val: %lx. PRIV = %d. MEDELEG = %lx",
         cpu->pc, inst, trap_cause, trap_val, cpu->priv, cpu->csr.csr_reg.medeleg);
-    next_pc    = trap_enter(&cpu->csr, trap_cause, trap_val, PC(), &cpu->priv);
-    enter_trap = true;
+    priv_mode_t prev_priv = cpu->priv;
+    next_pc               = trap_enter(&cpu->csr, trap_cause, trap_val, PC(), &cpu->priv);
+    enter_trap            = true;
+    if (trace)
+        trace_trap(PC(), next_pc, prev_priv);
 
 end_exec:
     cpu->regs[0] = 0; // restore reg[0] to zero
