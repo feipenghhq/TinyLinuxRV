@@ -58,6 +58,7 @@ enum {
 #define MSTATUS_SPP_POS  8
 #define MSTATUS_MPP_POS  11
 #define MSTATUS_SUM_POS  18
+#define MSTATUS_TVM_POS  20
 #define MSTATUS_TW_POS   21
 #define MSTATUS_TSR_POS  22
 #define MSTATUS_UXL_POS  32
@@ -70,14 +71,15 @@ enum {
 #define MSTATUS_SPP  CSR_BIT(MSTATUS_SPP_POS)
 #define MSTATUS_MPP  CSR_FIELD_MASK(MSTATUS_MPP_POS, 2)
 #define MSTATUS_SUM  CSR_BIT(MSTATUS_SUM_POS)
+#define MSTATUS_TVM  CSR_BIT(MSTATUS_TVM_POS)
 #define MSTATUS_TW   CSR_BIT(MSTATUS_TW_POS)
 #define MSTATUS_TSR  CSR_BIT(MSTATUS_TSR_POS)
 #define MSTATUS_UXL  CSR_FIELD_MASK(MSTATUS_UXL_POS, 2)
 #define MSTATUS_SXL  CSR_FIELD_MASK(MSTATUS_SXL_POS, 2)
 
-#define MSTATUS_WRITE_MASK                                                                                            \
-    (MSTATUS_SIE | MSTATUS_MIE | MSTATUS_SPIE | MSTATUS_MPIE | MSTATUS_SPP | MSTATUS_MPP | MSTATUS_SUM | MSTATUS_TW | \
-     MSTATUS_TSR)
+#define MSTATUS_WRITE_MASK                                                                                             \
+    (MSTATUS_SIE | MSTATUS_MIE | MSTATUS_SPIE | MSTATUS_MPIE | MSTATUS_SPP | MSTATUS_MPP | MSTATUS_SUM | MSTATUS_TVM | \
+     MSTATUS_TW | MSTATUS_TSR)
 
 #define SSTATUS_READ_MASK  (MSTATUS_SIE | MSTATUS_SPIE | MSTATUS_SPP | MSTATUS_SUM | MSTATUS_UXL)
 #define SSTATUS_WRITE_MASK (MSTATUS_SIE | MSTATUS_SPIE | MSTATUS_SPP | MSTATUS_SUM)
@@ -360,6 +362,12 @@ int csr_access(csr_t *csr, int addr, int op, const uint64_t value, uint64_t *rda
         LOG_ERROR("CPU: Access unimplemented CSR register: %x", addr);
         return 1;
     }
+    }
+
+    // When TVM=1, attempts to read or write the satp CSR while executing in S-mode will raise an illegal-instruction
+    // exception
+    if (addr == CSR_SATP && priv == PRIV_S && csr_field_get(csr->csr_reg.mstatus, MSTATUS_TVM_POS, 1)) {
+        return 1;
     }
 
     // Write to read only CSR. Should cause illegal instruction
@@ -747,4 +755,13 @@ bool check_sret_trap(csr_t *csr, priv_mode_t priv) {
  */
 bool check_wfi_trap(csr_t *csr, priv_mode_t priv) {
     return (csr_field_get(csr->csr_reg.mstatus, MSTATUS_TW_POS, 1) && (priv == PRIV_S)) || (priv == PRIV_U);
+}
+
+/**
+ * When TVM=1, attempts to read or write the satp CSR or execute an
+ * SFENCE.VMA or SINVAL.VMA instruction while executing in S-mode will raise an illegal-instruction
+ * exception. When TVM=0, these operations are permitted in S-mode.
+ */
+bool check_tvm(csr_t *csr, priv_mode_t priv) {
+    return (priv == PRIV_S) && csr_field_get(csr->csr_reg.mstatus, MSTATUS_TVM_POS, 1);
 }

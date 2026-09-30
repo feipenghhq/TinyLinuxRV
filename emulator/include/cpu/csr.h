@@ -66,5 +66,6 @@ void     csr_end_update(csr_t *csr, bool retired);
 bool     check_mret_privilege(priv_mode_t priv);
 bool     check_sret_trap(csr_t *csr, priv_mode_t priv);
 bool     check_wfi_trap(csr_t *csr, priv_mode_t priv);
+bool     check_tvm(csr_t *csr, priv_mode_t priv);
 
 #endif

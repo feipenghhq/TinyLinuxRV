@@ -664,7 +664,14 @@ void cpu_step(cpu_t *cpu, bus_t *bus, bool trace) {
                 }
             } while (0));
         // SFENCE.VMA: Nop as we haven't implemented the TLB yet
-        INSTPAT(SFENCE_VMA, );
+        INSTPAT(
+            SFENCE_VMA, do {
+                if (check_tvm(&cpu->csr, cpu->priv)) {
+                    trap_cause = ILLEGAL_INSTRUCTION;
+                    trap_val   = inst;
+                    goto raise_exception;
+                }
+            } while (0));
         goto illegal_instruction;
 
     case OPCODE_AMO:
@@ -703,8 +710,9 @@ illegal_instruction:
     trap_val   = inst;
 
 raise_exception:
-    LOG_DEBUG("CPU: Raise an exception/interrupt at PC: %lx, instruction: %x. Cause: %lx. Val: %lx", cpu->pc, inst,
-              trap_cause, trap_val);
+    LOG_DEBUG(
+        "CPU: Raise an exception/interrupt at PC: %lx, instruction: %x. Cause: %lx. Val: %lx. PRIV = %d. MEDELEG = %lx",
+        cpu->pc, inst, trap_cause, trap_val, cpu->priv, cpu->csr.csr_reg.medeleg);
     next_pc    = trap_enter(&cpu->csr, trap_cause, trap_val, PC(), &cpu->priv);
     enter_trap = true;
 
