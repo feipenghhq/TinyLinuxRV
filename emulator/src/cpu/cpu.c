@@ -278,7 +278,7 @@ static void decode(uint32_t inst, inst_dec_t *inst_dec) {
     } while (0)
 
 // Load/Store address misaligned address
-#define CHECK_MA_LS(addr, size, cause)                 \
+#define CHECK_MA_LS(addr, size, cause, vaddr)          \
     do {                                               \
         bool ma_addr = false;                          \
         ma_addr |= (size == 2) && ((addr & 0x1) != 0); \
@@ -286,7 +286,7 @@ static void decode(uint32_t inst, inst_dec_t *inst_dec) {
         ma_addr |= (size == 8) && ((addr & 0x7) != 0); \
         if (ma_addr) {                                 \
             trap_cause = cause;                        \
-            trap_val   = addr;                         \
+            trap_val   = vaddr;                        \
             goto raise_exception;                      \
         }                                              \
     } while (0)
@@ -313,50 +313,57 @@ static void decode(uint32_t inst, inst_dec_t *inst_dec) {
         }                            \
     } while (0)
 
-#define MMU(vaddr, paddr, mode)                                                                                   \
-    do {                                                                                                          \
-        mmu_translation_type mmu_result =                                                                         \
-            mmu_translation(vaddr, paddr, bus, cpu->csr.csr_reg.satp, cpu->csr.csr_reg.mstatus, mode, cpu->priv); \
-        if (mmu_result != MMU_VALID) {                                                                            \
-            trap_cause = (uint64_t)mmu_result;                                                                    \
-            trap_val   = vaddr;                                                                                   \
-            goto raise_exception;                                                                                 \
-        }                                                                                                         \
+#define MMU(vaddr, paddr, mode)                                                                                        \
+    do {                                                                                                               \
+        mmu_translation_type mmu_result =                                                                              \
+            mmu_translation(vaddr, paddr, bus, cpu->csr.csr_reg.satp, cpu->csr.csr_reg.mstatus, mode, effective_priv); \
+        if (mmu_result != MMU_VALID) {                                                                                 \
+            trap_cause = (uint64_t)mmu_result;                                                                         \
+            trap_val   = vaddr;                                                                                        \
+            goto raise_exception;                                                                                      \
+        }                                                                                                              \
     } while (0)
 
 // Execute a load. ext selects either sign extension or no extension.
+// clang-format off
 #define NOEXT(value, bits) (value)
-#define EXEC_LOAD_HELPER(vaddr, size, ext, target, access_fault_cause) \
+#define EXEC_LOAD_HELPER(vaddr, size, ext, target, access_fault_cause, mmu_mode) \
     do {                                                               \
         uint64_t _vaddr = (vaddr);                                     \
         uint64_t _addr  = 0;                                           \
         uint64_t _size  = (size);                                      \
         uint64_t data   = 0;                                           \
-        MMU(_vaddr, &_addr, MMU_READ);                                 \
-        CHECK_MA_LS(_addr, _size, LOAD_ADDR_MISALIGNED);               \
+        priv_mode_t effective_priv = effective_priv_mode(&cpu->csr, cpu->priv); \
+        MMU(_vaddr, &_addr, mmu_mode);                                 \
+        CHECK_MA_LS(_addr, _size, LOAD_ADDR_MISALIGNED, vaddr);        \
         if (bus_read(bus, _addr, size, &data) != 0) {                  \
             trap_cause = access_fault_cause;                           \
-            trap_val   = _addr;                                        \
+            trap_val   = vaddr;                                        \
             goto raise_exception;                                      \
         }                                                              \
         target = ext(data, size * 8);                                  \
     } while (0)
-#define EXEC_LOAD(addr, size, ext) EXEC_LOAD_HELPER(addr, size, ext, RD(), LOAD_ACCESS_FAULT)
+// clang-format on
+
+#define EXEC_LOAD(addr, size, ext) EXEC_LOAD_HELPER(addr, size, ext, RD(), LOAD_ACCESS_FAULT, MMU_READ)
 
 // Execute a store.
+// clang-format off
 #define EXEC_STORE(vaddr, data, size)                         \
     do {                                                      \
         uint64_t _vaddr = (vaddr);                            \
         uint64_t _addr  = 0;                                  \
         uint64_t _size  = (size);                             \
+        priv_mode_t effective_priv = effective_priv_mode(&cpu->csr, cpu->priv); \
         MMU(_vaddr, &_addr, MMU_WRITE);                       \
-        CHECK_MA_LS(_addr, _size, STORE_AMO_ADDR_MISALIGNED); \
+        CHECK_MA_LS(_addr, _size, STORE_AMO_ADDR_MISALIGNED, vaddr); \
         if (bus_write(bus, _addr, size, &data) != 0) {        \
             trap_cause = STORE_AMO_ACCESS_FAULT;              \
-            trap_val   = _addr;                               \
+            trap_val   = vaddr;                               \
             goto raise_exception;                             \
         }                                                     \
     } while (0)
+// clang-format on
 
 // Execute CSR instruction
 #define EXEC_CSR(op, value, rd, rs1)                                                                               \
@@ -391,7 +398,7 @@ static void decode(uint32_t inst, inst_dec_t *inst_dec) {
 // If the address does not hit, then just check the alignment, if hit, store instuction will check it
 #define EXEC_SC(res, size)                                                         \
     do {                                                                           \
-        CHECK_MA_LS(RS1(), size, STORE_AMO_ADDR_MISALIGNED);                       \
+        CHECK_MA_LS(RS1(), size, STORE_AMO_ADDR_MISALIGNED, RS1());                \
         if (!res.valid || RS1() < res.addr_start || RS1() > res.addr_end - size) { \
             res.valid = false;                                                     \
             RD()      = 1;                                                         \
@@ -403,16 +410,16 @@ static void decode(uint32_t inst, inst_dec_t *inst_dec) {
     } while (0)
 
 // Need to record RS1 and RS2 first because AMO could override if RD = RS1 or RD = RS2
-#define EXEC_AMO(size, op)                                                          \
-    do {                                                                            \
-        uint64_t amo_addr = RS1();                                                  \
-        uint64_t amo_src  = RS2();                                                  \
-        uint64_t read_value;                                                        \
-        CHECK_MA_LS(RS1(), size, STORE_AMO_ADDR_MISALIGNED);                        \
-        EXEC_LOAD_HELPER(amo_addr, size, sext, read_value, STORE_AMO_ACCESS_FAULT); \
-        uint64_t result = (op);                                                     \
-        EXEC_STORE(amo_addr, result, size);                                         \
-        RD() = read_value;                                                          \
+#define EXEC_AMO(size, op)                                                                   \
+    do {                                                                                     \
+        uint64_t amo_addr = RS1();                                                           \
+        uint64_t amo_src  = RS2();                                                           \
+        uint64_t read_value;                                                                 \
+        CHECK_MA_LS(RS1(), size, STORE_AMO_ADDR_MISALIGNED, RS1());                          \
+        EXEC_LOAD_HELPER(amo_addr, size, sext, read_value, STORE_AMO_ACCESS_FAULT, MMU_AMO); \
+        uint64_t result = (op);                                                              \
+        EXEC_STORE(amo_addr, result, size);                                                  \
+        RD() = read_value;                                                                   \
     } while (0)
 
 #define CMP64U(a, b, op) ((a)op(b) ? (a) : (b))
@@ -686,7 +693,7 @@ void cpu_step(cpu_t *cpu, bus_t *bus, bool trace) {
         // SFENCE.VMA: Nop as we haven't implemented the TLB yet
         INSTPAT(
             SFENCE_VMA, do {
-                if (check_tvm(&cpu->csr, cpu->priv)) {
+                if (check_sfence_vma(&cpu->csr, cpu->priv)) {
                     trap_cause = ILLEGAL_INSTRUCTION;
                     trap_val   = inst;
                     goto raise_exception;

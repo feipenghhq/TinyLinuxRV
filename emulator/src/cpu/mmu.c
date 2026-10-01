@@ -196,16 +196,25 @@ step_2:
     if (!pte_s.v || (!pte_s.r && pte_s.w) || (xwr == 2 || xwr == 6)) {
         return WALKER_PAGE_FAULT;
     }
+    // if any bits or encodings that are reserved for future standard use are set within pte, stop and raise a
+    // page-fault exception corresponding to the original access type.
+    // Bit 63-61 (N/PBMT) should be reserved in our implementation
+    // Bit 60-54 should also be reserved
+    if ((pte >> 54) != 0)
+        return WALKER_PAGE_FAULT;
 
     // step 4
-    if (!(pte_s.r || pte_s.x)) {
-        if (level == 0) {
+    if (!(pte_s.r || pte_s.x)) { // This is a non-leaf page
+        level--;
+        if (level < 0)
             return WALKER_PAGE_FAULT;
-        } else {
-            level--;
-            pte_base_addr = pte_s.ppn * PAGESIZE;
-            goto step_2;
-        }
+
+        // For non-leaf PTEs, the D, A, and U bits are reserved for future standard use.
+        if (pte_s.u || pte_s.a || pte_s.d)
+            return WALKER_PAGE_FAULT;
+
+        pte_base_addr = pte_s.ppn * PAGESIZE;
+        goto step_2;
     }
 
     // step 5
@@ -233,7 +242,7 @@ step_2:
     // Check access mode
     switch (xwr) {
     case 1: // read only
-        if (mode == MMU_EXECUTE || mode == MMU_WRITE)
+        if (mode == MMU_EXECUTE || mode == MMU_WRITE || mode == MMU_AMO)
             return WALKER_PAGE_FAULT;
         break;
 
@@ -242,15 +251,15 @@ step_2:
             return WALKER_PAGE_FAULT;
         break;
     case 4: // execute-only
-        if (mode == MMU_WRITE)
+        if (mode == MMU_WRITE || mode == MMU_AMO)
             return WALKER_PAGE_FAULT;
         // When MXR=0, only loads from pages marked readable (R=1 in Sv32 page table entry) will succeed. When
         // MXR=1, loads from pages marked either readable or executable (R=1 or X=1) will succeed.
-        if (mode == MMU_READ && !sstatus_mxr)
+        if ((mode == MMU_READ || mode == MMU_AMO) && !sstatus_mxr)
             return WALKER_PAGE_FAULT;
         break;
     case 5: // read-execute
-        if (mode == MMU_WRITE)
+        if (mode == MMU_WRITE || mode == MMU_AMO)
             return WALKER_PAGE_FAULT;
         break;
     }
@@ -260,7 +269,7 @@ step_2:
     if (!pte_s.a) {
         return WALKER_PAGE_FAULT;
     }
-    if (mode == MMU_WRITE && !pte_s.d) {
+    if ((mode == MMU_WRITE || mode == MMU_AMO) && !pte_s.d) {
         return WALKER_PAGE_FAULT;
     }
 
@@ -306,7 +315,7 @@ mmu_translation_type mmu_translation(uint64_t va, uint64_t *pa, bus_t *bus, uint
 
     // Load/Store in Machine mode used effective privilege
     priv_mode_t effective_priv = priv;
-    if (mstatus_mprv) {
+    if (mstatus_mprv && (mode != MMU_EXECUTE)) {
         effective_priv = (priv_mode_t)mstatus_mpp;
     }
 
@@ -328,6 +337,8 @@ mmu_translation_type mmu_translation(uint64_t va, uint64_t *pa, bus_t *bus, uint
             return MMU_LOAD_ACCESS_FAULT;
         case MMU_WRITE:
             return MMU_STORE_AMO_ACCESS_FAULT;
+        case MMU_AMO:
+            return MMU_STORE_AMO_ACCESS_FAULT;
         }
     } else {
         switch (mode) {
@@ -336,6 +347,8 @@ mmu_translation_type mmu_translation(uint64_t va, uint64_t *pa, bus_t *bus, uint
         case MMU_READ:
             return MMU_LOAD_PAGE_FAULT;
         case MMU_WRITE:
+            return MMU_STORE_AMO_PAGE_FAULT;
+        case MMU_AMO:
             return MMU_STORE_AMO_PAGE_FAULT;
         }
     }

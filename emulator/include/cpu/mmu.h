@@ -9,6 +9,7 @@
 typedef enum {
     MMU_READ,
     MMU_WRITE,
+    MMU_AMO,
     MMU_EXECUTE,
 } mmu_access_mode;
 

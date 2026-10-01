@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "log.h"
+#include "riscv.h"
 
 // ----------------------------------------------
 // Helper variable and macro
@@ -57,7 +58,9 @@ enum {
 #define MSTATUS_MPIE_POS 7
 #define MSTATUS_SPP_POS  8
 #define MSTATUS_MPP_POS  11
+#define MSTATUS_MPRV_POS 17
 #define MSTATUS_SUM_POS  18
+#define MSTATUS_MXR_POS  19
 #define MSTATUS_TVM_POS  20
 #define MSTATUS_TW_POS   21
 #define MSTATUS_TSR_POS  22
@@ -70,19 +73,21 @@ enum {
 #define MSTATUS_MPIE CSR_BIT(MSTATUS_MPIE_POS)
 #define MSTATUS_SPP  CSR_BIT(MSTATUS_SPP_POS)
 #define MSTATUS_MPP  CSR_FIELD_MASK(MSTATUS_MPP_POS, 2)
+#define MSTATUS_MPRV CSR_BIT(MSTATUS_MPRV_POS)
 #define MSTATUS_SUM  CSR_BIT(MSTATUS_SUM_POS)
+#define MSTATUS_MXR  CSR_BIT(MSTATUS_MXR_POS)
 #define MSTATUS_TVM  CSR_BIT(MSTATUS_TVM_POS)
 #define MSTATUS_TW   CSR_BIT(MSTATUS_TW_POS)
 #define MSTATUS_TSR  CSR_BIT(MSTATUS_TSR_POS)
 #define MSTATUS_UXL  CSR_FIELD_MASK(MSTATUS_UXL_POS, 2)
 #define MSTATUS_SXL  CSR_FIELD_MASK(MSTATUS_SXL_POS, 2)
 
-#define MSTATUS_WRITE_MASK                                                                                             \
-    (MSTATUS_SIE | MSTATUS_MIE | MSTATUS_SPIE | MSTATUS_MPIE | MSTATUS_SPP | MSTATUS_MPP | MSTATUS_SUM | MSTATUS_TVM | \
-     MSTATUS_TW | MSTATUS_TSR)
+#define MSTATUS_WRITE_MASK                                                                                \
+    (MSTATUS_SIE | MSTATUS_MIE | MSTATUS_SPIE | MSTATUS_MPIE | MSTATUS_SPP | MSTATUS_MPP | MSTATUS_MPRV | \
+     MSTATUS_SUM | MSTATUS_MXR | MSTATUS_TVM | MSTATUS_TW | MSTATUS_TSR)
 
-#define SSTATUS_READ_MASK  (MSTATUS_SIE | MSTATUS_SPIE | MSTATUS_SPP | MSTATUS_SUM | MSTATUS_UXL)
-#define SSTATUS_WRITE_MASK (MSTATUS_SIE | MSTATUS_SPIE | MSTATUS_SPP | MSTATUS_SUM)
+#define SSTATUS_READ_MASK  (MSTATUS_SIE | MSTATUS_SPIE | MSTATUS_SPP | MSTATUS_SUM | MSTATUS_MXR | MSTATUS_UXL)
+#define SSTATUS_WRITE_MASK (MSTATUS_SIE | MSTATUS_SPIE | MSTATUS_SPP | MSTATUS_SUM | MSTATUS_MXR)
 
 // Interrupt fields
 #define INT_BIT_SSIP CSR_BIT(INT_SSIP)
@@ -304,6 +309,7 @@ void csr_init(csr_t *csr) {
 int csr_access(csr_t *csr, int addr, int op, const uint64_t value, uint64_t *rdata, bool read_csr, bool write_csr,
                uint64_t time_value, priv_mode_t priv) {
     uint64_t *csr_reg       = NULL;
+    uint64_t  csr_b4_write  = 0;
     bool      read_only     = false;
     bool      imp_read_only = false;
     uint64_t  write_value   = value;
@@ -363,6 +369,8 @@ int csr_access(csr_t *csr, int addr, int op, const uint64_t value, uint64_t *rda
         return 1;
     }
     }
+
+    csr_b4_write = *csr_reg;
 
     // When TVM=1, attempts to read or write the satp CSR while executing in S-mode will raise an illegal-instruction
     // exception
@@ -521,10 +529,12 @@ int csr_access(csr_t *csr, int addr, int op, const uint64_t value, uint64_t *rda
         case CSR_MEPC:
             *csr_reg = *csr_reg & TRAP_PC_ALIGN_MASK;
             break;
-        case CSR_SATP: { // only support bare and Sv39 mode
+        case CSR_SATP: {
+            // Only support bare and Sv39 mode. If satp is written with an unsupported MODE, the entire write has no
+            // effect; no fields in satp are modified.
             int field = (int)csr_field_get(*csr_reg, SATP_MODE_POS, 4);
             if ((field != 0) && (field != 8)) {
-                csr_field_set(csr_reg, SATP_MODE_POS, 4, SATP_SV39_MODE);
+                *csr_reg = csr_b4_write;
             }
         }
         }
@@ -642,6 +652,10 @@ uint64_t trap_exit_mret(csr_t *csr, priv_mode_t *priv) {
     csr_field_set(&csr->csr_reg.mstatus, MSTATUS_MPIE_POS, 1, 1);
     // - set mstatus.MPP to 0.
     csr_field_set(&csr->csr_reg.mstatus, MSTATUS_MPP_POS, 2, PRIV_U);
+    // - An MRET instruction that changes the privilege mode to a mode less privileged than M also sets MPRV = 0.
+    if (*priv < PRIV_M) {
+        csr_field_set(&csr->csr_reg.mstatus, MSTATUS_MPRV_POS, 1, 0);
+    }
     // return mepc
     return csr->csr_reg.mepc & TRAP_PC_ALIGN_MASK;
 }
@@ -665,6 +679,10 @@ uint64_t trap_exit_sret(csr_t *csr, priv_mode_t *priv) {
     csr_field_set(&csr->csr_reg.mstatus, MSTATUS_SPIE_POS, 1, 1);
     // - set SPP to 0.
     csr_field_set(&csr->csr_reg.mstatus, MSTATUS_SPP_POS, 1, PRIV_U);
+    // - An SRET instruction that changes the privilege mode to a mode less privileged than M also sets MPRV = 0.
+    if (*priv < PRIV_M) {
+        csr_field_set(&csr->csr_reg.mstatus, MSTATUS_MPRV_POS, 1, 0);
+    }
     // return sepc
     return csr->csr_reg.sepc & TRAP_PC_ALIGN_MASK;
 }
@@ -762,6 +780,14 @@ bool check_wfi_trap(csr_t *csr, priv_mode_t priv) {
  * SFENCE.VMA or SINVAL.VMA instruction while executing in S-mode will raise an illegal-instruction
  * exception. When TVM=0, these operations are permitted in S-mode.
  */
-bool check_tvm(csr_t *csr, priv_mode_t priv) {
-    return (priv == PRIV_S) && csr_field_get(csr->csr_reg.mstatus, MSTATUS_TVM_POS, 1);
+bool check_sfence_vma(csr_t *csr, priv_mode_t priv) {
+    return (priv == PRIV_U) || ((priv == PRIV_S) && csr_field_get(csr->csr_reg.mstatus, MSTATUS_TVM_POS, 1));
+}
+
+priv_mode_t effective_priv_mode(csr_t *csr, priv_mode_t priv) {
+    if (csr_field_get(csr->csr_reg.mstatus, MSTATUS_MPRV_POS, 1)) {
+        return (priv_mode_t)csr_field_get(csr->csr_reg.mstatus, MSTATUS_MPP_POS, 2);
+    } else {
+        return priv;
+    }
 }

@@ -59,13 +59,16 @@ int      csr_access(csr_t *csr, int addr, int op, const uint64_t value, uint64_t
 uint64_t trap_enter(csr_t *csr, uint64_t cause, uint64_t tval, uint64_t pc, priv_mode_t *priv);
 uint64_t trap_exit_mret(csr_t *csr, priv_mode_t *priv);
 uint64_t trap_exit_sret(csr_t *csr, priv_mode_t *priv);
-bool     interrupt_pending_and_enabled(csr_t *csr, priv_mode_t priv, interrupt_code_t *id);
-bool     interrupt_pending(csr_t *csr);
-void     csr_begin_update(csr_t *csr, bool eip, bool sip, bool tip);
-void     csr_end_update(csr_t *csr, bool retired);
-bool     check_mret_privilege(priv_mode_t priv);
-bool     check_sret_trap(csr_t *csr, priv_mode_t priv);
-bool     check_wfi_trap(csr_t *csr, priv_mode_t priv);
-bool     check_tvm(csr_t *csr, priv_mode_t priv);
+
+bool interrupt_pending_and_enabled(csr_t *csr, priv_mode_t priv, interrupt_code_t *id);
+bool interrupt_pending(csr_t *csr);
+void csr_begin_update(csr_t *csr, bool eip, bool sip, bool tip);
+void csr_end_update(csr_t *csr, bool retired);
+bool check_mret_privilege(priv_mode_t priv);
+bool check_sret_trap(csr_t *csr, priv_mode_t priv);
+bool check_wfi_trap(csr_t *csr, priv_mode_t priv);
+bool check_sfence_vma(csr_t *csr, priv_mode_t priv);
+
+priv_mode_t effective_priv_mode(csr_t *csr, priv_mode_t priv);
 
 #endif
