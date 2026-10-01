@@ -101,13 +101,11 @@ def run_all_suites():
     tests.append(TestSuite("rv64um", 'p'))
     tests.append(TestSuite("rv64ua", 'p'))
     tests.append(TestSuite("rv64mi", 'p', skip_list=("pmpaddr", "breakpoint")))
-    tests.append(TestSuite("rv64si", 'p', skip_list=("dirty", "icache-alias")))
+    tests.append(TestSuite("rv64si", 'p'))
 
     tests.append(TestSuite("rv64ui", 'v', skip_list=("ma_data",)))
     tests.append(TestSuite("rv64um", 'v'))
     tests.append(TestSuite("rv64ua", 'v'))
-    tests.append(TestSuite("rv64mi", 'v', skip_list=("pmpaddr", "breakpoint")))
-    tests.append(TestSuite("rv64si", 'v', skip_list=("dirty", "icache-alias")))
 
     passed = True
     for test in tests:

@@ -20,23 +20,28 @@
 #undef RVTEST_ZVE32X_ENABLE
 #define RVTEST_ZVE32X_ENABLE csrwi vcsr, 0;
 
+// clang-format off
 #undef RVTEST_CODE_BEGIN
 #define RVTEST_CODE_BEGIN \
     .text;                \
     .global extra_boot;   \
-    extra_boot:           \
+extra_boot:               \
+    EXTRA_INIT            \
     ret;                  \
-    .global trap_filter;  \
-    trap_filter:          \
+.global trap_filter;      \
+trap_filter:              \
+    FILTER_TRAP           \
     li a0, 0;             \
     ret;                  \
-    .global pf_filter;    \
-    pf_filter:            \
+.global pf_filter;        \
+pf_filter:                \
+    FILTER_PAGE_FAULT     \
     li a0, 0;             \
     ret;                  \
     .global userstart;    \
-    userstart:            \
+userstart:                \
     init
+// clang-format on
 
 //-----------------------------------------------------------------------
 // Pass/Fail Macro
