@@ -32,10 +32,10 @@ Completed:
 - ✅ UART, CLINT, and PLIC device support.
 - ✅ Machine-mode CSRs, exceptions, traps, and interrupts.
 - ✅ Supervisor and user privilege modes.
+- ✅ Sv39 virtual memory.
 
 Next:
 
-- Sv39 virtual memory.
 - OpenSBI, Linux, and BusyBox bring-up.
 - Deterministic architectural tracing for later RTL verification.
 

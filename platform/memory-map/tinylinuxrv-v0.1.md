@@ -13,9 +13,7 @@ where practical.
   excludes `end`.
 - A reserved window does not imply that storage exists for every address in
   the window.
-- Accesses to unmapped addresses must fail with an access fault once trap
-  handling is implemented. Until then, the emulator must report an execution
-  error.
+- Accesses to unmapped addresses fail with an access fault.
 - Devices marked as planned are reserved in the address map but are not
   currently visible to guest software.
 
@@ -31,8 +29,9 @@ where practical.
 | VirtIO MMIO (8 slots)    | `0x10001000` |          `0x00008000` |  `0x10009000` |  RW-   | Planned     |
 | DRAM                     | `0x80000000` |  `0x08000000` default |  `0x88000000` |  RWX   | Implemented |
 
-- The access column describes the intended platform behavior. Memory protection
-  and execute permissions are not yet enforced by the emulator.
+- The access column describes the intended physical platform behavior. Sv39
+  page permissions are enforced. PMP and physical-region execute protection
+  are not implemented.
 - DRAM size is configurable. The default is 128 MiB.
 
 ## Region Notes
@@ -45,9 +44,9 @@ boot modes may bypass the Boot ROM.
 
 ### Reset/syscon
 
-The reset system controller provides shutdown and reset requests. It will
-eventually replace `EBREAK` as the normal bare-metal completion mechanism and
-serve as the platform backend for SBI system reset operations.
+The reset system controller provides shutdown and reset requests. Bare-metal
+programs use it as their normal completion mechanism. It is also the planned
+platform backend for SBI system reset operations.
 
 See the [syscon device documentation](../devices/syscon.md) for its behavior
 and register layout.
@@ -55,7 +54,7 @@ and register layout.
 ### CLINT
 
 The CLINT provides machine-level timer and software-interrupt functions. Their
-pending conditions will connect directly to a hart and do not pass through the
+pending conditions connect directly to the hart and do not pass through the
 PLIC.
 
 ### PLIC

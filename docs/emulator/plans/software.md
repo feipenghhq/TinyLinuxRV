@@ -17,6 +17,8 @@ Run after UART is available so the guest can print the result through UART.
 
 Primary bare-metal benchmark.
 
+> ✅ **Completed** · 2026-09-09
+
 - Run CoreMark successfully.
 - Print result through UART.
 - Keep the build/run flow so it can be reused by RTL and FPGA later.
@@ -38,6 +40,8 @@ This can provide more real C workloads and may catch bugs not covered by a singl
 ## 2. FreeRTOS
 
 After Milestone 6 — Machine Mode, CSRs, Traps, and Interrupts.
+
+> ✅ **Completed** · 2026-09-27
 
 FreeRTOS is a required checkpoint after M-mode interrupt and timer support.
 
@@ -65,7 +69,10 @@ Stop after the basic scheduler/context switch works. No need to study the full F
 
 After Milestone 8 — Sv39 Address Translation.
 
-xv6 is a required checkpoint before Linux.
+> **Optional / Deferred** — Not required for OpenSBI or Linux bring-up.
+
+xv6 can be used later as an additional OS integration test. It is not part of
+the current milestone sequence.
 
 Use a pinned xv6-riscv version and make only small changes needed for TinyLinuxRV.
 
@@ -107,7 +114,7 @@ S-mode trap
 return to U-mode
 ```
 
-After this works, the required xv6 checkpoint is complete.
+After this works, the optional xv6 checkpoint is complete.
 
 ### xv6 Shell (Optional)
 
@@ -131,7 +138,7 @@ Test:
 - timer interrupt
 - SBI shutdown/reset
 
-This gives a simple test between xv6 and Linux.
+This provides a focused OpenSBI integration test before Linux.
 
 ---
 
@@ -268,8 +275,6 @@ S/U mode
         ↓
 Sv39
         ↓
-xv6
-        ↓
 OpenSBI
         ↓
 small S-mode program
@@ -282,5 +287,8 @@ Lua / gzip / tar / SQLite
         ↓
 Bad Apple / DOOM
 ```
+
+xv6 remains an optional checkpoint after Sv39 and is not part of the required
+sequence above.
 
 Try to reuse the same software on emulator, RTL and FPGA when possible.

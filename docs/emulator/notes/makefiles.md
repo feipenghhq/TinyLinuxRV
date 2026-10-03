@@ -49,14 +49,13 @@ emulator C sources and headers
               ▼
             rvemu
 
-RISC-V .S source
-      │
-      ▼
-     .o ──→ .elf ──→ .bin
-              │         │
-              └────┬────┘
-                   ▼
-              test runner
+riscv-tests .S source + environment sources
+              │
+              ▼
+             .elf ──→ .bin
+              │
+              ▼
+          test runner
 ```
 
 The host compiler builds `rvemu`. The RISC-V cross-toolchain builds programs
@@ -128,12 +127,12 @@ dependencies:
 The leading `-` allows the first build to proceed before any `.d` files exist.
 Afterwards, changing a header rebuilds only the affected objects.
 
-`include/decode.h` is generated from the instruction-pattern script. The
+`include/cpu/decode.h` is generated from the instruction-pattern script. The
 explicit dependency ensures it exists before `cpu.o` is compiled:
 
 ```make
-$(BUILD_DIR)/cpu/cpu.o: include/decode.h
-include/decode.h: scripts/generate_inst_patterns.py
+$(BUILD_DIR)/cpu/cpu.o: include/cpu/decode.h
+include/cpu/decode.h: scripts/generate_inst_patterns.py
 	python3 $<
 ```
 
@@ -152,11 +151,9 @@ clean rebuild after an important flag change.
 
 ## Building Guest Tests
 
-Both test Makefiles use the same artifact pipeline:
-
-```text
-assembly source → object → ELF → raw binary
-```
+The sanity build uses `assembly → object → ELF → raw binary`.
+The `riscv-tests` build compiles and links directly to ELF, then generates
+the raw binary; it does not retain a separate object file.
 
 The ELF file retains sections and symbols, so it is useful for loading and
 disassembly. The raw binary contains only the bytes placed in guest memory.
@@ -165,52 +162,56 @@ The sanity sources are plain assembly and use `as`. Upstream `riscv-tests`
 sources use uppercase `.S`, `#include`, and macros, so they are compiled with
 the cross-GCC preprocessor instead.
 
-The linker script is a prerequisite of each `riscv-tests` ELF. Changing the
-memory layout therefore relinks the tests without rebuilding unchanged object
-files.
+The `v` environment also links `entry.S`, `vm.c`, and `string.c`. Its build
+uses Picolibc headers; see [toolchain notes](riscv-toolchain.md).
+
+The current `riscv-tests` prerequisites do not include the linker script or
+all shared headers. Force a rebuild after changing these inputs.
 
 ## The `riscv-tests` Suite Template
 
-The enabled suites are selected in one list:
+The enabled suites are selected per environment:
 
 ```make
-SUITES ?= rv64ui rv64um rv64ua
+SUITES-p ?= rv64ui rv64um rv64ua rv64mi rv64si
+SUITES-v ?= rv64ui rv64um rv64ua
+SUITES-all ?= $(sort $(SUITES-p) $(SUITES-v))
 ```
 
-Each suite has its own architecture settings:
+`p` uses physical addresses; `v` exercises Sv39. Architecture flags are
+selected per suite and environment, with a shared `MABI := lp64`:
 
 ```make
-rv64ui_MARCH := rv64i
-rv64um_MARCH := rv64im
-rv64ua_MARCH := rv64ia
+rv64ui_p_MARCH := rv64if
+rv64ui_v_MARCH := rv64imaf
 ```
 
 The upstream `Makefrag` for every enabled suite supplies its test names:
 
 ```make
-include $(addsuffix /Makefrag,$(addprefix $(ISA_DIR)/,$(SUITES)))
+include $(addsuffix /Makefrag,$(addprefix $(ISA_DIR)/,$(SUITES-all)))
 ```
 
-`SUITE_template` then generates the same rules for every suite:
+`SUITE_template` takes the suite as `$(1)` and environment as `$(2)`:
 
 ```text
-rv64ui/add.S → build/rv64ui/add.o
-             → build/rv64ui/add.elf
-             → build/rv64ui/add.bin
+rv64ui/add.S + env/v sources → build/v/rv64ui/add.elf
+                            → build/v/rv64ui/add.bin
 ```
 
-Suite names are included in output paths so identically named tests cannot
+Environment and suite names are included in output paths so identically named tests cannot
 overwrite each other.
 
 The template becomes concrete Make syntax through:
 
 ```make
-$(foreach suite,$(SUITES),$(eval $(call SUITE_template,$(suite))))
+$(foreach suite,$(SUITES-p),$(eval $(call SUITE_template,$(suite),p)))
+$(foreach suite,$(SUITES-v),$(eval $(call SUITE_template,$(suite),v)))
 ```
 
 This is evaluated in two stages:
 
-1. `call` substitutes the suite name and `eval` parses the generated rules.
+1. `call` substitutes the suite and environment and `eval` parses the generated rules.
 2. Make later expands those rules while building a concrete target.
 
 For that reason, values needed in the second stage use `$$` inside the
@@ -219,22 +220,22 @@ template:
 ```make
 $$@                  # preserve $@ for the generated rule
 $$<                  # preserve $< for the generated rule
-$$($(1)_MARCH)       # later becomes $(rv64ui_MARCH)
+$$($(1)_$(2)_MARCH)  # e.g. $(rv64ui_v_MARCH)
 ```
 
 A useful rule of thumb is: one extra `$` protects an expression from the first
-expansion pass. `$(1)` keeps a single `$` because the suite argument must expand
-immediately.
+expansion pass. `$(1)` and `$(2)` keep a single `$` because the template arguments
+must expand immediately.
 
-Each suite also generates `build/<suite>/tests.txt`. The Python runner reads
+Each suite also generates `build/<env>/<suite>/tests.txt`. The Python runner reads
 this manifest, replaces each `.bin` suffix with `.elf`, and runs the ELF with
 the emulator. The binaries are order-only prerequisites because the manifest
 contains their paths, not their contents.
 
 To enable another upstream suite:
 
-1. Add it to `SUITES`.
-2. Define its `_MARCH` and `_MABI` variables.
+1. Add it to `SUITES-p` or `SUITES-v`.
+2. Define its per-environment `_MARCH` variable; the shared ABI is `lp64`.
 3. Confirm the corresponding upstream `Makefrag` exists.
 4. Add the suite to `tests/riscv-test/run.py` if it should run automatically.
 5. Verify that the emulator and test environment implement the required ISA or
@@ -250,8 +251,9 @@ Expected incremental behavior:
 - Changing one emulator `.c` file recompiles its object and relinks `rvemu`.
 - Changing an emulator header rebuilds the objects listed by generated `.d`
   files.
-- Changing a test `.S` file rebuilds its `.o`, `.elf`, and `.bin`.
-- Changing `env/link.ld` relinks the affected ELF and regenerates its binary.
+- Changing a `riscv-tests` `.S` file rebuilds its `.elf` and `.bin`.
+- After changing untracked shared headers or `env/link.ld`, run
+  `make -B -C emulator/tests/riscv-test` from the repository root.
 - Changing nothing runs no build recipes for real file targets.
 
 Useful diagnostics:
@@ -273,4 +275,4 @@ When debugging, check:
 - Does `clean` remove only files generated by that Makefile?
 
 Do not hide build or test failures with `-` or `|| true`. A nonzero recipe exit
-status is how Make stops the regression and reports failure.
+status lets the regression runner report a failed group after running all groups.

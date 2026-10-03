@@ -13,6 +13,7 @@ planned development milestones.
 - RV64IMA with `Zicsr`.
 - Machine, supervisor, and user privilege modes.
 - Machine and supervisor CSRs, trap delegation, and trap returns.
+- Sv39 virtual memory scheme.
 - Configurable DRAM.
 - MMIO dispatch.
 - Syscon.
@@ -30,6 +31,8 @@ planned development milestones.
 - `FENCE` and `FENCE.I` are currently treated as no-ops.
   Memory accesses are executed in order, and the emulator has no instruction
   cache.
+- `SFENCE.VMA` enforces privilege and TVM checks. There is no TLB, so no
+  cache invalidation is needed; each translated access walks the page tables.
 
 ## Verification
 
@@ -44,7 +47,9 @@ planned development milestones.
 ## Prerequisites
 
 Building the emulator requires a host C compiler and Make. Building the
-RISC-V tests also requires Python 3, Git, and a RISC-V GNU cross-toolchain.
+RISC-V tests also requires Python 3, Git, and RISC-V GNU cross-toolchains.
+The current `riscv-tests` build uses `riscv64-unknown-elf-` and Picolibc headers;
+installation details are in the toolchain notes below.
 
 Initialize the `riscv-tests` submodule from the repository root after cloning:
 
@@ -106,7 +111,10 @@ The currently available options are:
 | `--riscv-tests`           | Interpret program termination using the emulator-specific `riscv-tests` PASS/FAIL protocol.     |
 | `--poison-ram`            | Fill RAM with `0xA5` before loading the program. Used for testing.                              |
 | `--dram-size SIZE`        | Set the DRAM size in MiB. The default is 128 MiB; the supported range is 1–512 MiB.             |
-| `--trace`                 | Dump debug trace when cpu execution failed.                                                     |
+| `--trace`                 | Write function trace during execution; dump recent instruction trace on failure.                                        |
+
+With `--trace`, function trace is written to `func_trace.log` in the current
+working directory during execution, including successful runs.
 
 The `--riscv-tests` option is intended for the automated test environment, not
 for general programs.
@@ -141,19 +149,28 @@ Run all current tests with:
 make regression
 ```
 
-The regression stops when a test fails.
+The regression runs all test groups and returns a failure status if any group fails.
 
 The regression Makefile builds each test as both an ELF file and a raw binary,
 then generates a manifest consumed by the Python runner. The runner executes
 the ELF image directly and returns a nonzero host exit status if any test fails
 or times out.
 
-At the current milestone, all 53 RV64UI, 13 RV64UM, 19 RV64UA, 15 RV64MI,
-and 5 enabled RV64SI tests pass.
+At the current milestone, `riscv-tests` supports the `p` (physical-address)
+and `v` (Sv39 virtual-memory) environments.
 
-The current skips are `ma_data`, the RV64MI PMP and debug-trigger tests, and
-the RV64SI virtual-memory tests. Their required features are outside the
-current milestone.
+All 192 enabled tests pass:
+
+```text
+[PASS] rv64ui-p 53/53  skipped: ma_data
+[PASS] rv64um-p 13/13
+[PASS] rv64ua-p 19/19
+[PASS] rv64mi-p 15/15  skipped: pmpaddr, breakpoint
+[PASS] rv64si-p  7/7
+[PASS] rv64ui-v 53/53  skipped: ma_data
+[PASS] rv64um-v 13/13
+[PASS] rv64ua-v 19/19
+```
 
 For a concise explanation of the emulator and test build system, see
 [makefiles.md](../docs/emulator/notes/makefiles.md).

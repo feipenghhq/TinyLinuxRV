@@ -35,7 +35,7 @@ initialize gp and sp
         ↓
 return value stays in a0
         ↓
-       EBREAK
+write syscon poweroff
 ```
 
 ## `linker.ld`
@@ -72,7 +72,8 @@ ELF file. Startup code must clear this memory before entering C code.
 2. Initializes `sp` from `__stack_top`.
 3. Clears the memory between `__bss_start` and `__bss_end`.
 4. Calls `main`.
-5. Executes `EBREAK` while preserving the return value in `a0`.
+5. Writes the syscon poweroff command while preserving the return value in
+   `a0`.
 
 The runtime does not copy `.data`: the emulator's ELF loader places initialized
 data directly at its runtime address. For raw-binary tests, poisoned RAM checks

@@ -8,6 +8,9 @@ implementation stage.
 
 TinyLinuxRV is currently in the **emulator stage**.
 
+Milestone 8 — Sv39 Address Translation was completed on 2026-09-30. The next
+emulator milestone is OpenSBI and SBI Validation.
+
 See the [Emulator Roadmap](emulator/plans/plan.md#emulator-roadmap) for the complete
 milestone plan.
 

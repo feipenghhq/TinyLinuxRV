@@ -27,8 +27,8 @@ This document tracks the milestones for the **emulator stage**.
 | Phase 2 | Basic Platform Devices                    | ✅ Complete |
 | Phase 3 | Machine Mode, CSRs, Traps, and Interrupts | ✅ Complete |
 | Phase 3 | Supervisor and User Modes                 | ✅ Complete |
-| Phase 4 | Sv39 Address Translation                  | 🟡 Next     |
-| Phase 5 | OpenSBI and SBI Validation                | Planned    |
+| Phase 4 | Sv39 Address Translation                  | ✅ Complete |
+| Phase 5 | OpenSBI and SBI Validation                | 🟡 Next     |
 | Phase 6 | Linux Early Boot                          | Planned    |
 | Phase 6 | Scheduler and Initramfs                   | Planned    |
 | Phase 6 | BusyBox User Space                        | Planned    |
@@ -554,60 +554,71 @@ Add supervisor and user privilege modes, delegation, and privilege transitions r
 
 ## Milestone 8: Sv39 Address Translation
 
+> ✅ **Completed** · 2026-09-30
+
 ### Goals
 
 Implement the Sv39 virtual-memory architecture required by supervisor software and Linux.
 
 ### Address Translation
 
-- Implement Sv39 virtual-address validation and sign-extension rules.
-- Implement the three-level page-table walk.
-- Support 4 KiB, 2 MiB, and 1 GiB leaf mappings.
-- Apply address translation to instruction fetches, loads, and stores.
-- Preserve physical-address access for machine-mode operations that bypass translation.
+- [x] Implement Sv39 virtual-address validation and sign-extension rules.
+- [x] Implement the three-level page-table walk.
+- [x] Support 4 KiB, 2 MiB, and 1 GiB leaf mappings.
+- [x] Apply address translation to instruction fetches, loads, and stores.
+- [x] Preserve physical-address access for machine-mode operations that bypass translation.
 
 ### Page-Table Entries and Permissions
 
-- Decode and validate Sv39 page-table entries.
-- Enforce valid, readable, writable, executable, user, global, accessed, and dirty bits.
-- Enforce privilege and access permissions using `SUM` and `MXR`.
-- Detect invalid PTE combinations and misaligned superpages.
-- Initially implement `Svade`: raise a page fault when the required accessed
+- [x] Decode and validate Sv39 page-table entries.
+- [x] Enforce valid, readable, writable, executable, user, global, accessed, and dirty bits.
+- [x] Enforce privilege and access permissions using `SUM` and `MXR`.
+- [x] Detect invalid PTE combinations and misaligned superpages.
+- [x] Initially implement `Svade`: raise a page fault when the required accessed
   or dirty bit is clear.
-- Advertise the selected A/D-bit behavior consistently to OpenSBI and Linux.
-- Defer `Svadu` hardware updating of A/D bits until it is required.
-- Keep the A/D-bit policy explicit so it can later be matched by the RTL implementation.
+- **Deferred:** Advertise the selected A/D-bit behavior consistently to
+  OpenSBI and Linux during firmware/OS bring-up.
+- **Deferred:** `Svadu` hardware updating of A/D bits until required.
+- [x] Keep the A/D-bit policy explicit so it can later be matched by the RTL implementation.
 
 ### Faults and Synchronization
 
-- Generate instruction, load, and store page faults with correct `stval` or `mtval`.
-- Implement `SFENCE.VMA`.
-- Treat `SFENCE.VMA` as a valid synchronization operation even before a TLB is added.
-- Initially perform page-table walks directly without a TLB.
-- Add a TLB later only if performance requires it.
+- [x] Generate instruction, load, and store page faults with correct `stval` or `mtval`.
+- [x] Implement `SFENCE.VMA`.
+- [x] Treat `SFENCE.VMA` as a valid synchronization operation even before a TLB is added.
+- [x] Initially perform page-table walks directly without a TLB.
+- **Deferred:** Add a TLB only if performance requires it.
 
 ### Verification
 
-- Test identity and non-identity virtual mappings.
-- Test 4 KiB, 2 MiB, and 1 GiB mappings.
-- Test user and supervisor permissions.
-- Test execute-only, read-only, and writable mappings.
-- Test invalid PTEs and misaligned superpages.
-- Test instruction, load, and store page faults.
-- Test `SUM`, `MXR`, and `Svade` behavior.
-- Test `SFENCE.VMA` behavior.
-- Run applicable Sv39 architectural tests.
+- [x] Test identity and non-identity virtual mappings.
+- [x] Test 4 KiB, 2 MiB, and 1 GiB mappings.
+- [x] Test user and supervisor permissions.
+- [x] Test execute-only, read-only, and writable mappings.
+- [x] Test invalid PTEs and misaligned superpages.
+- [x] Test instruction, load, and store page faults.
+- [x] Test `SUM`, `MXR`, and `Svade` behavior.
+- [x] Test `SFENCE.VMA` behavior.
+- [x] Run applicable Sv39 architectural tests.
+
+The checks above include temporary review programs as well as repository
+regressions. Some CSR, permission, PTE, and fault-reporting boundary checks
+are not yet part of the automatic regression.
+
+- **Deferred:** Preserve the temporary boundary checks as repository tests.
 
 ### Completion Criteria
 
-- Sv39 address translation works for instruction fetches, loads, and stores.
-- All supported page sizes behave correctly.
-- Permission checks and page faults match the privileged specification.
-- `Svade` behavior is implemented, tested, and reported consistently to
-  firmware and operating-system software.
-- Supervisor and user programs can execute through virtual mappings.
-- Applicable Sv39 architectural tests pass.
-- Existing ISA and privilege regressions continue to pass.
+- [x] Sv39 address translation works for instruction fetches, loads, and stores.
+- [x] All supported page sizes behave correctly.
+- [x] Permission checks and page faults match the privileged specification.
+- ~~`Svade` behavior is implemented, tested, and reported consistently to
+  firmware and operating-system software.~~
+- [x] `Svade` behavior is implemented and tested. Firmware/OS advertisement
+  is deferred as noted above.
+- [x] Supervisor and user programs can execute through virtual mappings.
+- [x] Applicable Sv39 architectural tests pass.
+- [x] Existing ISA and privilege regressions continue to pass.
 
 ### Deliverable
 

@@ -5,6 +5,9 @@ This document shows the overall TinyLinuxRV development flow.
 Detailed emulator tasks are in the [emulator milestone plan](plan.md). Additional
 software checkpoints are listed in [software.md](software.md).
 
+Current progress: Sv39 is complete. OpenSBI is the next emulator milestone.
+xv6 remains listed as an optional checkpoint in [software.md](software.md).
+
 ## Overall Flow
 
 ```text
@@ -172,35 +175,7 @@ A TLB is not required initially.
 
 ---
 
-## 6. xv6
-
-Use xv6 before Linux as a simpler OS integration test.
-
-```text
-xv6 S-mode kernel
-        ↓
-enable Sv39
-        ↓
-U-mode program
-        ↓
-ECALL
-        ↓
-S-mode
-        ↓
-return to U-mode
-```
-
-Required:
-
-1. Reach S-mode kernel.
-2. Enable Sv39 and continue.
-3. Run user code and handle a syscall.
-
-Full filesystem/xv6 shell is optional.
-
----
-
-## 7. OpenSBI
+## 6. OpenSBI
 
 Target software stack:
 
@@ -233,7 +208,7 @@ Then move to Linux.
 
 ---
 
-## 8. Linux
+## 7. Linux
 
 ### Early Boot
 
@@ -291,7 +266,7 @@ SQLite
 
 ---
 
-## 9. Reference Emulator
+## 8. Reference Emulator
 
 After Linux + BusyBox works, make the emulator a reference model for RTL.
 
@@ -315,7 +290,7 @@ Need:
 
 ---
 
-## 10. RTL CPU and SoC
+## 9. RTL CPU and SoC
 
 Implement the same behavior in RTL.
 
@@ -341,7 +316,6 @@ Reuse the software checkpoints:
 riscv-tests
 CoreMark
 FreeRTOS
-xv6
 OpenSBI
 Linux
 ```
@@ -357,7 +331,7 @@ Possible future cores:
 
 ---
 
-## 11. FPGA
+## 10. FPGA
 
 ```text
 RTL CPU / SoC
@@ -413,8 +387,6 @@ FreeRTOS
 S/U mode
   ↓
 Sv39
-  ↓
-xv6
   ↓
 OpenSBI
   ↓

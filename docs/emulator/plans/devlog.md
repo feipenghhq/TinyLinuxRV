@@ -164,3 +164,38 @@ the Git history.
   * Corrected U-mode `WFI`, the `sstatus` read view, and unsupported `satp`
     writes.
   * All 5 enabled RV64SI tests and the complete emulator regression pass.
+
+### Software — FreeRTOS
+
+> ✅ **Completed** · 2026-09-27
+
+* **2026-09-19** — Added FreeRTOS kernel V11.3.1
+* **2026-09-26** — Ported the FreeRTOS to TinyLinuxRV env
+* **2026-09-27** — Created a demo program running on FreeRTOS
+
+---
+
+## Phase 4 — Sv39 Virtual Memory
+
+> ✅ **Completed** · 2026-09-30
+
+### Milestone 8 — Sv39 Address Translation
+
+> ✅ **Completed** · 2026-09-30
+
+* **2026-09-27** — Implemented Sv39 address translation
+  * Implement the mmu module and satp csr and integrate the mmu into cpu
+* **2026-09-28** — Updated the riscv-test env and ported the v env
+  * Separated the p and v environment.
+  * Run tests under both p and v environment.
+* **2026-09-28** — Fixed several bugs and other features for VM
+* **2026-09-29** — Added a function tracing module to trace function call/return
+* **2026-09-30** — Fixed several remaining bugs found by AI
+* **2026-09-30** — Updated documents and completed the milestone.
+
+  * All 192 enabled ISA tests (107 `p`, 85 `v`) and the complete emulator
+    regression passed, including RV64SI `dirty` and `icache-alias`.
+  * Some boundary cases were checked with temporary review programs;
+    preserving these as repository tests remains deferred.
+  * Svade firmware/OS advertisement is deferred to OpenSBI/Linux bring-up.
+    Svadu and a TLB remain deferred until required.

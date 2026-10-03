@@ -28,6 +28,22 @@ riscv64-linux-gnu-objcopy --version
 sudo apt install g++-riscv64-linux-gnu binutils-riscv64-linux-gnu gcc-riscv64-linux-gnu
 ```
 
+### Current `riscv-tests` Dependencies
+
+The `p` and `v` test builds use the bare-metal GNU toolchain. The `v`
+environment also uses Picolibc C headers.
+
+```shell
+sudo apt install gcc-riscv64-unknown-elf
+sudo apt install picolibc-riscv64-unknown-elf
+```
+
+The Makefile expects Picolibc specs at
+`/usr/lib/picolibc/riscv64-unknown-elf/picolibc.specs`. If installed elsewhere,
+override `PICOLIBC_SPECS` with `-specs=<path>` when building the tests.
+
+The manual example below uses the Linux GNU toolchain.
+
 ## Manual Compilation Steps (from scratch)
 
 ```bash
