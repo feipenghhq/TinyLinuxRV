@@ -7,3 +7,6 @@
 [submodule "third-party/freertos-kernel"]
 	path = third-party/freertos-kernel
 	url = https://github.com/FreeRTOS/FreeRTOS-Kernel.git
+[submodule "third-party/opensbi"]
+	path = third-party/opensbi
+	url = https://github.com/riscv-software-src/opensbi.git
