@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <getopt.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -17,127 +18,238 @@
 // -------------------------------------------------------------------
 // Different type enum
 // -------------------------------------------------------------------
-typedef enum FILE_TYPE { AUTO, BIN, ELF } FILE_TYPE_t;
+typedef enum { AUTO, BIN, ELF } file_type_t;
 
-typedef enum RUN_MODE { NORMAL, RISCV_TESTS } RUN_MODE_t;
+typedef enum { RUN_NORMAL, RUN_RISCV_TESTS } run_mode_t;
+
+typedef enum { BOOT_MODE_DIRECT, BOOT_MODE_BOOTROM } boot_mode_t;
 
 typedef struct {
-    long        max_instruction;
-    FILE_TYPE_t format;
-    RUN_MODE_t  mode;
-    char       *file;
-    bool        poison_ram;
-    size_t      dram_size;
-    bool        trace;
-} argument_t;
+    // run mode
+    run_mode_t run_mode;
+
+    // boot options
+    boot_mode_t boot_mode;
+    char       *bootrom;
+    char       *bios;
+    char       *kernel;
+    char       *dtb;
+
+    // machine options
+    size_t dram_size;
+
+    // execution options
+    long max_instruction;
+    bool poison_ram;
+    bool trace;
+
+    // program options
+    file_type_t format;
+
+    // others
+    char *file;
+} args_t;
 
 // -------------------------------------------------------------------
 // Command line parser
 // -------------------------------------------------------------------
 
-static const char USAGE[] =
-    "rvemu [OPTION] FILE \n\n"
-    "Options:\n"
-    "--help\n"
-    "        Print this help message.\n\n"
-    "--max-instruction <max_instruction_count>\n"
-    "        Specify the max instruction count. If not include, the test will run till the end.\n\n"
-    "--format <auto|elf|bin>\n"
-    "        Specify the format of the file. auto: automatically detect the file type. elf: elf file. bin: binary "
-    "file.\n\n"
-    "--riscv-tests\n"
-    "        Run riscv-tests.\n\n"
-    "--poison-ram\n"
-    "        Fill ram content to 0xA5 before loading the program. Used mainly for testing.\n\n"
-    "--dram-size\n"
-    "        Assign DRAM size (in MiB). Default is 128MiB. Support 1MiB to 512MiB.\n\n"
-    "--trace\n"
-    "        Dump debug trace when cpu execution failed.\n\n";
+typedef struct {
+    const char *name;
+    int         key;
+    int         has_arg;
+    const char *arg_name;
+    const char *help;
+} cli_option_t;
 
-static struct option longopts[] = {
-    {"help", no_argument, 0, 0},         {"max-instruction", required_argument, 0, 0},
-    {"format", required_argument, 0, 0}, {"riscv-tests", no_argument, 0, 0},
-    {"poison-ram", no_argument, 0, 0},   {"dram-size", required_argument, 0, 0},
-    {"trace", no_argument, 0, 0},        {0, 0, 0, 0},
+enum {
+    OPT_HELP = 256,
+    OPT_BOOTROM,
+    OPT_BIOS,
+    OPT_KERNEL,
+    OPT_DTB,
+    OPT_DRAM_SIZE,
+    OPT_MAX_INST,
+    OPT_POISON,
+    OPT_TRACE,
+    OPT_FORMAT,
+    OPT_RISCV_TESTS
 };
 
-static void parse_arguments(int argc, char **argv, argument_t *argument) {
-    int c;
-    if (argc < 2) {
-        printf("Incorrect argument. Please see usage:\n\n");
-        printf("%s", USAGE);
+static const cli_option_t options[] = {
+    // Help
+    {"help", OPT_HELP, no_argument, NULL, "Show this help message."},
+    // boot options
+    {"bootrom", OPT_BOOTROM, required_argument, "file", "Load boot ROM image."},
+    {"bios", OPT_BIOS, required_argument, "file", "Load firmware image."},
+    {"kernel", OPT_KERNEL, required_argument, "file", "Load kernel image."},
+    {"dtb", OPT_DTB, required_argument, "file", "Load device tree blob."},
+    // machine options
+    {"dram-size", OPT_DRAM_SIZE, required_argument, "MiB", "Set DRAM size (In MiB). Default: 128."},
+    // execution options
+    {"max-instruction", OPT_MAX_INST, required_argument, "count",
+     "Stop after executing the specified number of instructions."},
+    {"poison-ram", OPT_POISON, no_argument, NULL, "Fill RAM with 0xA5 before loading images."},
+    {"trace", OPT_TRACE, no_argument, NULL, "Dump execution trace when CPU execution fails."},
+    // Program options
+    {"format", OPT_FORMAT, required_argument, "auto|elf|bin", "Input format for positional FILE."},
+    // Test options
+    {"riscv-tests", OPT_RISCV_TESTS, no_argument, 0, "Run RISC-V tests."},
+
+};
+
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+
+static const size_t option_count = ARRAY_SIZE(options);
+
+static void print_usage(void) {
+    printf("  rvemu [OPTIONS] [FILE]\n\n");
+    for (size_t i = 0; i < option_count; i++) {
+        const cli_option_t *option = &options[i];
+        printf("  --%s", option->name);
+        if (option->has_arg == required_argument)
+            printf(" <%s>\n", option->arg_name);
+        else
+            printf("\n");
+        printf("        %s\n\n", option->help);
+    }
+}
+
+static struct option *build_longopts(void) {
+    struct option *longopts = calloc(option_count + 1, sizeof(*longopts));
+
+    if (!longopts) {
+        LOG_ERROR("Cannot allocate memory for CLI options");
         exit(EXIT_FAILURE);
     }
 
-    while (1) {
-        int option_index = 0;
-        c                = getopt_long(argc, argv, "", longopts, &option_index);
+    for (size_t i = 0; i < option_count; i++) {
+        longopts[i].name    = options[i].name;
+        longopts[i].has_arg = options[i].has_arg;
+        longopts[i].flag    = NULL;
+        longopts[i].val     = options[i].key;
+    }
 
-        if (c == -1) {
+    // Note: end condition taken care by calloc
+
+    return longopts;
+}
+
+static void parse_arguments(int argc, char **argv, args_t *args) {
+
+    struct option *longopts = build_longopts();
+
+    if (argc < 2) {
+        printf("Incorrect arguments. Please see usage:\n\n");
+        print_usage();
+        exit(EXIT_FAILURE);
+    }
+
+    // default value
+    args->boot_mode = BOOT_MODE_DIRECT;
+
+    while (1) {
+        int c = getopt_long(argc, argv, "", longopts, NULL);
+
+        if (c == -1)
             break;
-        } else if (c == 0) {
-            switch (option_index) {
-            case 0: { // help
-                printf("%s", USAGE);
-                exit(EXIT_SUCCESS);
+
+        switch (c) {
+        case OPT_HELP:
+            print_usage();
+            exit(EXIT_SUCCESS);
+
+        case OPT_BOOTROM:
+            args->bootrom   = optarg;
+            args->boot_mode = BOOT_MODE_BOOTROM;
+            break;
+
+        case OPT_BIOS:
+            args->bios = optarg;
+            break;
+
+        case OPT_KERNEL:
+            args->kernel = optarg;
+            break;
+
+        case OPT_DTB:
+            args->dtb = optarg;
+            break;
+
+        case OPT_DRAM_SIZE: {
+            char *end;
+            long  value = strtol(optarg, &end, 10);
+
+            if (errno == ERANGE || *end != '\0' || value <= 0 || value > 512) {
+                printf("Invalid dram size\n");
+                exit(EXIT_FAILURE);
             }
-            case 1: { // max_instruction
-                argument->max_instruction = atoi(optarg);
-                break;
+
+            args->dram_size = (size_t)value * (1024 * 1024);
+            break;
+        }
+
+        case OPT_MAX_INST: {
+            char *end;
+            long  value = strtol(optarg, &end, 10);
+
+            if (errno == ERANGE || *end != '\0' || value <= 0) {
+                fprintf(stderr, "Invalid instruction count: %s\n", optarg);
+                exit(EXIT_FAILURE);
             }
-            case 2: { // format
-                if (strcmp(optarg, "auto") == 0)
-                    argument->format = AUTO;
-                else if (strcmp(optarg, "elf") == 0)
-                    argument->format = ELF;
-                else if (strcmp(optarg, "bin") == 0)
-                    argument->format = BIN;
-                else {
-                    printf("Incorrect argument type for format. Format must be auto, elf, or bin\n");
-                    exit(EXIT_FAILURE);
-                }
-                break;
+
+            args->max_instruction = value;
+            break;
+        }
+
+        case OPT_POISON:
+            args->poison_ram = true;
+            break;
+
+        case OPT_TRACE:
+            args->trace = true;
+            break;
+
+        case OPT_FORMAT: { // format
+            if (strcmp(optarg, "auto") == 0)
+                args->format = AUTO;
+            else if (strcmp(optarg, "elf") == 0)
+                args->format = ELF;
+            else if (strcmp(optarg, "bin") == 0)
+                args->format = BIN;
+            else {
+                printf("Incorrect args type for format. Format must be auto, elf, or bin\n");
+                exit(EXIT_FAILURE);
             }
-            case 3: { // riscv-tests
-                argument->mode = RISCV_TESTS;
-                break;
-            }
-            case 4: { // poison-ram
-                argument->poison_ram = true;
-                break;
-            }
-            case 5: { // dram-size
-                int dram_size_mib   = atoi(optarg);
-                argument->dram_size = (size_t)dram_size_mib * (1024 * 1024);
-                if (dram_size_mib <= 0 || dram_size_mib > 512) {
-                    printf("Unsupported dram size\n");
-                    exit(EXIT_FAILURE);
-                }
-                break;
-            }
-            case 6: { // trace
-                argument->trace = true;
-                break;
-            }
-            }
-        } else if (c == '?') {
+            break;
+        }
+
+        case OPT_RISCV_TESTS: // riscv-tests
+            args->run_mode = RUN_RISCV_TESTS;
+            break;
+
+        case '?':
             exit(EXIT_FAILURE);
         }
     }
 
-    if (optind == argc) {
-        printf("Missing program file. Please specify program file\n");
-        exit(EXIT_FAILURE);
+    if (args->boot_mode == BOOT_MODE_DIRECT) {
+        if (optind == argc) {
+            printf("Missing program file. Please specify program file\n");
+            exit(EXIT_FAILURE);
+        }
+
+        if (optind == argc - 1) {
+            args->file = argv[optind];
+        }
+
+        if (optind < argc - 1) {
+            printf("Provided more than one program files.\n");
+            exit(EXIT_FAILURE);
+        }
     }
 
-    if (optind == argc - 1) {
-        argument->file = argv[optind];
-    }
-
-    if (optind < argc - 1) {
-        printf("Provided more than one program files.\n");
-        exit(EXIT_FAILURE);
-    }
+    free(longopts);
 }
 
 // -------------------------------------------------------------------
@@ -167,14 +279,14 @@ static void poweroff(memory_t *memory, dev_list_t *devices) {
 // Common boot function
 // -------------------------------------------------------------------
 
-static int boot(memory_t *memory, dev_list_t *devices, cpu_t *cpu, argument_t *argument) {
+static int boot(memory_t *memory, dev_list_t *devices, cpu_t *cpu, args_t *args) {
     int result = 0;
 
     // initialize cpu
     cpu_init(cpu);
 
     // initialize memory
-    if (memory_init(memory, argument->poison_ram, argument->dram_size) != 0) {
+    if (memory_init(memory, args->poison_ram, args->dram_size) != 0) {
         // No need to free memory as when init failed. the memory will not be allocated
         return -1;
     }
@@ -186,17 +298,17 @@ static int boot(memory_t *memory, dev_list_t *devices, cpu_t *cpu, argument_t *a
     }
 
     // read the program
-    switch (argument->format) {
+    switch (args->format) {
     case AUTO: {
-        result = memory_load_auto(memory, argument->file, &cpu->pc, argument->trace);
+        result = memory_load_auto(memory, args->file, &cpu->pc, args->trace);
         break;
     }
     case BIN: {
-        result = memory_load_binary(memory, argument->file);
+        result = memory_load_binary(memory, args->file);
         break;
     }
     case ELF: {
-        result = memory_load_elf(memory, argument->file, &cpu->pc, argument->trace);
+        result = memory_load_elf(memory, args->file, &cpu->pc, args->trace);
         break;
     }
     }
@@ -209,7 +321,7 @@ static int boot(memory_t *memory, dev_list_t *devices, cpu_t *cpu, argument_t *a
 
     // initialize function trace
     const char *func_trace_file = "func_trace.log";
-    if (argument->trace) {
+    if (args->trace) {
         result = func_trace_init(func_trace_file);
         if (result != 0) {
             return -1;
@@ -223,13 +335,13 @@ static int boot(memory_t *memory, dev_list_t *devices, cpu_t *cpu, argument_t *a
 // Main function
 // -------------------------------------------------------------------
 int main(int argc, char **argv) {
-    argument_t argument = {.max_instruction = 0,
-                           .format          = AUTO,
-                           .mode            = NORMAL,
-                           .file            = NULL,
-                           .poison_ram      = false,
-                           .dram_size       = RAM_SIZE,
-                           .trace           = false};
+    args_t     args = {.max_instruction = 0,
+                       .format          = AUTO,
+                       .run_mode        = RUN_NORMAL,
+                       .file            = NULL,
+                       .poison_ram      = false,
+                       .dram_size       = RAM_SIZE,
+                       .trace           = false};
     cpu_t      cpu;
     dev_list_t devices;
     memory_t   memory;
@@ -240,23 +352,23 @@ int main(int argc, char **argv) {
     bus.devices = &devices;
     bus.memory  = &memory;
 
-    // process the argument
-    parse_arguments(argc, argv, &argument);
-    LOG_INFO("Running: %s", argument.file);
+    // process the args
+    parse_arguments(argc, argv, &args);
+    LOG_INFO("Running: %s", args.file);
 
     // boot and initialize all the component
-    if (boot(&memory, &devices, &cpu, &argument) != 0) {
+    if (boot(&memory, &devices, &cpu, &args) != 0) {
         // exit the execution directly if boot failed. The memory has been freed in boot function.
         return EXIT_FAILURE;
     }
 
-    exec_status = cpu_exec(&cpu, &bus, &devices, argument.trace, argument.max_instruction);
+    exec_status = cpu_exec(&cpu, &bus, &devices, args.trace, args.max_instruction);
 
     // free up memory
     poweroff(&memory, &devices);
 
     // close the trace
-    if (argument.trace) {
+    if (args.trace) {
         func_trace_end();
         symbol_table_free();
     }
@@ -272,7 +384,7 @@ int main(int argc, char **argv) {
     case CPU_ERROR:    // fall-through
     case DEVICE_ERROR: // fall-through
     case TIMEOUT: {
-        if (argument.trace) {
+        if (args.trace) {
             iringbuf_print();
             cpu_print_regs(&cpu);
         }
@@ -281,11 +393,11 @@ int main(int argc, char **argv) {
     }
 
     // Check result
-    if (argument.mode == RISCV_TESTS) {
+    if (args.run_mode == RUN_RISCV_TESTS) {
         if (check_riscv_tests_result(&cpu) == 0) {
             return EXIT_SUCCESS;
         } else {
-            if (argument.trace) {
+            if (args.trace) {
                 iringbuf_print();
                 cpu_print_regs(&cpu);
             }
