@@ -4,7 +4,7 @@ This directory contains the minimal runtime needed to run freestanding RISC-V
 C programs on TinyLinuxRV.
 
 The platform memory layout is documented in the
-[TinyLinuxRV memory map](../../platform/memory-map/tinylinuxrv-v0.1.md).
+[TinyLinuxRV memory map](../../platform/doc/memory-map/tinylinuxrv-v0.1.md).
 
 ## Startup Flow
 

@@ -6,7 +6,9 @@ REPO_ROOT    := $(shell git rev-parse --show-toplevel)
 OPENSBI_DIR  := $(REPO_ROOT)/third-party/opensbi
 PLATFORM_DIR := $(REPO_ROOT)/software/opensbi/platform
 
-OUTPUT_DIR = $(PLATFORM_DIR)/build
+MY_OPENSBI_DIR = $(REPO_ROOT)/software/opensbi
+
+OUTPUT_DIR = $(MY_OPENSBI_DIR)/build
 
 EMU = tinylinuxrv_emu
 

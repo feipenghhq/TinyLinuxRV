@@ -16,7 +16,17 @@ The platform specification covers:
 
 ## Specifications
 
-- [TinyLinuxRV v0.1 memory map](memory-map/tinylinuxrv-v0.1.md)
+- [TinyLinuxRV v0.1 memory map](doc/memory-map/tinylinuxrv-v0.1.md)
+- [Syscon device](doc/devices/syscon.md)
+
+## Directories
+
+- `doc/`: Platform specifications, including memory maps and device behavior.
+- `include/`: Platform definitions shared by code.
+- `devicetree/`: Device tree sources and build instructions.
+
+OpenSBI adaptation and build instructions are in
+[software/opensbi/](../software/opensbi/README.md).
 
 ## Shared Code
 
