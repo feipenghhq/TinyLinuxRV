@@ -1,0 +1,41 @@
+#define SBI_EXT_SRST 0x53525354UL
+
+.section .text.init
+
+.globl _start
+_start:
+
+# Initialize gp
+/* Load the small-data base defined by the linker script. Disable relaxation
+   here because setting gp must not depend on the old value of gp. */
+.option push
+.option norelax
+    la gp, __global_pointer$
+.option pop
+
+# Initialize sp
+    la sp, __stack_top
+
+# Clear bss
+    la t0, __bss_start
+    la t1, __bss_end
+    beq t0, t1, 2f
+1:
+    sb x0, 0(t0)
+    addi t0, t0, 1
+    bne t0, t1, 1b
+2:
+
+# Call main function
+    call main
+
+# Call OpenSBI System Reset Extension (SRST) to finish the program
+    li a0, 0              # SBI_SRST_RESET_TYPE_SHUTDOWN
+    li a1, 0              # SBI_SRST_RESET_REASON_NONE
+    li a6, 0              # system_reset FID
+    li a7, SBI_EXT_SRST
+    ecall
+
+1:
+    wfi
+    j 1b

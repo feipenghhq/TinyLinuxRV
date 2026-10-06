@@ -7,7 +7,7 @@
 # All optional drivers or libraries for this platform should
 # be enabled via configs/defconfig of this platform.
 #
-config PLATFORM_TEMPLATE
+config PLATFORM_TINYLINUXRV_EMU
 	bool
 	select IPI_MSWI
 	select IRQCHIP_PLIC

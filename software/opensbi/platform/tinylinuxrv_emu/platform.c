@@ -13,6 +13,7 @@
  * Include these files as needed.
  * See objects.mk PLATFORM_xxx configuration parameters.
  */
+#include <sbi_utils/fdt/fdt_driver.h>
 #include <sbi_utils/ipi/aclint_mswi.h>
 #include <sbi_utils/irqchip/plic.h>
 #include <sbi_utils/serial/uart8250.h>
@@ -25,7 +26,7 @@
 // TinyLinuxRV: Only 1 hart
 #define PLATFORM_HART_COUNT         1
 #define PLATFORM_CLINT_ADDR         0x2000000
-#define PLATFORM_ACLINT_MTIMER_FREQ 10000000
+#define PLATFORM_ACLINT_MTIMER_FREQ 100000000
 #define PLATFORM_ACLINT_MSWI_ADDR   (PLATFORM_CLINT_ADDR + CLINT_MSWI_OFFSET)
 #define PLATFORM_ACLINT_MTIMER_ADDR (PLATFORM_CLINT_ADDR + CLINT_MTIMER_OFFSET)
 // TinyLinuxRV: UART is on 0x10000000
@@ -77,7 +78,13 @@ static int platform_early_init(bool cold_boot) {
     if (rc)
         return rc;
 
-    return aclint_mswi_cold_init(&mswi);
+    rc = aclint_mswi_cold_init(&mswi);
+    if (rc)
+        return rc;
+
+    fdt_driver_init_all(fdt_get_address(), fdt_early_drivers);
+
+    return 0;
 }
 
 /*

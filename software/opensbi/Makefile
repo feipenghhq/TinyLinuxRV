@@ -5,6 +5,7 @@
 REPO_ROOT    := $(shell git rev-parse --show-toplevel)
 OPENSBI_DIR  := $(REPO_ROOT)/third-party/opensbi
 PLATFORM_DIR := $(REPO_ROOT)/software/opensbi/platform
+EMULATOR_DIR := $(REPO_ROOT)/emulator
 
 MY_OPENSBI_DIR = $(REPO_ROOT)/software/opensbi
 
@@ -17,6 +18,14 @@ EMU = tinylinuxrv_emu
 #------------------------------------------------
 
 .PHONY: build-emu-sbi clean
+
+#------------------------------------------------
+# Run opensbi-test program after openSBI is loaded
+#------------------------------------------------
+
+run-opensbi-test-emu:
+	$(MAKE) -C $(MY_OPENSBI_DIR)/test
+	$(MAKE) -C $(EMULATOR_DIR) run-opensbi
 
 #------------------------------------------------
 # Build opensbi image

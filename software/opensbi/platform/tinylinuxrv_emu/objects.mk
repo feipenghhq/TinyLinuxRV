@@ -103,3 +103,6 @@ FW_PAYLOAD=n
 # SBI will prefer "FW_PAYLOAD_FDT_ADDR" if both "FW_PAYLOAD_FDT_OFFSET"
 # and "FW_PAYLOAD_FDT_ADDR" are defined.
 # FW_PAYLOAD_FDT_ADDR=0x82200000
+
+# Link the image to starting address of 0x80000000
+FW_TEXT_START=0x80000000

@@ -9,7 +9,7 @@ Upstream sources are in `third-party/opensbi/` at the repository root.
 
 The Makefile uses the `riscv64-linux-gnu-` toolchain. The upstream OpenSBI sources must be present.
 
-From this directory, build the emulator firmware:
+### Build the emulator firmware
 
 ```shell
 make build-emu-sbi
@@ -20,6 +20,16 @@ The output images are under
 
 - `fw_jump.elf`
 - `fw_jump.bin`
+
+### Testing OpenSBI
+
+A simple "kernel" program is created to test OpenSBI handoff and running in Supervisor mode.
+
+To run the OpenSBI and the program on the emulator:
+
+```shell
+make run-opensbi-test-emu
+```
 
 ## Platform Adaptation
 
