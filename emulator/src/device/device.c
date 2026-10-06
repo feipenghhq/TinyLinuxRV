@@ -4,6 +4,7 @@
 #include <stdlib.h>
 
 #include "addrmap.h"
+#include "device/bootROM.h"
 #include "device/clint.h"
 #include "device/plic.h"
 #include "device/syscon.h"
@@ -23,14 +24,24 @@
 
 int device_init(dev_list_t *dev) {
     // Place holder for unimp devices
-    INIT_DEVICE(bootROM, BootROM);
-
     INIT_DEVICE(virtio, VirtIO);
 
+    INIT_DEVICE(bootROM, BootROM);
     INIT_DEVICE(syscon, Syscon);
     INIT_DEVICE(uart0, UART0);
     INIT_DEVICE(clint, CLINT);
     INIT_DEVICE(plic, PLIC);
+
+    // init bootROM
+    dev->bootROM.device = malloc(BOOT_ROM_SIZE);
+    if (dev->bootROM.device == NULL) {
+        LOG_ERROR("Failed to initialize bootROM device.");
+        return -1;
+    }
+    if (bootROM_init(dev->bootROM.device, BootROM_BASE) != 0) {
+        LOG_ERROR("Failed to initialize bootROM device.");
+        return -1;
+    }
 
     // init syscon
     dev->syscon.device = malloc(sizeof(syscon_t));
@@ -83,6 +94,9 @@ void device_free(dev_list_t *dev) {
     dev->clint.device = NULL;
     free(dev->plic.device);
     dev->plic.device = NULL;
+    bootROM_free(dev->bootROM.device);
+    free(dev->bootROM.device);
+    dev->bootROM.device = NULL;
 }
 
 /**

@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "addrmap.h"
+#include "addrmap_emu.h"
 #include "bus/bus.h"
 #include "cpu/cpu.h"
 #include "cpu/cpu_exec.h"
@@ -20,7 +22,7 @@
 // -------------------------------------------------------------------
 typedef enum { AUTO, BIN, ELF } file_type_t;
 
-typedef enum { RUN_NORMAL, RUN_RISCV_TESTS } run_mode_t;
+typedef enum { RUN_BAREMETAL, RUN_RISCV_TESTS, RUN_LINUX } run_mode_t;
 
 typedef enum { BOOT_MODE_DIRECT, BOOT_MODE_BOOTROM } boot_mode_t;
 
@@ -165,6 +167,7 @@ static void parse_arguments(int argc, char **argv, args_t *args) {
         case OPT_BOOTROM:
             args->bootrom   = optarg;
             args->boot_mode = BOOT_MODE_BOOTROM;
+            args->run_mode  = RUN_LINUX;
             break;
 
         case OPT_BIOS:
@@ -254,6 +257,13 @@ static void parse_arguments(int argc, char **argv, args_t *args) {
             printf("Provided more than one program files.\n");
             exit(EXIT_FAILURE);
         }
+        LOG_INFO("Running: %s", args->file);
+    } else {
+        LOG_INFO("Running on Linux Mode.");
+        LOG_INFO("BootROM: %s", args->bootrom);
+        LOG_INFO("DTB: %s", args->dtb);
+        LOG_INFO("BIOS: %s", args->bios);
+        LOG_INFO("Kernel: %s", args->kernel);
     }
 
     free(longopts);
@@ -304,20 +314,64 @@ static int boot(memory_t *memory, dev_list_t *devices, cpu_t *cpu, args_t *args)
         return -1;
     }
 
+    // initialize the symbol table. Will only be initialized when trace is enabled
+    if (args->ftrace)
+        symbol_table_init(1);
+
     // read the program
-    switch (args->format) {
-    case AUTO: {
-        result = memory_load_auto(memory, args->file, &cpu->pc, args->ftrace);
-        break;
+    if (args->boot_mode == BOOT_MODE_DIRECT) {
+        switch (args->format) {
+        case AUTO: {
+            result = memory_load_auto(memory, args->file, &cpu->pc, args->ftrace);
+            break;
+        }
+        case BIN: {
+            result = memory_load_binary(memory, args->file);
+            break;
+        }
+        case ELF: {
+            result = memory_load_elf(memory, args->file, &cpu->pc, args->ftrace);
+            break;
+        }
+        }
     }
-    case BIN: {
-        result = memory_load_binary(memory, args->file);
-        break;
-    }
-    case ELF: {
-        result = memory_load_elf(memory, args->file, &cpu->pc, args->ftrace);
-        break;
-    }
+
+    // read the bootrom/dtb
+    if (args->boot_mode == BOOT_MODE_BOOTROM) {
+        uint64_t entry_point; // dummy entry point
+
+        // BootROM
+        if (args->bootrom) {
+            result += memory_load_elf(devices->bootROM.device, args->bootrom, &entry_point, args->ftrace);
+        } else {
+            LOG_ERROR("BootROM does not exist. Please specify bootROM ELF");
+            result++;   // In BOOTROM mode we need at least bootROM
+        }
+        // DTB
+        // DTB is loaded into the dram at DRAM.END - 1MiB.
+        // We need to create an memory device aliased with dram but starting at dtb address to work with
+        // memory_load_binary
+        memory_t dtb_segment = {NULL, DTB_START_ADDR, DTB_SIZE};
+        dtb_segment.data     = &memory->data[DTB_START_ADDR - DRAM_BASE];
+        if (args->dtb) {
+            result += memory_load_binary(&dtb_segment, args->dtb);
+        }
+
+        // BIOS
+        // BIOS is loaded into the dram at DRAM.BASE
+        if (args->bios) {
+            result += memory_load_elf(memory, args->bios, &entry_point, args->ftrace);
+        }
+
+        // Kernel
+        // Kernel is loaded into the dram at DRAM.BASE + 0x200000
+        // The kernel image is linked directly to DRAM.BASE + 0x200000
+        if (args->kernel) {
+            result += memory_load_elf(memory, args->kernel, &entry_point, args->ftrace);
+        }
+
+        // CPU start from boot rom
+        cpu->pc = BootROM_BASE;
     }
 
     // clean up the memory
@@ -344,7 +398,7 @@ static int boot(memory_t *memory, dev_list_t *devices, cpu_t *cpu, args_t *args)
 int main(int argc, char **argv) {
     args_t     args = {.max_instruction = 0,
                        .format          = AUTO,
-                       .run_mode        = RUN_NORMAL,
+                       .run_mode        = RUN_BAREMETAL,
                        .file            = NULL,
                        .poison_ram      = false,
                        .dram_size       = RAM_SIZE,
@@ -362,7 +416,6 @@ int main(int argc, char **argv) {
 
     // process the args
     parse_arguments(argc, argv, &args);
-    LOG_INFO("Running: %s", args.file);
 
     // boot and initialize all the component
     if (boot(&memory, &devices, &cpu, &args) != 0) {
@@ -374,8 +427,6 @@ int main(int argc, char **argv) {
 
     // free up memory
     poweroff(&memory, &devices);
-
-    // close the trace
     if (args.ftrace) {
         func_trace_end();
         symbol_table_free();
@@ -401,7 +452,10 @@ int main(int argc, char **argv) {
     }
 
     // Check result
-    if (args.run_mode == RUN_RISCV_TESTS) {
+    if (args.run_mode == RUN_LINUX) {
+        return EXIT_SUCCESS;
+    }
+    else if (args.run_mode == RUN_RISCV_TESTS) {
         if (check_riscv_tests_result(&cpu) == 0) {
             return EXIT_SUCCESS;
         } else {

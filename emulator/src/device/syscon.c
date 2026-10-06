@@ -44,9 +44,8 @@ int syscon_write(syscon_t *syscon, uint64_t addr, size_t size, const void *data)
             break;
         }
         default: {
-            // FIXME: Do we need to inform CPU about this?
             LOG_ERROR("Unsupported syscon command: %d", syscon->reg.sys_ctrl);
-            break;
+            return -1;
         }
         }
 
@@ -68,14 +67,18 @@ int syscon_read(syscon_t *syscon, uint64_t addr, size_t size, void *data) {
         return -1;
     }
     switch (offset) {
-    case (4): {
+    // To be compatible with OpenSBI and Linux, sys_ctrl need to be readable. just return 0
+    case (0):
+        value = 0;
+        break;
+
+    case (4):
         value = syscon->reg.reset_cause;
         break;
-    }
-    default: {
+
+    default:
         LOG_ERROR("Unsupported read address in syscon: %lx", addr);
         return -1;
-    }
     }
     memcpy(data, &value, size);
     return 0;

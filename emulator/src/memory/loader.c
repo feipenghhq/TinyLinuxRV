@@ -115,7 +115,7 @@ static int memory_fread(memory_t *memory, uint64_t start_addr, size_t size, FILE
     uint64_t offset = start_addr - memory->base;
     // check address range
     if (!check_addr_range(start_addr, size, memory->base, memory->size)) { // out of range
-        LOG_ERROR("Address out of memory range");
+        LOG_ERROR("Loader: Address out of memory range: %lx", start_addr);
         return -1;
     }
     count = fread(&memory->data[offset], 1, size, fp);
@@ -201,9 +201,6 @@ static int load_symbol_table(FILE *fp, const Elf64_Ehdr *ehdr) {
     size_t     count;
     char      *fun_name;
     long       num_symbols;
-
-    // initialize the symbol table. Will only be initialized when trace is enabled
-    symbol_table_init(1);
 
     next_shoff = ehdr->e_shoff;
 

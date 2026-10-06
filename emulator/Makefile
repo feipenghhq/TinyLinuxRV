@@ -49,6 +49,7 @@ SOURCES += src/device/syscon.c
 SOURCES += src/device/uart16550.c
 SOURCES += src/device/clint.c
 SOURCES += src/device/plic.c
+SOURCES += src/device/bootROM.c
 SOURCES += src/main.c
 
 OBJECTS := $(patsubst src/%.c,$(BUILD_DIR)/%.o,$(SOURCES))
@@ -134,3 +135,15 @@ REGRESSION_DIR := tests/regression
 
 regression:
 	python3 $(REGRESSION_DIR)/run.py
+
+#-------------------------------------------------
+# Run OpenSBI
+#-------------------------------------------------
+
+run-opensbi:
+	./rvemu \
+	--max-instruction 1400000 \
+	--bootrom=../platform/bootROM/build/bootROM_emu.elf \
+	--dtb=../platform/devicetree/tinylinuxrv_emu.dtb \
+	--bios=../software/opensbi/build/tinylinuxrv_emu/platform/tinylinuxrv_emu/firmware/fw_jump.elf \
+	--kernel=../software/opensbi/test/build/opensbi-test.elf
