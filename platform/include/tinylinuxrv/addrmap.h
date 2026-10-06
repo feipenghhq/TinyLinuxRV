@@ -1,5 +1,5 @@
 /**
- * This file defines the Physical Address Map for the TinyLinuxRV emulator
+ * This file defines the Physical Address Map for the TinyLinuxRV
  */
 
 #ifndef ADDR_MAP_H
@@ -7,7 +7,7 @@
 
 // BootROM
 #define BootROM_BASE 0x00001000ULL
-#define BootROM_SIZE 0x0000f000ULL
+#define BootROM_SIZE 0x00001000ULL
 #define BootROM_END  (BootROM_BASE + BootROM_SIZE)
 
 // Syscon
