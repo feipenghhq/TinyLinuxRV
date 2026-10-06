@@ -9,6 +9,6 @@
 
 typedef enum CPU_EXEC_STATUS { FINISH, MEM_ERROR, CPU_ERROR, DEVICE_ERROR, POWEROFF, TIMEOUT } CPU_EXEC_STATUS_t;
 
-CPU_EXEC_STATUS_t cpu_exec(cpu_t *cpu, bus_t *bus, dev_list_t *devices, bool trace, long max_instruction);
+CPU_EXEC_STATUS_t cpu_exec(cpu_t *cpu, bus_t *bus, dev_list_t *devices, bool itrace, bool ftrace, long max_instruction);
 
 #endif

@@ -33,7 +33,7 @@ typedef struct {
 } cpu_t;
 
 void cpu_init(cpu_t *cpu);
-void cpu_step(cpu_t *cpu, bus_t *bus, bool trace);
+void cpu_step(cpu_t *cpu, bus_t *bus, bool itrace, bool ftrace);
 void cpu_print_regs(cpu_t *cpu);
 
 #endif

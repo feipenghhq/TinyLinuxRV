@@ -41,7 +41,8 @@ typedef struct {
     // execution options
     long max_instruction;
     bool poison_ram;
-    bool trace;
+    bool itrace;
+    bool ftrace;
 
     // program options
     file_type_t format;
@@ -71,7 +72,8 @@ enum {
     OPT_DRAM_SIZE,
     OPT_MAX_INST,
     OPT_POISON,
-    OPT_TRACE,
+    OPT_ITRACE,
+    OPT_FTRACE,
     OPT_FORMAT,
     OPT_RISCV_TESTS
 };
@@ -90,7 +92,8 @@ static const cli_option_t options[] = {
     {"max-instruction", OPT_MAX_INST, required_argument, "count",
      "Stop after executing the specified number of instructions."},
     {"poison-ram", OPT_POISON, no_argument, NULL, "Fill RAM with 0xA5 before loading images."},
-    {"trace", OPT_TRACE, no_argument, NULL, "Dump execution trace when CPU execution fails."},
+    {"itrace", OPT_ITRACE, no_argument, NULL, "Dump instruction trace when CPU execution fails."},
+    {"ftrace", OPT_FTRACE, no_argument, NULL, "Dump function trace."},
     // Program options
     {"format", OPT_FORMAT, required_argument, "auto|elf|bin", "Input format for positional FILE."},
     // Test options
@@ -206,8 +209,12 @@ static void parse_arguments(int argc, char **argv, args_t *args) {
             args->poison_ram = true;
             break;
 
-        case OPT_TRACE:
-            args->trace = true;
+        case OPT_ITRACE:
+            args->itrace = true;
+            break;
+
+        case OPT_FTRACE:
+            args->ftrace = true;
             break;
 
         case OPT_FORMAT: { // format
@@ -300,7 +307,7 @@ static int boot(memory_t *memory, dev_list_t *devices, cpu_t *cpu, args_t *args)
     // read the program
     switch (args->format) {
     case AUTO: {
-        result = memory_load_auto(memory, args->file, &cpu->pc, args->trace);
+        result = memory_load_auto(memory, args->file, &cpu->pc, args->ftrace);
         break;
     }
     case BIN: {
@@ -308,7 +315,7 @@ static int boot(memory_t *memory, dev_list_t *devices, cpu_t *cpu, args_t *args)
         break;
     }
     case ELF: {
-        result = memory_load_elf(memory, args->file, &cpu->pc, args->trace);
+        result = memory_load_elf(memory, args->file, &cpu->pc, args->ftrace);
         break;
     }
     }
@@ -321,7 +328,7 @@ static int boot(memory_t *memory, dev_list_t *devices, cpu_t *cpu, args_t *args)
 
     // initialize function trace
     const char *func_trace_file = "func_trace.log";
-    if (args->trace) {
+    if (args->ftrace) {
         result = func_trace_init(func_trace_file);
         if (result != 0) {
             return -1;
@@ -341,7 +348,8 @@ int main(int argc, char **argv) {
                        .file            = NULL,
                        .poison_ram      = false,
                        .dram_size       = RAM_SIZE,
-                       .trace           = false};
+                       .itrace          = false,
+                       .ftrace          = false};
     cpu_t      cpu;
     dev_list_t devices;
     memory_t   memory;
@@ -362,13 +370,13 @@ int main(int argc, char **argv) {
         return EXIT_FAILURE;
     }
 
-    exec_status = cpu_exec(&cpu, &bus, &devices, args.trace, args.max_instruction);
+    exec_status = cpu_exec(&cpu, &bus, &devices, args.itrace, args.ftrace, args.max_instruction);
 
     // free up memory
     poweroff(&memory, &devices);
 
     // close the trace
-    if (args.trace) {
+    if (args.ftrace) {
         func_trace_end();
         symbol_table_free();
     }
@@ -384,7 +392,7 @@ int main(int argc, char **argv) {
     case CPU_ERROR:    // fall-through
     case DEVICE_ERROR: // fall-through
     case TIMEOUT: {
-        if (args.trace) {
+        if (args.itrace) {
             iringbuf_print();
             cpu_print_regs(&cpu);
         }
@@ -397,7 +405,7 @@ int main(int argc, char **argv) {
         if (check_riscv_tests_result(&cpu) == 0) {
             return EXIT_SUCCESS;
         } else {
-            if (args.trace) {
+            if (args.itrace) {
                 iringbuf_print();
                 cpu_print_regs(&cpu);
             }

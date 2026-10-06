@@ -448,7 +448,7 @@ void cpu_init(cpu_t *cpu) {
 /**
  * Execute a SINGLE instruction
  */
-void cpu_step(cpu_t *cpu, bus_t *bus, bool trace) {
+void cpu_step(cpu_t *cpu, bus_t *bus, bool itrace, bool ftrace) {
     inst_dec_t inst_dec;
     uint64_t   next_pc;
     uint32_t   inst;
@@ -493,7 +493,7 @@ void cpu_step(cpu_t *cpu, bus_t *bus, bool trace) {
         goto raise_exception;
     }
 
-    if (trace) {
+    if (itrace) {
         iringbuf_write(cpu->pc, inst);
     }
 
@@ -521,12 +521,14 @@ void cpu_step(cpu_t *cpu, bus_t *bus, bool trace) {
             JAL, do {
                 next_pc = PC() + IMM();
                 CHECK_MA_FETCH(next_pc);
-                if (trace) {
+                if (ftrace) {
                     if (inst_dec.rd == 1) {
                         trace_call(PC(), next_pc, cpu->priv);
-                    } else if (inst_dec.rd == 0) {
-                        trace_jump(PC(), next_pc, cpu->priv);
                     }
+                    // Not traceing jump for now as it create too much noise
+                    //else if (inst_dec.rd == 0) {
+                    //    trace_jump(PC(), next_pc, cpu->priv);
+                    //}
                 }
                 RD() = PC() + 4;
             } while (0));
@@ -537,7 +539,7 @@ void cpu_step(cpu_t *cpu, bus_t *bus, bool trace) {
             JALR, do {
                 next_pc = (IMM() + RS1()) & ~UINT64_C(1);
                 CHECK_MA_FETCH(next_pc);
-                if (trace) {
+                if (ftrace) {
                     if (inst_dec.rd == 1)
                         trace_call(PC(), next_pc, cpu->priv);
                     if ((inst_dec.rd == 0) && (inst_dec.rs1 == 1) && (IMM() == 0))
@@ -663,7 +665,7 @@ void cpu_step(cpu_t *cpu, bus_t *bus, bool trace) {
                 } else {
                     priv_mode_t prev_priv = cpu->priv;
                     next_pc               = trap_exit_mret(&cpu->csr, &cpu->priv);
-                    if (trace)
+                    if (ftrace)
                         trace_return(PC(), next_pc, prev_priv);
                 }
             } while (0));
@@ -676,7 +678,7 @@ void cpu_step(cpu_t *cpu, bus_t *bus, bool trace) {
                 } else {
                     priv_mode_t prev_priv = cpu->priv;
                     next_pc               = trap_exit_sret(&cpu->csr, &cpu->priv);
-                    if (trace)
+                    if (ftrace)
                         trace_return(PC(), next_pc, prev_priv);
                 }
             } while (0));
@@ -743,7 +745,7 @@ raise_exception:
     priv_mode_t prev_priv = cpu->priv;
     next_pc               = trap_enter(&cpu->csr, trap_cause, trap_val, PC(), &cpu->priv);
     enter_trap            = true;
-    if (trace)
+    if (ftrace)
         trace_trap(PC(), next_pc, prev_priv);
 
 end_exec:

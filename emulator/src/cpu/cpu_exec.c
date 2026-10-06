@@ -8,7 +8,7 @@
 #include "device/syscon.h"
 #include "utils/log.h"
 
-CPU_EXEC_STATUS_t cpu_exec(cpu_t *cpu, bus_t *bus, dev_list_t *devices, bool trace, long max_instruction) {
+CPU_EXEC_STATUS_t cpu_exec(cpu_t *cpu, bus_t *bus, dev_list_t *devices, bool itrace, bool ftrace, long max_instruction) {
     CPU_EXEC_STATUS_t exec_status = FINISH;
 
     long     inst_count = 0;
@@ -17,7 +17,7 @@ CPU_EXEC_STATUS_t cpu_exec(cpu_t *cpu, bus_t *bus, dev_list_t *devices, bool tra
     while (!cpu->halted) {
 
         // execute the instruction
-        cpu_step(cpu, bus, trace);
+        cpu_step(cpu, bus, itrace, ftrace);
 
         // check poweroff/reboot
         if (syscon_poweroff_requested(devices->syscon.device)) {
