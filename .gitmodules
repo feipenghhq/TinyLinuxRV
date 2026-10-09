@@ -10,3 +10,6 @@
 [submodule "third-party/opensbi"]
 	path = third-party/opensbi
 	url = https://github.com/riscv-software-src/opensbi.git
+[submodule "third-party/linux"]
+	path = third-party/linux
+	url = https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git
