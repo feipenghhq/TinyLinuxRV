@@ -345,15 +345,15 @@ static int boot(memory_t *memory, dev_list_t *devices, cpu_t *cpu, args_t *args)
             result += memory_load_elf(devices->bootROM.device, args->bootrom, &entry_point, args->ftrace);
         } else {
             LOG_ERROR("BootROM does not exist. Please specify bootROM ELF");
-            result++;   // In BOOTROM mode we need at least bootROM
+            result++; // In BOOTROM mode we need at least bootROM
         }
         // DTB
         // DTB is loaded into the dram at DRAM.END - 1MiB.
         // We need to create an memory device aliased with dram but starting at dtb address to work with
         // memory_load_binary
-        memory_t dtb_segment = {NULL, DTB_START_ADDR, DTB_SIZE};
-        dtb_segment.data     = &memory->data[DTB_START_ADDR - DRAM_BASE];
         if (args->dtb) {
+            memory_t dtb_segment = {NULL, DTB_START_ADDR, DTB_SIZE};
+            dtb_segment.data     = &memory->data[DTB_START_ADDR - DRAM_BASE];
             result += memory_load_binary(&dtb_segment, args->dtb);
         }
 
@@ -367,7 +367,9 @@ static int boot(memory_t *memory, dev_list_t *devices, cpu_t *cpu, args_t *args)
         // Kernel is loaded into the dram at DRAM.BASE + 0x200000
         // The kernel image is linked directly to DRAM.BASE + 0x200000
         if (args->kernel) {
-            result += memory_load_elf(memory, args->kernel, &entry_point, args->ftrace);
+            memory_t kernel_segment = {NULL, KERNEL_START_ADDR, DTB_START_ADDR - KERNEL_START_ADDR};
+            kernel_segment.data     = &memory->data[KERNEL_START_ADDR - DRAM_BASE];
+            result += memory_load_binary(&kernel_segment, args->kernel);
         }
 
         // CPU start from boot rom
@@ -454,8 +456,7 @@ int main(int argc, char **argv) {
     // Check result
     if (args.run_mode == RUN_LINUX) {
         return EXIT_SUCCESS;
-    }
-    else if (args.run_mode == RUN_RISCV_TESTS) {
+    } else if (args.run_mode == RUN_RISCV_TESTS) {
         if (check_riscv_tests_result(&cpu) == 0) {
             return EXIT_SUCCESS;
         } else {

@@ -12,7 +12,7 @@
 	};
 
 	chosen {
-		bootargs = "";
+    	bootargs = "earlycon console=ttyS0,115200 loglevel=8 initcall_debug";
 		stdout-path = "/soc/uart@10000000";
 	};
 

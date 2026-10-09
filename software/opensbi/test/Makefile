@@ -20,7 +20,10 @@ SOURCES := opensbi-test.c crt0.S ../../baremetal/drivers/uart16550/uart16550.c
 
 .PHONY: all clean
 
-all: $(BUILD_DIR)/opensbi-test.elf
+all: $(BUILD_DIR)/opensbi-test.elf $(BUILD_DIR)/opensbi-test.bin
+
+$(BUILD_DIR)/opensbi-test.bin: $(BUILD_DIR)/opensbi-test.elf
+	$(CROSS_COMPILE)objcopy $< -O binary $@
 
 $(BUILD_DIR)/opensbi-test.elf: $(SOURCES)
 	mkdir -p $(@D)

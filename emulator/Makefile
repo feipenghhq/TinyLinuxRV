@@ -146,4 +146,16 @@ run-opensbi:
 	--bootrom=../platform/bootROM/build/bootROM_emu.elf \
 	--dtb=../platform/devicetree/tinylinuxrv_emu.dtb \
 	--bios=../software/opensbi/build/tinylinuxrv_emu/platform/tinylinuxrv_emu/firmware/fw_jump.elf \
-	--kernel=../software/opensbi/test/build/opensbi-test.elf
+	--kernel=../software/opensbi/test/build/opensbi-test.bin
+
+
+#-------------------------------------------------
+# Run Linux
+#-------------------------------------------------
+
+run-linux:
+	./rvemu \
+	--bootrom=../platform/bootROM/build/bootROM_emu.elf \
+	--dtb=../platform/devicetree/tinylinuxrv_emu.dtb \
+	--bios=../software/opensbi/build/tinylinuxrv_emu/platform/tinylinuxrv_emu/firmware/fw_jump.elf \
+	--kernel=../software/linux/linux-build/arch/riscv/boot/Image
