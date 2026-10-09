@@ -193,9 +193,15 @@ the Git history.
 * **2026-09-30** — Fixed several remaining bugs found by AI
 * **2026-09-30** — Updated documents and completed the milestone.
 
-  * All 192 enabled ISA tests (107 `p`, 85 `v`) and the complete emulator
-    regression passed, including RV64SI `dirty` and `icache-alias`.
-  * Some boundary cases were checked with temporary review programs;
-    preserving these as repository tests remains deferred.
-  * Svade firmware/OS advertisement is deferred to OpenSBI/Linux bring-up.
-    Svadu and a TLB remain deferred until required.
+---
+
+## Phase 5 — OpenSBI Bring-up
+
+> ✅ **Completed** · 2026-10-05
+
+### Milestone 9 — OpenSBI and SBI Validation
+
+> ✅ **Completed** · 2026-10-05 · Manual bring-up sanity scope.
+
+* **2026-10-05** — Completed OpenSBI v1.9 bring-up using the TinyLinuxRV
+  * Check the commit message on 2026/10/05 for more details

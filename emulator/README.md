@@ -20,6 +20,7 @@ planned development milestones.
 - UART16550 with host terminal I/O.
 - CLINT timer and software-interrupt sources.
 - PLIC external interrupt controller.
+- Read-only boot ROM and OpenSBI handoff to an S-mode payload.
 
 ### Emulator
 
@@ -90,7 +91,7 @@ make build LOG_LEVEL=LOG_LEVEL_DEBUG
 The command-line form is:
 
 ```text
-./rvemu [OPTIONS] FILE
+./rvemu [OPTIONS] [FILE]
 ```
 
 For example:
@@ -111,13 +112,22 @@ The currently available options are:
 | `--riscv-tests`           | Interpret program termination using the emulator-specific `riscv-tests` PASS/FAIL protocol.     |
 | `--poison-ram`            | Fill RAM with `0xA5` before loading the program. Used for testing.                              |
 | `--dram-size SIZE`        | Set the DRAM size in MiB. The default is 128 MiB; the supported range is 1–512 MiB.             |
-| `--trace`                 | Write function trace during execution; dump recent instruction trace on failure.                                        |
+| `--itrace`                | Dump recent instruction trace on execution failure. |
+| `--ftrace`                | Write function trace during execution. |
+| `--bootrom FILE`          | Load a boot ROM ELF and start in boot ROM mode. |
+| `--bios FILE`             | Load a firmware ELF into DRAM. |
+| `--kernel FILE`           | Load a next-stage ELF into DRAM. |
+| `--dtb FILE`              | Load a DTB at the fixed boot-path address. |
 
-With `--trace`, function trace is written to `func_trace.log` in the current
+With `--ftrace`, function trace is written to `func_trace.log` in the current
 working directory during execution, including successful runs.
 
 The `--riscv-tests` option is intended for the automated test environment, not
 for general programs.
+
+For OpenSBI build and sanity-run instructions, see
+[OpenSBI](../software/opensbi/README.md). This boot path currently assumes
+128 MiB DRAM; use the default DRAM size.
 
 ## Running Tests
 
@@ -140,8 +150,9 @@ make run-fib
 make run-baremetal-test
 ```
 
-`run-baremetal-test` loads a raw binary into RAM filled with `0xA5`. This
-checks that the startup code clears `.bss` before calling `main`.
+`run-baremetal-test` loads an ELF into RAM filled with `0xA5`. The ELF loader
+already clears `.bss`, so this run does not independently verify startup
+BSS clearing.
 
 Run all current tests with:
 

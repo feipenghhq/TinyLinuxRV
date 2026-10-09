@@ -23,13 +23,32 @@ The output images are under
 
 ### Testing OpenSBI
 
-A simple "kernel" program is created to test OpenSBI handoff and running in Supervisor mode.
+Milestone 9 bring-up was completed on 2026-10-05 using OpenSBI v1.9.
+A small S-mode program checks runtime behavior and shuts down through
+SBI SRST and syscon.
 
-To run the OpenSBI and the program on the emulator:
+Build the images and emulator from the repository root:
 
 ```shell
-make run-opensbi-test-emu
+make -C emulator build
+make -C platform/bootROM
+make -C platform/devicetree
+make -C software/opensbi build-emu-sbi
+make -C software/opensbi run-opensbi-test-emu
 ```
+
+Check the output manually for:
+
+- Timer frequency: `100000000Hz`.
+- Next address: `0x80200000`; next mode: `S-mode`.
+- `Complete all the tests`.
+- `Poweroff requested` and normal CPU termination.
+
+The boot path assumes 128 MiB DRAM. OpenSBI starts at `0x80000000`, the
+payload at `0x80200000`, and the DTB at `0x87f00000`.
+Host exit success alone does not prove the payload checks passed.
+SBI timer/interrupt, base query, SBI console, reboot, and automated regression
+validation remain deferred under Milestone 9.
 
 ## Platform Adaptation
 

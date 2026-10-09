@@ -33,10 +33,11 @@ Completed:
 - ✅ Machine-mode CSRs, exceptions, traps, and interrupts.
 - ✅ Supervisor and user privilege modes.
 - ✅ Sv39 virtual memory.
+- ✅ OpenSBI boot, S-mode sanity program, and SBI shutdown through syscon.
 
 Next:
 
-- OpenSBI, Linux, and BusyBox bring-up.
+- Linux and BusyBox bring-up.
 - Deterministic architectural tracing for later RTL verification.
 
 See the [emulator milestone plan](docs/emulator/plans/plan.md) for the detailed

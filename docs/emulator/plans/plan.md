@@ -28,8 +28,8 @@ This document tracks the milestones for the **emulator stage**.
 | Phase 3 | Machine Mode, CSRs, Traps, and Interrupts | ✅ Complete |
 | Phase 3 | Supervisor and User Modes                 | ✅ Complete |
 | Phase 4 | Sv39 Address Translation                  | ✅ Complete |
-| Phase 5 | OpenSBI and SBI Validation                | 🟡 Next     |
-| Phase 6 | Linux Early Boot                          | Planned    |
+| Phase 5 | OpenSBI and SBI Validation                | ✅ Complete |
+| Phase 6 | Linux Early Boot                          | 🟡 Next     |
 | Phase 6 | Scheduler and Initramfs                   | Planned    |
 | Phase 6 | BusyBox User Space                        | Planned    |
 | Phase 7 | Differential Reference Infrastructure     | Planned    |
@@ -630,16 +630,19 @@ are not yet part of the automatic regression.
 
 ## Milestone 9: OpenSBI and SBI Validation
 
+> ✅ **Completed** · 2026-10-05 · Scope adjusted to manual bring-up sanity validation.
+
 ### Goals
 
 Boot OpenSBI on TinyLinuxRV and validate the machine-to-supervisor firmware interface before attempting Linux.
 
 ### Platform Integration
 
-- Select and record the exact SBI specification and OpenSBI release used for
-  this milestone.
-- Prefer the OpenSBI generic platform with a device tree.
-- Add a TinyLinuxRV-specific OpenSBI platform only if the generic platform cannot support the required devices.
+- OpenSBI v1.9 reports runtime SBI v3.0. A separate SBI specification target
+  remains to be recorded before broader SBI validation.
+- ~~Prefer the OpenSBI generic platform with a device tree.~~
+- ~~Add a TinyLinuxRV-specific OpenSBI platform only if the generic platform cannot support the required devices.~~
+  **Decision:** Use the TinyLinuxRV platform adaptation with a device tree.
 - Match device-tree compatible strings and properties to the drivers provided
   by the selected OpenSBI release.
 - Provide a device tree describing:
@@ -660,42 +663,35 @@ Boot OpenSBI on TinyLinuxRV and validate the machine-to-supervisor firmware inte
 - Pass the hart ID and device-tree address according to the selected boot convention.
 - Start OpenSBI in machine mode.
 
-### SBI Support
+### Validated Behavior
 
-- Validate the SBI implementation provided by OpenSBI against the TinyLinuxRV platform.
-- Verify the SBI calls required for early Linux boot, including:
-  - Console or debug output as applicable.
-  - Timer programming.
-  - System reset and shutdown.
-  - Base extension queries.
-- Defer multi-hart IPI behavior while TinyLinuxRV remains single-hart.
+- Boot ROM passes hart ID 0 and the DTB address to OpenSBI in M-mode.
+- OpenSBI FW_JUMP enters the payload at `0x80200000` in S-mode.
+- The payload checks data, BSS values, small data, stack, calls, control flow,
+  and pointer access, then prints `Complete all the tests` through UART.
+- SBI SRST shutdown reaches the syscon device and exits the emulator normally.
+- OpenSBI and the device tree use a 100 MHz timer frequency.
+- Boot ROM allocation failures and resource cleanup are handled.
 
-### Supervisor Payload
+### Verification and Scope
 
-- Add a small supervisor-mode payload that OpenSBI can launch.
-- Verify that the payload:
-  - Enters supervisor mode successfully.
-  - Prints output through SBI or the platform UART.
-  - Programs a timer event.
-  - Receives the resulting supervisor timer interrupt.
-  - Returns or shuts down cleanly.
+- Run `make -C software/opensbi run-opensbi-test-emu` after building the images.
+- Manually check the S-mode handoff, completion message, and normal shutdown.
+- The OpenSBI boot path assumes 128 MiB DRAM. The DTB is at `0x87f00000`.
+- Host exit success indicates normal termination; it does not report the
+  payload's individual test failures.
+- The ELF loader also clears BSS, so this test does not independently verify
+  startup BSS clearing.
 
-### Verification
+### Deferred
 
-- Add an automated OpenSBI boot test.
-- Check for a deterministic OpenSBI boot-complete marker.
-- Test transfer from OpenSBI to the supervisor payload.
-- Test required SBI calls independently where practical.
-- Preserve traces for firmware boot failures.
-
-### Completion Criteria
-
-- OpenSBI boots and reports the expected TinyLinuxRV platform.
-- OpenSBI enters a supervisor-mode payload successfully.
-- Required SBI calls execute correctly.
-- Supervisor timer delivery works through OpenSBI.
-- The device tree accurately describes the emulated platform.
-- OpenSBI boot is covered by an automated regression.
+- ~~Verify all SBI calls required for early Linux boot in this milestone.~~
+  **Deferred:** Independent base queries, SBI console/debug output, timer
+  programming, supervisor timer delivery, and reboot validation.
+- ~~Add an automated OpenSBI boot regression and deterministic boot marker.~~
+  **Deferred:** Automated output checking and regression integration. Current
+  validation is a manual sanity check.
+- Multi-hart IPI behavior remains deferred while the emulator is single-hart.
 
 ### Deliverable
 

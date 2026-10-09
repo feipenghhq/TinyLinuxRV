@@ -130,15 +130,14 @@ During or after Milestone 9 — OpenSBI and SBI Validation.
 
 Before Linux, run a small S-mode program through OpenSBI.
 
-Test:
+Completed on 2026-10-05:
 
-- OpenSBI -> S-mode transition
-- UART/SBI output
-- SBI timer
-- timer interrupt
-- SBI shutdown/reset
+- OpenSBI -> S-mode transition.
+- UART output and runtime sanity checks.
+- SBI shutdown through syscon.
 
-This provides a focused OpenSBI integration test before Linux.
+Output is checked manually. SBI timer, timer interrupt, SBI console, and reboot
+checks remain deferred under Milestone 9.
 
 ---
 

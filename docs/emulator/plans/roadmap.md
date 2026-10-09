@@ -5,7 +5,7 @@ This document shows the overall TinyLinuxRV development flow.
 Detailed emulator tasks are in the [emulator milestone plan](plan.md). Additional
 software checkpoints are listed in [software.md](software.md).
 
-Current progress: Sv39 is complete. OpenSBI is the next emulator milestone.
+Current progress: OpenSBI bring-up is complete. Linux Early Boot is next.
 xv6 remains listed as an optional checkpoint in [software.md](software.md).
 
 ## Overall Flow
@@ -190,21 +190,15 @@ Linux / S-mode Program
       TinyLinuxRV
 ```
 
-First run a small S-mode test program:
+Completed in Milestone 9:
 
 ```text
-OpenSBI
-  ↓
-print hello
-  ↓
-set timer
-  ↓
-receive timer
-  ↓
-shutdown
+Boot ROM → OpenSBI → S-mode sanity program → SBI SRST → syscon shutdown
 ```
 
-Then move to Linux.
+The sanity program prints through UART. Output is checked manually.
+SBI timer programming and supervisor timer delivery remain deferred under
+Milestone 9. Linux Early Boot is next.
 
 ---
 
