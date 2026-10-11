@@ -2,53 +2,39 @@
 
 OpenSBI is an open source implementation of the RISC-V Supervisor Binary Interface (SBI).
 
-This directory contains the TinyLinuxRV platform adaptation and build entry point.
-Upstream sources are in `third-party/opensbi/` at the repository root.
+This directory contains the TinyLinuxRV related platform and the flow to build sbi image.
 
 ## Getting Started
 
-The Makefile uses the `riscv64-linux-gnu-` toolchain. The upstream OpenSBI sources must be present.
+The Makefile uses the `riscv64-linux-gnu-` toolchain.
 
-### Build the emulator firmware
+### Build the firmware image
 
 ```shell
-make build-emu-sbi
+make build-sbi-emu  # build the sbi for emulator
 ```
 
 The output images are under
-`build/tinylinuxrv_emu/platform/tinylinuxrv_emu/firmware/`:
+`build/<platform>/platform/<platform>/firmware/`:
 
 - `fw_jump.elf`
 - `fw_jump.bin`
 
 ### Testing OpenSBI
 
-Milestone 9 bring-up was completed on 2026-10-05 using OpenSBI v1.9.
 A small S-mode program checks runtime behavior and shuts down through
 SBI SRST and syscon.
 
-Build the images and emulator from the repository root:
+The program is in `<repo>/software/opensbi-test`
+
+The following target builds the emulator, boot ROM, device tree, OpenSBI,
+and test program before running it:
 
 ```shell
-make -C emulator build
-make -C platform/bootROM
-make -C platform/devicetree
-make -C software/opensbi build-emu-sbi
-make -C software/opensbi run-opensbi-test-emu
+cd <repo>/emulator
+make run-opensbi
 ```
 
-Check the output manually for:
-
-- Timer frequency: `100000000Hz`.
-- Next address: `0x80200000`; next mode: `S-mode`.
-- `Complete all the tests`.
-- `Poweroff requested` and normal CPU termination.
-
-The boot path assumes 128 MiB DRAM. OpenSBI starts at `0x80000000`, the
-payload at `0x80200000`, and the DTB at `0x87f00000`.
-Host exit success alone does not prove the payload checks passed.
-SBI timer/interrupt, base query, SBI console, reboot, and automated regression
-validation remain deferred under Milestone 9.
 
 ## Platform Adaptation
 

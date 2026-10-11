@@ -126,7 +126,7 @@ The `--riscv-tests` option is intended for the automated test environment, not
 for general programs.
 
 For OpenSBI build and sanity-run instructions, see
-[OpenSBI](../software/opensbi/README.md). This boot path currently assumes
+[OpenSBI](../linux/opensbi/README.md). This boot path currently assumes
 128 MiB DRAM; use the default DRAM size.
 
 ## Running Tests
@@ -134,13 +134,13 @@ For OpenSBI build and sanity-run instructions, see
 Run the small emulator sanity test with:
 
 ```shell
-make sanity-test
+make run-sanity-test
 ```
 
 Build and run the enabled RV64IMA `riscv-tests` suites with:
 
 ```shell
-make riscv-tests
+make run-riscv-tests
 ```
 
 Run the example bare-metal programs with:
@@ -157,7 +157,7 @@ BSS clearing.
 Run all current tests with:
 
 ```shell
-make regression
+make run-regression
 ```
 
 The regression runs all test groups and returns a failure status if any group fails.

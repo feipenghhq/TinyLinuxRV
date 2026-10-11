@@ -6,10 +6,10 @@ GREEN = "\033[1;32m"
 RESET = "\033[0m"
 
 REG_LIST = (
-    "sanity-test",
-    "riscv-tests",
-    "device-tests",
-    "device-unit-tests",
+    "run-sanity-test",
+    "run-riscv-tests",
+    "run-device-tests",
+    "run-device-unit-tests",
     "run-fib",
     "run-baremetal-test",
 )

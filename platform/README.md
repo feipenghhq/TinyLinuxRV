@@ -24,9 +24,7 @@ The platform specification covers:
 - `doc/`: Platform specifications, including memory maps and device behavior.
 - `include/`: Platform definitions shared by code.
 - `devicetree/`: Device tree sources and build instructions.
-
-OpenSBI adaptation and build instructions are in
-[software/opensbi/](../software/opensbi/README.md).
+- `bootROM/`: Boot Rom and build instructions.
 
 ## Shared Code
 

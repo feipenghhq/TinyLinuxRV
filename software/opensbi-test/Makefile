@@ -6,8 +6,8 @@ CROSS_COMPILE := riscv64-linux-gnu-
 
 LINKER_SCRIPT := link.ld
 
-CPPFLAGS += -I../../baremetal/drivers/include
-CPPFLAGS += -I../../../platform/include/tinylinuxrv
+CPPFLAGS += -I../baremetal/drivers/include
+CPPFLAGS += -I../../platform/include/tinylinuxrv
 
 CFLAGS  += -march=$(ARCH) -mabi=$(ABI) -mcmodel=medany
 CFLAGS  += -ffreestanding -fno-pie -fno-pic -fno-stack-protector
@@ -16,7 +16,7 @@ CFLAGS  += -nostartfiles -nostdlib
 
 BUILD_DIR := build
 
-SOURCES := opensbi-test.c crt0.S ../../baremetal/drivers/uart16550/uart16550.c
+SOURCES := opensbi-test.c crt0.S ../baremetal/drivers/uart16550/uart16550.c
 
 .PHONY: all clean
 

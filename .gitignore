@@ -10,3 +10,6 @@ AGENTS.md
 
 # MISC
 *.log
+.vscode
+
+local

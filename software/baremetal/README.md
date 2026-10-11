@@ -62,12 +62,22 @@ From this directory, build an example with:
 ```shell
 make fib
 make baremetal-test
+make coremark
 ```
 
 The output files are placed under `build/examples/`.
 
 The build is freestanding and uses RV64IMA/LP64 with the `medany` code model. It
 also disables PIE, PIC, and the stack protector.
+
+You can run the program in emulator
+
+```shell
+cd <repo>/emulator
+make run-fib
+make run-baremetal-test
+make run-coremark
+```
 
 ## Files
 

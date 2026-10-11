@@ -1,9 +1,8 @@
-# -----------------------------------------------------------------------------
-# Repository paths
-# -----------------------------------------------------------------------------
+# Makefile for emulator
 
-BAREMETAL_DIR = ../software/baremetal
-
+###############################################################################
+#                                Build Emulator                               #
+###############################################################################
 
 # -----------------------------------------------------------------------------
 # GCC toolchain
@@ -30,10 +29,6 @@ LDLIBS   +=
 # Build emulator
 #-------------------------------------------------
 
-EMULATOR := rvemu
-
-BUILD_DIR := build
-
 SOURCES += src/cpu/cpu.c
 SOURCES += src/cpu/cpu_exec.c
 SOURCES += src/cpu/csr.c
@@ -52,11 +47,18 @@ SOURCES += src/device/plic.c
 SOURCES += src/device/bootROM.c
 SOURCES += src/main.c
 
+#-------------------------------------------------
+# Build emulator
+#-------------------------------------------------
+
+EMULATOR := rvemu
+
+BUILD_DIR := build
+
 OBJECTS := $(patsubst src/%.c,$(BUILD_DIR)/%.o,$(SOURCES))
 DEPS	:= $(OBJECTS:.o=.d)
 
-
-.PHONY: build clean regression sanity-test riscv-tests device-tests run-elf run-fib run-baremetal-test
+.PHONY: build clean
 
 build: $(EMULATOR)
 
@@ -76,8 +78,47 @@ include/cpu/decode.h: scripts/generate_inst_patterns.py
 clean:
 	rm -rf $(EMULATOR) $(BUILD_DIR)
 
+###############################################################################
+#                                Run tests/programs                           #
+###############################################################################
+
+# Makefile to run various tests and programs
+
 #-------------------------------------------------
-# Run ELF file and program
+# Tests
+#-------------------------------------------------
+
+.PHONY: run-sanity-test run-riscv-tests run-device-tests
+
+# sanity test
+SANITY_DIR := tests/sanity
+run-sanity-test: $(EMULATOR)
+	$(MAKE) -C tests/sanity all
+	python3 $(SANITY_DIR)/run.py
+
+# riscv-tests test
+RISCV_TESTS_DIR := tests/riscv-test
+run-riscv-tests: $(EMULATOR)
+	$(MAKE) -C $(RISCV_TESTS_DIR) all
+	python3 $(RISCV_TESTS_DIR)/run.py
+
+# device unit tests
+DEVICE_UNIT_TESTS_DIR := tests/unit
+run-device-unit-tests: $(EMULATOR)
+	$(MAKE) -C $(DEVICE_UNIT_TESTS_DIR)
+
+# device tests
+DEVICE_TESTS_DIR := tests/devices
+run-device-tests: $(EMULATOR)
+	python3 $(DEVICE_TESTS_DIR)/run.py
+
+# Full regression test list for emulator
+REGRESSION_DIR := tests/regression
+run-regression:
+	python3 $(REGRESSION_DIR)/run.py
+
+#-------------------------------------------------
+# General command to run ELF file
 #-------------------------------------------------
 
 ELF ?=
@@ -85,77 +126,67 @@ ELF ?=
 run-elf: rvemu
 	./rvemu --format elf $(ELF)
 
+#-------------------------------------------------
+# Example program
+#-------------------------------------------------
+
+.PHONY: run-fib run-baremetal-test
+
+BAREMETAL_DIR = ../software/baremetal
+
+# fibonacci program from baremetal example program
 run-fib: rvemu
 	$(MAKE) -C $(BAREMETAL_DIR) fib
 	./rvemu  $(BAREMETAL_DIR)/build/examples/fib/fib.elf
 
+# baremetal-test program from baremetal example program
 run-baremetal-test: rvemu
 	$(MAKE) -C $(BAREMETAL_DIR) baremetal-test
 	./rvemu --poison-ram $(BAREMETAL_DIR)/build/examples/baremetal-test/baremetal-test.elf
 
-#-------------------------------------------------
-# Run sanity test
-#-------------------------------------------------
+# coremark
+run-coremark: rvemu
+	$(MAKE) -C $(BAREMETAL_DIR) coremark
+	./rvemu --format elf $(BAREMETAL_DIR)/build/benchmarks/coremark/coremark.elf
 
-SANITY_DIR := tests/sanity
-
-sanity-test: $(EMULATOR)
-	$(MAKE) -C tests/sanity all
-	python3 $(SANITY_DIR)/run.py
 
 #-------------------------------------------------
-# Run riscv-tests test
+# OpenSBI
 #-------------------------------------------------
 
-RISCV_TESTS_DIR := tests/riscv-test
+.PHONY: boot-images run-opensbi
 
-riscv-tests: $(EMULATOR)
-	$(MAKE) -C $(RISCV_TESTS_DIR) all
-	python3 $(RISCV_TESTS_DIR)/run.py
+boot-images:
+	$(MAKE) -C ../platform/bootROM all
+	$(MAKE) -C ../platform/devicetree all
+	$(MAKE) -C ../linux/opensbi all
 
-#-------------------------------------------------
-# Run device tests
-#-------------------------------------------------
-
-DEVICE_TESTS_DIR := tests/devices
-DEVICE_UNIT_TESTS_DIR := tests/unit
-
-device-tests: $(EMULATOR)
-	python3 $(DEVICE_TESTS_DIR)/run.py
-
-
-device-unit-tests: $(EMULATOR)
-	$(MAKE) -C $(DEVICE_UNIT_TESTS_DIR)
-
-#-------------------------------------------------
-# Full regression test list for emulator
-#-------------------------------------------------
-
-REGRESSION_DIR := tests/regression
-
-regression:
-	python3 $(REGRESSION_DIR)/run.py
-
-#-------------------------------------------------
-# Run OpenSBI
-#-------------------------------------------------
-
-run-opensbi:
+run-opensbi: rvemu boot-images
+	$(MAKE) -C ../software/opensbi-test all
 	./rvemu \
 	--max-instruction 1400000 \
 	--bootrom=../platform/bootROM/build/bootROM_emu.elf \
 	--dtb=../platform/devicetree/tinylinuxrv_emu.dtb \
-	--bios=../software/opensbi/build/tinylinuxrv_emu/platform/tinylinuxrv_emu/firmware/fw_jump.elf \
-	--kernel=../software/opensbi/test/build/opensbi-test.bin
+	--bios=../linux/opensbi/build/tinylinuxrv_emu/platform/tinylinuxrv_emu/firmware/fw_jump.elf \
+	--kernel=../software/opensbi-test/build/opensbi-test.bin
 
 
 #-------------------------------------------------
-# Run Linux
+# Linux
 #-------------------------------------------------
 
-run-linux:
+.PHONY: run-linux-emulator run-linux-emulator-early-boot
+
+KERNEL_CONFIG ?= early_boot
+
+run-linux-emulator: rvemu boot-images
+	$(MAKE) -C ../linux/linux_kernel build-image PLATFORM=emulator CONFIG=$(KERNEL_CONFIG)
 	./rvemu \
-	--bootrom=../platform/bootROM/build/bootROM_emu.elf \
-	--dtb=../platform/devicetree/tinylinuxrv_emu.dtb \
-	--bios=../software/opensbi/build/tinylinuxrv_emu/platform/tinylinuxrv_emu/firmware/fw_jump.elf \
-	--kernel=../software/linux/linux-build/arch/riscv/boot/Image
+		--bootrom=../platform/bootROM/build/bootROM_emu.elf \
+		--dtb=../platform/devicetree/tinylinuxrv_emu.dtb \
+		--bios=../linux/opensbi/build/tinylinuxrv_emu/platform/tinylinuxrv_emu/firmware/fw_jump.elf \
+		--kernel=../linux/linux_kernel/build/emulator/$(KERNEL_CONFIG)/arch/riscv/boot/Image
+
+run-linux-emulator-early-boot:
+	$(MAKE) run-linux-emulator KERNEL_CONFIG=early_boot
+
