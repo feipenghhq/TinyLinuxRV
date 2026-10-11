@@ -175,12 +175,12 @@ run-opensbi: rvemu boot-images
 # Linux
 #-------------------------------------------------
 
-.PHONY: run-linux-emulator run-linux-emulator-early-boot
+.PHONY: run-linux-emulator run-linux-emulator-early-boot run-linux-emulator-busybox
 
 KERNEL_CONFIG ?= early_boot
 
 run-linux-emulator: rvemu boot-images
-	$(MAKE) -C ../linux/linux_kernel build-image PLATFORM=emulator CONFIG=$(KERNEL_CONFIG)
+	$(MAKE) -C ../linux/linux_kernel build-image PLATFORM=emulator DEFCONFIG=$(KERNEL_CONFIG)
 	./rvemu \
 		--bootrom=../platform/bootROM/build/bootROM_emu.elf \
 		--dtb=../platform/devicetree/tinylinuxrv_emu.dtb \
@@ -190,3 +190,5 @@ run-linux-emulator: rvemu boot-images
 run-linux-emulator-early-boot:
 	$(MAKE) run-linux-emulator KERNEL_CONFIG=early_boot
 
+run-linux-emulator-busybox:
+	$(MAKE) run-linux-emulator KERNEL_CONFIG=busybox

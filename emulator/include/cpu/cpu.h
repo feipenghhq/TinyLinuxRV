@@ -24,7 +24,7 @@ typedef struct {
     uint64_t pc;
     csr_t    csr;
 
-    bool msip, mtip, meip;
+    bool msip, mtip, meip, seip;
     bool halted;
     bool wfi;
 

@@ -716,16 +716,17 @@ bool interrupt_pending(csr_t *csr) {
  * Due to emulator limitation, we need to update some status in CSR at the beginning of the execution cycle to update
  * flags, set interrupt.
  */
-void csr_begin_update(csr_t *csr, bool eip, bool sip, bool tip) {
+void csr_begin_update(csr_t *csr, bool meip, bool msip, bool mtip, bool seip) {
     // Clear the flag bits
     csr->mcycle_written         = false;
     csr->minstret_written       = false;
     csr->starting_mcountinhibit = csr->csr_reg.mcountinhibit;
 
     // Update mip register
-    csr_field_set(&csr->csr_reg.mip, INT_MEIP, 1, eip);
-    csr_field_set(&csr->csr_reg.mip, INT_MSIP, 1, sip);
-    csr_field_set(&csr->csr_reg.mip, INT_MTIP, 1, tip);
+    csr_field_set(&csr->csr_reg.mip, INT_MEIP, 1, meip);
+    csr_field_set(&csr->csr_reg.mip, INT_MSIP, 1, msip);
+    csr_field_set(&csr->csr_reg.mip, INT_MTIP, 1, mtip);
+    csr_field_set(&csr->csr_reg.mip, INT_SEIP, 1, seip);
 }
 
 /**

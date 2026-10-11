@@ -459,7 +459,7 @@ void cpu_step(cpu_t *cpu, bus_t *bus, bool itrace, bool ftrace) {
     interrupt_code_t int_id;
 
     // connect interrupt to csr and also reset some csr internal status
-    csr_begin_update(&cpu->csr, cpu->meip, cpu->msip, cpu->mtip);
+    csr_begin_update(&cpu->csr, cpu->meip, cpu->msip, cpu->mtip, cpu->seip);
 
     // if in WFI state, check if there are interrupt
     if (cpu->wfi) {

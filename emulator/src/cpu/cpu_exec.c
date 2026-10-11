@@ -46,7 +46,7 @@ CPU_EXEC_STATUS_t cpu_exec(cpu_t *cpu, bus_t *bus, dev_list_t *devices, bool itr
             exec_status = DEVICE_ERROR;
             break;
         }
-        device_irq_level(devices, &cpu->msip, &cpu->mtip, &cpu->meip);
+        device_irq_level(devices, &cpu->msip, &cpu->mtip, &cpu->meip, &cpu->seip);
     }
 
     return exec_status;

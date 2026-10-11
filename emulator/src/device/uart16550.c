@@ -120,6 +120,7 @@ int uart16550_write(uart16550_t *uart, uint64_t addr, size_t size, const void *d
             uart->reg.thr = value;
             // send the character out immediate as we are an emulator
             putchar(value);
+            fflush(stdout);
         } else {
             uart->reg.dll = value;
         }
@@ -321,7 +322,9 @@ bool uart16550_irq_level(uart16550_t *uart) {
                                                : uart->rx_fifo.size > 0);
 
     // no timeout interrupt at this point
-    timeout_indication = timeout_indication_en && false;
+    timeout_indication_en = FIELD_READ(uart->reg.ier, 0, 1);; // timeout is also controlled by IER[0]
+     // for simplicity in emulator, we always raise timeout interrupt when there are data in RX buffer
+    timeout_indication = timeout_indication_en && uart->rx_fifo.size > 0;
 
     // TX FIFO is always empty
     transmitter_holding_register_empty_en = FIELD_READ(uart->reg.ier, 1, 1);

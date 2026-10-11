@@ -62,7 +62,7 @@ uint64_t trap_exit_sret(csr_t *csr, priv_mode_t *priv);
 
 bool interrupt_pending_and_enabled(csr_t *csr, priv_mode_t priv, interrupt_code_t *id);
 bool interrupt_pending(csr_t *csr);
-void csr_begin_update(csr_t *csr, bool eip, bool sip, bool tip);
+void csr_begin_update(csr_t *csr, bool meip, bool msip, bool mtip, bool seip);
 void csr_end_update(csr_t *csr, bool retired);
 bool check_mret_privilege(priv_mode_t priv);
 bool check_sret_trap(csr_t *csr, priv_mode_t priv);

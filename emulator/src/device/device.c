@@ -118,7 +118,7 @@ int device_update(dev_list_t *dev) {
  * Call device interrupt function to get device interrupt updated
  * and then send the interrupt to plic
  */
-bool device_irq_level(dev_list_t *dev, bool *msip, bool *mtip, bool *meip) {
+bool device_irq_level(dev_list_t *dev, bool *msip, bool *mtip, bool *meip, bool *seip) {
     bool irq[PLIC_MAX_INTERRUPT] = {false};
 
     // clint has timer and software interrupt
@@ -132,6 +132,7 @@ bool device_irq_level(dev_list_t *dev, bool *msip, bool *mtip, bool *meip) {
     *msip = ((clint_t *)dev->clint.device)->MSIP;
     *mtip = ((clint_t *)dev->clint.device)->MTIP;
     *meip = plic_meip(dev->plic.device);
+    *seip = plic_seip(dev->plic.device);
 
     return *msip | *mtip | *meip;
 }
