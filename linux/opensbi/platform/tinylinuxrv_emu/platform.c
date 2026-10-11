@@ -8,6 +8,7 @@
 #include <sbi/riscv_encoding.h>
 #include <sbi/sbi_const.h>
 #include <sbi/sbi_platform.h>
+#include <sbi_utils/fdt/fdt_fixup.h>
 
 /*
  * Include these files as needed.
@@ -89,8 +90,17 @@ static int platform_early_init(bool cold_boot) {
 
 /*
  * Platform final initialization.
+ * - TinyLinuxRV: Need to reserve the memory space used by OpenSBI from being used by Linux
  */
 static int platform_final_init(bool cold_boot) {
+
+    void *fdt = fdt_get_address_rw();
+
+    if (!cold_boot)
+        return 0;
+
+    fdt_reserved_memory_fixup(fdt);
+
     return 0;
 }
 
