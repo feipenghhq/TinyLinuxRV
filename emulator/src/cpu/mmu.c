@@ -153,26 +153,116 @@ static inline void parse_sv39_pte(uint64_t pte, Sv39_pte_s *sv39_pte) {
 //---------------------------------------------------------
 
 /**
+ * Check the PTE permission
+ * Return true for good permission and false for wrong permission
+ */
+bool pte_permission_check(pte_flag_t flag, uint64_t sstatus, mmu_access_mode mode, priv_mode_t priv) {
+
+    uint64_t sstatus_sum = (sstatus >> MSTATUS_SUM_OFFSET) & 0x1;
+    uint64_t sstatus_mxr = (sstatus >> MSTATUS_MXR_OFFSET) & 0x1;
+    int      xwr         = flag.x << 2 | flag.w << 1 | flag.r;
+
+    // Check privilege
+    // U-mode software may only access the page when U=1
+    if (priv == PRIV_U && !flag.u) {
+        return false;
+    }
+    // S-mode software may access page when U = 1 if sstatus.sum bit is set
+    if (priv == PRIV_S && flag.u && !sstatus_sum) {
+        return false;
+    }
+    // S-mode software may NOT execute code on pages with U = 1
+    if (priv == PRIV_S && flag.u && mode == MMU_EXECUTE) {
+        return false;
+    }
+
+    // Check access mode
+    switch (xwr) {
+    case 1: // read only
+        if (mode == MMU_EXECUTE || mode == MMU_WRITE || mode == MMU_AMO)
+            return false;
+        break;
+    case 3: // read-write
+        if (mode == MMU_EXECUTE)
+            return false;
+        break;
+    case 4: // execute-only
+        if (mode == MMU_WRITE || mode == MMU_AMO)
+            return false;
+        // When MXR=0, only loads from pages marked readable (R=1 in Sv32 page table entry) will succeed. When
+        // MXR=1, loads from pages marked either readable or executable (R=1 or X=1) will succeed.
+        if ((mode == MMU_READ || mode == MMU_AMO) && !sstatus_mxr)
+            return false;
+        break;
+    case 5: // read-execute
+        if (mode == MMU_WRITE || mode == MMU_AMO)
+            return false;
+        break;
+    }
+
+    // Implement Svade behavior
+    if (!flag.a) {
+        return false;
+    }
+    if ((mode == MMU_WRITE || mode == MMU_AMO) && !flag.d) {
+        return false;
+    }
+
+    return true;
+}
+
+/**
+ * Check if we can bypass address translation.
+ * Return true if we can bypass, or false if we can not
+ */
+bool bypass_address_translation(uint64_t satp, uint64_t mstatus, mmu_access_mode mode, priv_mode_t priv) {
+
+    uint64_t satp_mode    = (satp >> SATP_MODE_OFFSET) & 0xF;
+    uint64_t mstatus_mprv = (mstatus >> MSTATUS_MPRV_OFFSET) & 0x1;
+    uint64_t mstatus_mpp  = (mstatus >> MSTATUS_MPP_OFFSET) & 0x3;
+
+    // CSR insure only Bare and Sv39 are enabled.
+    if (satp_mode == 0) {
+        return true;
+    }
+
+    // else Sv39 mode
+
+    // Instruction fetch in Machine mode does not translate the address
+    if (priv == PRIV_M && mode == MMU_EXECUTE) {
+        return true;
+    }
+
+    // Load/Store in Machine mode used effective privilege
+    priv_mode_t effective_priv = priv;
+    if (mstatus_mprv && (mode != MMU_EXECUTE)) {
+        effective_priv = (priv_mode_t)mstatus_mpp;
+    }
+    if (effective_priv == PRIV_M) {
+        return true;
+    }
+
+    return false;
+}
+
+/**
  * Walk page table
  * A direct translation of the Virtual Address Translation Process from the RISC-V Spec
  */
 static walker_result page_table_walk_sv39(uint64_t va, uint64_t *pa, bus_t *bus, uint64_t satp, uint64_t sstatus,
-                                          mmu_access_mode mode, priv_mode_t priv) {
+                                          mmu_access_mode mode, priv_mode_t priv, pte_flag_t *flag) {
 
     uint64_t   satp_ppn;
-    uint64_t   sstatus_sum;
-    uint64_t   sstatus_mxr;
     uint64_t   pte_base_addr;
     uint64_t   pte_addr, pte;
     Sv39_pte_s pte_s;
     Sv39_pa_s  pa_s;
     Sv39_va_s  va_s;
     int        level, xwr;
+    pte_flag_t pte_flag;
 
     // extract field from CSR
-    satp_ppn    = satp & PPN_MASK;
-    sstatus_sum = (sstatus >> MSTATUS_SUM_OFFSET) & 0x1;
-    sstatus_mxr = (sstatus >> MSTATUS_MXR_OFFSET) & 0x1;
+    satp_ppn = satp & PPN_MASK;
 
     // parse va
     if (!parse_sv39_va(va, &va_s)) {
@@ -192,6 +282,7 @@ step_2:
 
     // step 3
     parse_sv39_pte(pte, &pte_s);
+
     xwr = pte_s.x << 2 | pte_s.w << 1 | pte_s.r;
     if (!pte_s.v || (!pte_s.r && pte_s.w) || (xwr == 2 || xwr == 6)) {
         return WALKER_PAGE_FAULT;
@@ -225,53 +316,29 @@ step_2:
         }
     }
 
-    // step 6 + step 7 + step 8
-    // Check privilege
-    // U-mode software may only access the page when U=1
-    if (priv == PRIV_U && !pte_s.u) {
-        return WALKER_PAGE_FAULT;
-    }
-    // S-mode software may access page when U = 1 if sstatus.sum bit is set
-    if (priv == PRIV_S && pte_s.u && !sstatus_sum) {
-        return WALKER_PAGE_FAULT;
-    }
-    // S-mode software may NOT execute code on pages with U = 1
-    if (priv == PRIV_S && pte_s.u && mode == MMU_EXECUTE) {
-        return WALKER_PAGE_FAULT;
-    }
-    // Check access mode
-    switch (xwr) {
-    case 1: // read only
-        if (mode == MMU_EXECUTE || mode == MMU_WRITE || mode == MMU_AMO)
-            return WALKER_PAGE_FAULT;
-        break;
+    pte_flag.a = pte_s.a;
+    pte_flag.d = pte_s.d;
+    pte_flag.u = pte_s.u;
+    pte_flag.x = pte_s.x;
+    pte_flag.w = pte_s.w;
+    pte_flag.r = pte_s.r;
 
-    case 3: // read-write
-        if (mode == MMU_EXECUTE)
-            return WALKER_PAGE_FAULT;
-        break;
-    case 4: // execute-only
-        if (mode == MMU_WRITE || mode == MMU_AMO)
-            return WALKER_PAGE_FAULT;
-        // When MXR=0, only loads from pages marked readable (R=1 in Sv32 page table entry) will succeed. When
-        // MXR=1, loads from pages marked either readable or executable (R=1 or X=1) will succeed.
-        if ((mode == MMU_READ || mode == MMU_AMO) && !sstatus_mxr)
-            return WALKER_PAGE_FAULT;
-        break;
-    case 5: // read-execute
-        if (mode == MMU_WRITE || mode == MMU_AMO)
-            return WALKER_PAGE_FAULT;
-        break;
+    if (flag)
+        *flag = pte_flag;
+
+    // step 6 + step 7 + step 8
+    if (!pte_permission_check(pte_flag, sstatus, mode, priv)) {
+        return WALKER_PAGE_FAULT;
     }
 
     // step 9
     // Implement Svade behavior
-    if (!pte_s.a) {
-        return WALKER_PAGE_FAULT;
-    }
-    if ((mode == MMU_WRITE || mode == MMU_AMO) && !pte_s.d) {
-        return WALKER_PAGE_FAULT;
-    }
+    // if (!pte_s.a) {
+    //    return WALKER_PAGE_FAULT;
+    //}
+    // if ((mode == MMU_WRITE || mode == MMU_AMO) && !pte_s.d) {
+    //    return WALKER_PAGE_FAULT;
+    //}
 
     // step 10
     // translation is successful !!! :)
@@ -293,39 +360,23 @@ step_2:
  * Translate the virtual address to physical addres
  */
 mmu_translation_type mmu_translation(uint64_t va, uint64_t *pa, bus_t *bus, uint64_t satp, uint64_t mstatus,
-                                     mmu_access_mode mode, priv_mode_t priv) {
+                                     mmu_access_mode mode, priv_mode_t priv, pte_flag_t *flag) {
 
-    uint64_t satp_mode    = (satp >> SATP_MODE_OFFSET) & 0xF;
     uint64_t mstatus_mprv = (mstatus >> MSTATUS_MPRV_OFFSET) & 0x1;
     uint64_t mstatus_mpp  = (mstatus >> MSTATUS_MPP_OFFSET) & 0x3;
 
-    // CSR insure only Bare and Sv39 are enabled.
-    if (satp_mode == 0) {
-        *pa = va;
-        return MMU_VALID;
-    }
-
-    // else Sv39 mode
-
-    // Instruction fetch in Machine mode does not translate the address
-    if (priv == PRIV_M && mode == MMU_EXECUTE) {
-        *pa = va;
-        return MMU_VALID;
-    }
-
-    // Load/Store in Machine mode used effective privilege
     priv_mode_t effective_priv = priv;
     if (mstatus_mprv && (mode != MMU_EXECUTE)) {
         effective_priv = (priv_mode_t)mstatus_mpp;
     }
 
-    if (effective_priv == PRIV_M) {
+    if (bypass_address_translation(satp, mstatus, mode, priv)) {
         *pa = va;
         return MMU_VALID;
     }
 
     // For now we always need to walk page table as we don't have any TLB :(
-    walker_result result = page_table_walk_sv39(va, pa, bus, satp, mstatus, mode, effective_priv);
+    walker_result result = page_table_walk_sv39(va, pa, bus, satp, mstatus, mode, effective_priv, flag);
 
     if (result == WALKER_VALID) {
         return MMU_VALID;

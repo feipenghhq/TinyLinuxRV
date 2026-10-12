@@ -9,6 +9,7 @@
 #include "cpu/decode.h"
 #include "cpu/mmu.h"
 #include "cpu/riscv.h"
+#include "cpu/tlb.h"
 #include "device/clint.h"
 #include "utils/func_trace.h"
 #include "utils/iringbuf.h"
@@ -313,15 +314,15 @@ static void decode(uint32_t inst, inst_dec_t *inst_dec) {
         }                            \
     } while (0)
 
-#define MMU(vaddr, paddr, mode)                                                                                        \
-    do {                                                                                                               \
-        mmu_translation_type mmu_result =                                                                              \
-            mmu_translation(vaddr, paddr, bus, cpu->csr.csr_reg.satp, cpu->csr.csr_reg.mstatus, mode, effective_priv); \
-        if (mmu_result != MMU_VALID) {                                                                                 \
-            trap_cause = (uint64_t)mmu_result;                                                                         \
-            trap_val   = vaddr;                                                                                        \
-            goto raise_exception;                                                                                      \
-        }                                                                                                              \
+#define MMU(vaddr, paddr, mode)                                                                             \
+    do {                                                                                                    \
+        mmu_translation_type mmu_result = tlb_lookup(&cpu->d_tlb, vaddr, paddr, bus, cpu->csr.csr_reg.satp, \
+                                                     cpu->csr.csr_reg.mstatus, mode, effective_priv);       \
+        if (mmu_result != MMU_VALID) {                                                                      \
+            trap_cause = (uint64_t)mmu_result;                                                              \
+            trap_val   = vaddr;                                                                             \
+            goto raise_exception;                                                                           \
+        }                                                                                                   \
     } while (0)
 
 // Execute a load. ext selects either sign extension or no extension.
@@ -476,8 +477,8 @@ void cpu_step(cpu_t *cpu, bus_t *bus, bool itrace, bool ftrace) {
     // translate PC
     uint64_t pc_paddr;
 
-    mmu_translation_type pc_xlate_result =
-        mmu_translation(PC(), &pc_paddr, bus, cpu->csr.csr_reg.satp, cpu->csr.csr_reg.mstatus, MMU_EXECUTE, cpu->priv);
+    mmu_translation_type pc_xlate_result = tlb_lookup(&cpu->i_tlb, PC(), &pc_paddr, bus, cpu->csr.csr_reg.satp,
+                                                      cpu->csr.csr_reg.mstatus, MMU_EXECUTE, cpu->priv);
 
     if (pc_xlate_result != MMU_VALID) {
         trap_cause = pc_xlate_result;
@@ -526,7 +527,7 @@ void cpu_step(cpu_t *cpu, bus_t *bus, bool itrace, bool ftrace) {
                         trace_call(PC(), next_pc, cpu->priv);
                     }
                     // Not traceing jump for now as it create too much noise
-                    //else if (inst_dec.rd == 0) {
+                    // else if (inst_dec.rd == 0) {
                     //    trace_jump(PC(), next_pc, cpu->priv);
                     //}
                 }
@@ -692,13 +693,15 @@ void cpu_step(cpu_t *cpu, bus_t *bus, bool itrace, bool ftrace) {
                     cpu->wfi = true;
                 }
             } while (0));
-        // SFENCE.VMA: Nop as we haven't implemented the TLB yet
         INSTPAT(
             SFENCE_VMA, do {
                 if (check_sfence_vma(&cpu->csr, cpu->priv)) {
                     trap_cause = ILLEGAL_INSTRUCTION;
                     trap_val   = inst;
                     goto raise_exception;
+                } else {
+                    tlb_void(&cpu->i_tlb);
+                    tlb_void(&cpu->d_tlb);
                 }
             } while (0));
         goto illegal_instruction;
@@ -751,6 +754,10 @@ raise_exception:
 end_exec:
     cpu->regs[0] = 0; // restore reg[0] to zero
     PC()         = next_pc;
+    if (cpu->csr.satp_written) {
+        tlb_void(&cpu->i_tlb);
+        tlb_void(&cpu->d_tlb);
+    }
     csr_end_update(&cpu->csr, !enter_trap);
 }
 

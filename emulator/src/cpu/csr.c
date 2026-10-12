@@ -487,8 +487,9 @@ int csr_access(csr_t *csr, int addr, int op, const uint64_t value, uint64_t *rda
             csr_non_writable = *csr_reg & ~(SIP_WRITE_MASK & csr->csr_reg.mideleg);
             break;
         case CSR_SATP:
-            write_value      = value & SATP_WRITE_MASK;
-            csr_non_writable = *csr_reg & ~(SATP_WRITE_MASK);
+            write_value       = value & SATP_WRITE_MASK;
+            csr_non_writable  = *csr_reg & ~(SATP_WRITE_MASK);
+            csr->satp_written = true;
             break;
         }
 
@@ -718,8 +719,10 @@ bool interrupt_pending(csr_t *csr) {
  */
 void csr_begin_update(csr_t *csr, bool meip, bool msip, bool mtip, bool seip) {
     // Clear the flag bits
-    csr->mcycle_written         = false;
-    csr->minstret_written       = false;
+    csr->mcycle_written   = false;
+    csr->minstret_written = false;
+    csr->satp_written     = false;
+
     csr->starting_mcountinhibit = csr->csr_reg.mcountinhibit;
 
     // Update mip register
@@ -745,6 +748,7 @@ void csr_end_update(csr_t *csr, bool retired) {
     // clear the flag bits
     csr->minstret_written = false;
     csr->mcycle_written   = false;
+    csr->satp_written     = false;
 }
 
 /**

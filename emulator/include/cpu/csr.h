@@ -51,6 +51,7 @@ typedef struct {
     // flag bits
     bool mcycle_written;
     bool minstret_written;
+    bool satp_written;
 } csr_t;
 
 void     csr_init(csr_t *csr);

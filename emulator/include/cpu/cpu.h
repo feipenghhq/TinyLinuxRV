@@ -7,6 +7,7 @@
 #include "bus/bus.h"
 #include "cpu/csr.h"
 #include "cpu/riscv.h"
+#include "cpu/tlb.h"
 
 // reset to 0x80000000
 #define RST_VEC 0x80000000ULL
@@ -22,11 +23,13 @@ typedef struct {
 typedef struct {
     uint64_t regs[32];
     uint64_t pc;
-    csr_t    csr;
 
-    bool msip, mtip, meip, seip;
-    bool halted;
-    bool wfi;
+    csr_t csr;
+    tlb_t i_tlb;
+    tlb_t d_tlb;
+    bool  msip, mtip, meip, seip;
+    bool  halted;
+    bool  wfi;
 
     priv_mode_t   priv;
     reservation_t res;

@@ -4,14 +4,20 @@
 
 #include "bus/bus.h"
 #include "cpu/cpu.h"
+#include "cpu/tlb.h"
 #include "device/device.h"
 #include "device/syscon.h"
 #include "utils/log.h"
 
-CPU_EXEC_STATUS_t cpu_exec(cpu_t *cpu, bus_t *bus, dev_list_t *devices, bool itrace, bool ftrace, long max_instruction) {
+CPU_EXEC_STATUS_t cpu_exec(cpu_t *cpu, bus_t *bus, dev_list_t *devices, bool itrace, bool ftrace,
+                           long max_instruction) {
     CPU_EXEC_STATUS_t exec_status = FINISH;
 
-    long     inst_count = 0;
+    long inst_count = 0;
+
+    // initialize tlb
+    tlb_init(&cpu->i_tlb);
+    tlb_init(&cpu->d_tlb);
 
     // main instruction execution loop
     while (!cpu->halted) {

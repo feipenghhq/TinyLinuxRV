@@ -12,6 +12,7 @@
 #include "cpu/cpu_exec.h"
 #include "device/device.h"
 #include "memory/memory.h"
+#include "tlb.h"
 #include "utils/func_trace.h"
 #include "utils/iringbuf.h"
 #include "utils/log.h"
@@ -439,6 +440,9 @@ int main(int argc, char **argv) {
     case POWEROFF: // fall-through
     case FINISH: {
         LOG_INFO("CPU execution halted normally");
+        LOG_INFO("=== MMU Statistics ===");
+        tlb_stats_report(&cpu.i_tlb, "ITLB");
+        tlb_stats_report(&cpu.d_tlb, "DTLB");
         break;
     }
     case MEM_ERROR:    // fall-through
