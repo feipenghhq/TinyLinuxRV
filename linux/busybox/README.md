@@ -11,8 +11,12 @@ make -j4                # Build/install BusyBox and prepare local/rootfs
 make menuconfig         # Edit configuration, initializing it on first use
 make load-config        # Explicitly restore configs/.config
 make build              # Compile without installing
+make -B build           # Force BusyBox rebuild, reusing toolchain/source/config
 make rootfs             # Compile, install, and prepare /init and /dev/console
 ```
+
+`-B` preserves existing sources and configuration and only bootstraps a missing
+toolchain. A cached BusyBox archive is reused when extracting missing sources.
 
 The first build installs the musl toolchain if its compiler is missing. Existing
 configuration edits are preserved; run `make load-config` separately to reset them.

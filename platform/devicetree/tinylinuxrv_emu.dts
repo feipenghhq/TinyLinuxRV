@@ -12,7 +12,8 @@
 	};
 
 	chosen {
-    	bootargs = "earlycon console=ttyS0,115200 loglevel=8 initcall_debug";
+		// add initcall_debug to bootargs if you want to trace linux init call
+    	bootargs = "earlycon console=ttyS0,115200 loglevel=8";
 		stdout-path = "/soc/uart@10000000";
 	};
 

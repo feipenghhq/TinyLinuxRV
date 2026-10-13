@@ -32,12 +32,17 @@ export CROSS_COMPILE=$(REPO_ROOT)/local/toolchain-rv64ima/bin/riscv64-linux-musl
 all: rootfs
 
 $(TOOLCHAIN_CC):
-	$(MAKE) -C $(REPO_ROOT)/linux/musl-corss-make install
+	@if [ ! -x "$@" ]; then \
+		$(MAKE) -C $(REPO_ROOT)/linux/musl-corss-make install; \
+	fi
 
 $(BUSYBOX_SRC):
-	mkdir -p $(LOCAL_DIR)
-	wget -P $(LOCAL_DIR) https://busybox.net/downloads/busybox-$(BUSYBOX_VERSION).tar.bz2
-	tar -xf $(LOCAL_DIR)/busybox-$(BUSYBOX_VERSION).tar.bz2 -C $(LOCAL_DIR)
+	@if [ ! -d "$@" ]; then \
+		mkdir -p $(LOCAL_DIR) && \
+		{ [ -f $(LOCAL_DIR)/busybox-$(BUSYBOX_VERSION).tar.bz2 ] || \
+		  wget -O $(LOCAL_DIR)/busybox-$(BUSYBOX_VERSION).tar.bz2 https://busybox.net/downloads/busybox-$(BUSYBOX_VERSION).tar.bz2; } && \
+		tar -xf $(LOCAL_DIR)/busybox-$(BUSYBOX_VERSION).tar.bz2 -C $(LOCAL_DIR); \
+	fi
 
 setup: $(BUSYBOX_SRC)
 
@@ -53,8 +58,10 @@ load-config: setup
 
 # Preserve menuconfig edits; load-config explicitly restores the preset.
 $(BUSYBOX_SRC)/.config: | setup
-	cp configs/.config $@
-	$(MAKE) -C $(BUSYBOX_SRC) oldconfig </dev/null
+	@if [ ! -f "$@" ]; then \
+		cp configs/.config $@ && \
+		$(MAKE) -C $(BUSYBOX_SRC) oldconfig </dev/null; \
+	fi
 
 save-config: $(BUSYBOX_SRC)/.config
 	mkdir -p configs
@@ -74,13 +81,11 @@ install: $(INSTALLED_BUSYBOX)
 $(INSTALLED_BUSYBOX): $(BUSYBOX_BIN) $(BUSYBOX_SRC)/.config
 	$(MAKE) -C $(BUSYBOX_SRC) CONFIG_PREFIX=$(ROOTFS_DIR) install
 
-$(ROOTFS_DIR)/init: init
-	mkdir -p $(ROOTFS_DIR)
-	cp $< $@
-	chmod +x $@
-
-rootfs: install $(ROOTFS_DIR)/init
-	mkdir -p $(ROOTFS_DIR)/dev $(ROOTFS_DIR)/proc $(ROOTFS_DIR)/sys $(ROOTFS_DIR)/tmp
+rootfs: install init logo.sh
+	mkdir -p $(ROOTFS_DIR) $(ROOTFS_DIR)/dev $(ROOTFS_DIR)/proc $(ROOTFS_DIR)/sys $(ROOTFS_DIR)/tmp $(ROOTFS_DIR)/etc
+	cp init $(ROOTFS_DIR)/init
+	cp logo.sh $(ROOTFS_DIR)/etc/logo.sh
+	chmod +x $(ROOTFS_DIR)/init $(ROOTFS_DIR)/etc/logo.sh
 	@if [ ! -e $(ROOTFS_DIR)/dev/console ]; then \
 		sudo mknod -m 600 $(ROOTFS_DIR)/dev/console c 5 1; \
 	fi

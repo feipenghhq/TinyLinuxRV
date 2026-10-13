@@ -6,5 +6,6 @@ mount -t proc proc /proc
 mount -t sysfs sysfs /sys
 mount -t devtmpfs devtmpfs /dev
 
-echo "Welcome to TinyLinuxRV!"
-exec /bin/sh
+sh /etc/logo.sh
+
+exec /bin/busybox setsid /bin/busybox cttyhack /bin/sh -i

@@ -36,14 +36,16 @@ BUILD_JOBS = $(if $(filter -j%,$(MAKEFLAGS)),,-j$(NPROC))
 # Build linux image
 #------------------------------------------------
 
-.DEFAULT_GOAL := build-image
+.DEFAULT_GOAL := build-emulator-busybox
 
 .PHONY: setup defconfig menuconfig load-config save-config build-image clean mrproper rootfs \
         build-emulator-early_boot build-emulator-busybox
 
 $(LINUX_SRC):
-	git clone --depth 1 --branch $(LINUX_VERSION) \
-	https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git $(LOCAL_LINUX_DIR)
+	@if [ ! -d "$@" ]; then \
+		git clone --depth 1 --branch $(LINUX_VERSION) \
+		https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git $(LOCAL_LINUX_DIR); \
+	fi
 
 $(LINUX_OUT):
 	mkdir -p $(LINUX_OUT)
@@ -72,8 +74,10 @@ mrproper: $(LINUX_SRC)
 
 # Initialize once; explicit load-config resets an existing configuration.
 $(LINUX_OUT)/.config: | setup
-	cp configs/$(PLATFORM)/$(DEFCONFIG)_defconfig $(LINUX_OUT)/.config
-	$(MAKE) -C $(LINUX_SRC) O=$(LINUX_OUT) olddefconfig
+	@if [ ! -f "$@" ]; then \
+		cp configs/$(PLATFORM)/$(DEFCONFIG)_defconfig $@ && \
+		$(MAKE) -C $(LINUX_SRC) O=$(LINUX_OUT) olddefconfig; \
+	fi
 
 build-image: setup $(LINUX_OUT)/.config
 	$(MAKE) -C $(LINUX_SRC) O=$(LINUX_OUT) $(BUILD_JOBS) Image

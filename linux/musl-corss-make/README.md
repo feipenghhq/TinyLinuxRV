@@ -61,3 +61,27 @@ Then go back to repo root to verify the tool is using the correct ABI
   -march=                               rv64ima
   Supported ABIs (for use with the -mabi= option):
 ```
+
+
+## Note: interactive prompts with musl
+
+The toolchain inspected for this project uses musl 1.2.6. musl does not
+implicitly flush line-buffered stdout before reading terminal input. Thus,
+even when `isatty(0)` and `isatty(1)` both return 1, a prompt without a newline
+may remain buffered while `scanf()` or `fgets()` waits for input.
+
+This is an intentional design choice: automatically locking output streams
+while reading input can add synchronization overhead and cause deadlocks in
+multithreaded programs. See [the musl maintainer's explanation](https://www.openwall.com/lists/musl/2024/08/23/2).
+The project keeps upstream musl behavior and does not carry an automatic-flush
+patch. Applications should explicitly flush prompts before requesting input:
+
+```c
+printf("Input: ");
+fflush(stdout);
+scanf("%d", &value);
+```
+
+There is no need to disable stdout buffering globally. This behavior is in
+libc, not the Linux kernel or emulator. Static programs must be relinked for
+any future libc changes to take effect.

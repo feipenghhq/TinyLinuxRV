@@ -32,9 +32,11 @@ build-sbi-emu: $(LOCAL_OPENSBI_DIR)
 
 
 $(LOCAL_OPENSBI_DIR):
+	@if [ ! -d "$@" ]; then \
 	git clone --branch $(OPENSBI_VERSION) --depth 1 \
-    https://github.com/riscv-software-src/opensbi.git \
-    $(LOCAL_OPENSBI_DIR)
+	https://github.com/riscv-software-src/opensbi.git \
+	$(LOCAL_OPENSBI_DIR); \
+	fi
 
 clean:
 	rm -rf $(OUTPUT_DIR)

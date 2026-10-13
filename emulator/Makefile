@@ -178,10 +178,15 @@ run-opensbi: rvemu boot-images
 
 .PHONY: run-linux-emulator run-linux-emulator-early-boot run-linux-emulator-busybox
 
-KERNEL_CONFIG ?= early_boot
+KERNEL_CONFIG ?= busybox
 
+# Pass keystrokes directly to the guest shell without host echo.
+# Restore host terminal settings on exit.
 run-linux-emulator: rvemu boot-images
 	$(MAKE) -C ../linux/linux_kernel build-image PLATFORM=emulator DEFCONFIG=$(KERNEL_CONFIG)
+	@ saved_tty=$$(stty -g); \
+	trap 'stty "$$saved_tty"' EXIT; \
+	stty -icanon -echo min 1 time 0; \
 	./rvemu \
 		--bootrom=../platform/bootROM/build/bootROM_emu.elf \
 		--dtb=../platform/devicetree/tinylinuxrv_emu.dtb \

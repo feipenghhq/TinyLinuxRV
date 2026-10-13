@@ -21,8 +21,10 @@ BUILD_JOBS = $(if $(filter -j%,$(MAKEFLAGS)),,-j$(NPROC))
 all: install
 
 $(MUSL_SRC):
-	mkdir -p $(dir $(MUSL_SRC))
-	git clone https://github.com/richfelker/musl-cross-make.git $(MUSL_SRC)
+	@if [ ! -d "$@" ]; then \
+		mkdir -p $(dir $(MUSL_SRC)) && \
+		git clone https://github.com/richfelker/musl-cross-make.git $(MUSL_SRC); \
+	fi
 
 $(LINUX_SRC):
 	$(MAKE) -C $(REPO_ROOT)/linux/linux_kernel $(LINUX_SRC)
