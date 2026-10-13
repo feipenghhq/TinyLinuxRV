@@ -1,10 +1,22 @@
+#define _POSIX_C_SOURCE 200809L
+
 #include "clint.h"
 
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
+#include <time.h>
 
 #include "utils/log.h"
+
+long get_time(void) {
+    struct timespec tp;
+
+    if (clock_gettime(CLOCK_MONOTONIC, &tp) != 0) {
+        LOG_ERROR("CLINT: Failed to get time from host");
+    }
+    return tp.tv_sec * 1000000000 + tp.tv_nsec;
+}
 
 void clint_reset(clint_t *clint) {
     clint->MSIP         = false;
@@ -17,6 +29,7 @@ void clint_reset(clint_t *clint) {
 void clint_init(clint_t *clint, uint64_t base) {
     clint->base = base;
     clint_reset(clint);
+    clint->prev_time_ns = get_time();
 }
 
 int clint_write(clint_t *clint, uint64_t addr, size_t size, const void *data) {
@@ -127,8 +140,16 @@ int clint_read(clint_t *clint, uint64_t addr, size_t size, void *data) {
     return 0;
 }
 
+/**
+ * We assume the clock for mtime is 100MHz
+ */
 void clint_mtime_tick(clint_t *clint) {
-    clint->reg.mtime++;
+    long time_ns    = get_time();
+    long elapsed_ns = time_ns - clint->prev_time_ns;
+    long ticks      = elapsed_ns / 10;
+    clint->reg.mtime += (uint64_t)ticks;
+    // Advance only by whole ticks, preserving leftover nanoseconds for the next update.
+    clint->prev_time_ns += ticks * 10;
 }
 
 bool clint_irq_level(clint_t *clint) {
