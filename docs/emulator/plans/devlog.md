@@ -205,3 +205,23 @@ the Git history.
 
 * **2026-10-05** — Completed OpenSBI v1.9 bring-up using the TinyLinuxRV
   * Check the commit message on 2026/10/05 for more details
+
+---
+
+## Phase 6 — Linux and BusyBox
+
+> ✅ **Current scope complete** · Completed on 2026-10-12.
+
+* **2026-10-08** — Reached Linux early boot (Milestone 10), using Linux
+  v6.18.55 and the emulator kernel configuration.
+* **2026-10-11** — Reached initramfs, `/init`, and an interactive BusyBox
+  1.36.1 shell (Milestones 11–12). Added the musl toolchain/BusyBox build flow
+  and instruction/data TLBs.
+* **2026-10-12** — Improved shell terminal handling and added Linux user-space
+  build recipes for Dhrystone and Lua. Aligned the timer with the 100 MHz DTB.
+
+Run `make -C emulator run-linux-emulator-busybox`.
+* **2026-10-22** — Closed the emulator stage at the working Linux/BusyBox
+  shell. Cancelled automated Linux/BusyBox boot and shell checks and the
+  planned differential reference infrastructure, including deterministic
+  architectural tracing for RTL verification.

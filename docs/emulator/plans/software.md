@@ -145,7 +145,9 @@ checks remain deferred under Milestone 9.
 
 Milestones 10–12.
 
-Main project goal.
+Linux early boot reached on 2026-10-08; initramfs and interactive BusyBox shell
+reached on 2026-10-11. Run `make -C emulator run-linux-emulator-busybox` from
+the repository root.
 
 Progress:
 
@@ -165,7 +167,7 @@ initramfs
 BusyBox shell
 ```
 
-After BusyBox works, run a few basic commands:
+Manual shell checks:
 
 ```sh
 echo TinyLinuxRV
@@ -180,7 +182,8 @@ cat /proc/cpuinfo
 
 After Milestone 12 — BusyBox User Space.
 
-After BusyBox is stable, try some real programs.
+Build recipes for Dhrystone and Lua are available under `linux/packages/`.
+Other workloads below remain follow-up ideas.
 
 ### Simple tools
 

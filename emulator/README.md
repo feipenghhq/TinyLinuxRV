@@ -13,7 +13,7 @@ planned development milestones.
 - RV64IMA with `Zicsr`.
 - Machine, supervisor, and user privilege modes.
 - Machine and supervisor CSRs, trap delegation, and trap returns.
-- Sv39 virtual memory scheme.
+- Sv39 virtual memory with instruction and data TLBs.
 - Configurable DRAM.
 - MMIO dispatch.
 - Syscon.
@@ -21,6 +21,7 @@ planned development milestones.
 - CLINT timer and software-interrupt sources.
 - PLIC external interrupt controller.
 - Read-only boot ROM and OpenSBI handoff to an S-mode payload.
+- Linux 6.18.55 with an embedded initramfs and interactive BusyBox 1.36.1 shell.
 
 ### Emulator
 
@@ -32,8 +33,8 @@ planned development milestones.
 - `FENCE` and `FENCE.I` are currently treated as no-ops.
   Memory accesses are executed in order, and the emulator has no instruction
   cache.
-- `SFENCE.VMA` enforces privilege and TVM checks. There is no TLB, so no
-  cache invalidation is needed; each translated access walks the page tables.
+- `SFENCE.VMA` enforces privilege and TVM checks and flushes the instruction
+  and data TLBs.
 
 ## Verification
 
@@ -116,7 +117,7 @@ The currently available options are:
 | `--ftrace`                | Write function trace during execution. |
 | `--bootrom FILE`          | Load a boot ROM ELF and start in boot ROM mode. |
 | `--bios FILE`             | Load a firmware ELF into DRAM. |
-| `--kernel FILE`           | Load a next-stage ELF into DRAM. |
+| `--kernel FILE`           | Load a raw next-stage image into DRAM at `0x80200000`. |
 | `--dtb FILE`              | Load a DTB at the fixed boot-path address. |
 
 With `--ftrace`, function trace is written to `func_trace.log` in the current
@@ -128,6 +129,52 @@ for general programs.
 For OpenSBI build and sanity-run instructions, see
 [OpenSBI](../linux/opensbi/README.md). This boot path currently assumes
 128 MiB DRAM; use the default DRAM size.
+
+## Running Linux and BusyBox
+
+From the emulator directory, run in an interactive terminal:
+
+```shell
+make run-linux-emulator-busybox
+```
+
+This builds the emulator, boot ROM, DTB, OpenSBI, BusyBox rootfs, and Linux
+kernel, then boots into a serial shell. `make run-linux-emulator` uses the
+same BusyBox preset by default. The Makefile configures terminal input and
+restores the host terminal settings when the emulator exits.
+
+The boot flow is:
+
+```text
+Boot ROM → OpenSBI → Linux → embedded initramfs → /init → BusyBox shell
+```
+
+Use the default 128 MiB DRAM configuration. OpenSBI starts at `0x80000000`,
+the raw kernel `Image` at `0x80200000`, and the DTB at `0x87f00000`.
+The initramfs is embedded in the kernel; no separate initrd is loaded.
+
+Try these commands in the guest:
+
+```shell
+echo TinyLinuxRV
+uname -a
+ls /
+cat /proc/cpuinfo
+```
+
+For the kernel-only early-boot preset:
+
+```shell
+make run-linux-emulator-early-boot
+```
+
+This preset is for kernel bring-up and does not provide the BusyBox rootfs.
+Linux/BusyBox boot is checked manually, separate from `run-regression`.
+
+The first build needs network access and cross-toolchains. Rootfs preparation
+may invoke `sudo` to create `/dev/console`. See the [Linux build notes](../linux/linux_kernel/README.md)
+and [BusyBox build notes](../linux/busybox/README.md) for configuration and
+additional prerequisites.
 
 ## Running Tests
 

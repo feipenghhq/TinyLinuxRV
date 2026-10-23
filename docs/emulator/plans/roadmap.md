@@ -5,7 +5,8 @@ This document shows the overall TinyLinuxRV development flow.
 Detailed emulator tasks are in the [emulator milestone plan](plan.md). Additional
 software checkpoints are listed in [software.md](software.md).
 
-Current progress: OpenSBI bring-up is complete. Linux Early Boot is next.
+Current progress: Linux boots through OpenSBI to an interactive BusyBox shell.
+The emulator stage is complete.
 xv6 remains listed as an optional checkpoint in [software.md](software.md).
 
 ## Overall Flow
@@ -26,8 +27,6 @@ Small OS
 OpenSBI
    ↓
 Linux
-   ↓
-Reference Emulator
    ↓
 RTL CPU / SoC
    ↓
@@ -198,11 +197,15 @@ Boot ROM → OpenSBI → S-mode sanity program → SBI SRST → syscon shutdown
 
 The sanity program prints through UART. Output is checked manually.
 SBI timer programming and supervisor timer delivery remain deferred under
-Milestone 9. Linux Early Boot is next.
+Milestone 9. Linux now exercises the SBI timer path during OS bring-up;
+independent SBI validation remains deferred.
 
 ---
 
 ## 7. Linux
+
+Linux early boot was reached on 2026-10-08. The initramfs and interactive
+BusyBox shell were reached on 2026-10-11.
 
 ### Early Boot
 
@@ -260,31 +263,7 @@ SQLite
 
 ---
 
-## 8. Reference Emulator
-
-After Linux + BusyBox works, make the emulator a reference model for RTL.
-
-```text
-Program
-   │
-   ├── Emulator -> architectural trace
-   │
-   └── RTL      -> architectural trace
-                       │
-                    compare
-```
-
-Need:
-
-- deterministic timer/input
-- commit trace
-- register/CSR/memory events
-- trap/interrupt events
-- trace comparator
-
----
-
-## 9. RTL CPU and SoC
+## 8. RTL CPU and SoC
 
 Implement the same behavior in RTL.
 
@@ -325,7 +304,7 @@ Possible future cores:
 
 ---
 
-## 10. FPGA
+## 9. FPGA
 
 ```text
 RTL CPU / SoC
@@ -389,8 +368,6 @@ Linux
 BusyBox
   ↓
 Real applications
-  ↓
-Reference Emulator
   ↓
 RTL CPU / SoC
   ↓

@@ -29,10 +29,11 @@ This document tracks the milestones for the **emulator stage**.
 | Phase 3 | Supervisor and User Modes                 | ✅ Complete |
 | Phase 4 | Sv39 Address Translation                  | ✅ Complete |
 | Phase 5 | OpenSBI and SBI Validation                | ✅ Complete |
-| Phase 6 | Linux Early Boot                          | 🟡 Next     |
-| Phase 6 | Scheduler and Initramfs                   | Planned    |
-| Phase 6 | BusyBox User Space                        | Planned    |
-| Phase 7 | Differential Reference Infrastructure     | Planned    |
+| Phase 6 | Linux Early Boot                          | ✅ Complete |
+| Phase 6 | Scheduler and Initramfs                   | ✅ Complete |
+| Phase 6 | BusyBox User Space                        | ✅ Complete |
+
+The emulator stage is complete at the Linux/BusyBox shell checkpoint.
 
 ## Compatibility Policy
 
@@ -247,7 +248,7 @@ Extend the verified RV64I emulator with the multiplication, division, and atomic
   milestone and verified by the RV64A regression and focused sanity tests.
 - ~~The RV64IMA regression runs automatically in CI.~~
   **Revised:** The complete RV64IMA regression runs locally with
-  `make -C emulator regression`. CI integration is deferred to Milestone 13.
+  `make -C emulator run-regression`.
 
 ### Deliverable
 
@@ -675,7 +676,7 @@ Boot OpenSBI on TinyLinuxRV and validate the machine-to-supervisor firmware inte
 
 ### Verification and Scope
 
-- Run `make -C software/opensbi run-opensbi-test-emu` after building the images.
+- Run `make -C emulator run-opensbi` after building the images.
 - Manually check the S-mode handoff, completion message, and normal shutdown.
 - The OpenSBI boot path assumes 128 MiB DRAM. The DTB is at `0x87f00000`.
 - Host exit success indicates normal termination; it does not report the
@@ -703,9 +704,21 @@ Boot OpenSBI on TinyLinuxRV and validate the machine-to-supervisor firmware inte
 
 ## Milestone 10: Linux Early Boot
 
+> ✅ **Completed** · 2026-10-08
+
 ### Goals
 
 Boot a Linux kernel far enough to initialize the architecture, parse the device tree, enable virtual memory, and produce early console output.
+
+### Current Bring-up
+
+- Linux `v6.18.55`; presets in `linux/linux_kernel/configs/emulator/`.
+- `riscv64-linux-gnu-` kernel toolchain; compiler version is not yet pinned.
+- Boot ROM → OpenSBI → raw kernel `Image` at `0x80200000`.
+- 128 MiB DRAM and DTB at `0x87f00000`; initramfs embedded in the kernel.
+- Early console and Sv39 execution reached; instruction/data TLBs added on
+  2026-10-11. The earlier no-TLB implementation describes Milestone 8 only.
+- Run `make -C emulator run-linux-emulator-early-boot`.
 
 ### Kernel Boot Interface
 
@@ -732,9 +745,6 @@ Boot a Linux kernel far enough to initialize the architecture, parse the device 
 
 ### Verification
 
-- Add an automated Linux early-boot test.
-- Detect a stable kernel log marker after MMU initialization.
-- Preserve serial output and execution traces on failure.
 - Continue running OpenSBI and lower-level regressions.
 
 ### Completion Criteria
@@ -743,7 +753,6 @@ Boot a Linux kernel far enough to initialize the architecture, parse the device 
 - Early console output is visible.
 - Linux discovers the CPU, memory, and required platform devices.
 - Linux enables Sv39 and continues executing.
-- The early-boot checkpoint is reproducible and automated.
 
 ### Deliverable
 
@@ -753,9 +762,17 @@ Boot a Linux kernel far enough to initialize the architecture, parse the device 
 
 ## Milestone 11: Scheduler and Initramfs
 
+> ✅ **Completed** · 2026-10-11
+
 ### Goals
 
 Bring Linux far enough to initialize timers, scheduling, kernel threads, and an initial RAM filesystem.
+
+### Current Bring-up
+
+- Linux reaches the embedded initramfs and executes `/init`.
+- `/init` mounts proc, sysfs, and devtmpfs before starting the shell.
+- Reaching user space exercises timer, scheduler, and process support.
 
 ### Kernel Progress
 
@@ -775,10 +792,7 @@ Bring Linux far enough to initialize timers, scheduling, kernel threads, and an 
 
 ### Verification
 
-- Detect stable log markers for scheduler initialization.
-- Verify that `/init` is executed.
-- Test timer delivery over extended deterministic runs.
-- Preserve logs and traces for kernel panics and hangs.
+- Manually verify that `/init` starts the shell.
 
 ### Completion Criteria
 
@@ -787,7 +801,6 @@ Bring Linux far enough to initialize timers, scheduling, kernel threads, and an 
 - The initramfs is mounted.
 - Linux executes `/init`.
 - Console I/O is reliable enough for user-space bring-up.
-- The checkpoint runs as an automated regression.
 
 ### Deliverable
 
@@ -797,9 +810,18 @@ Bring Linux far enough to initialize timers, scheduling, kernel threads, and an 
 
 ## Milestone 12: BusyBox User Space
 
+> ✅ **Completed** · 2026-10-11
+
 ### Goals
 
 Run a minimal BusyBox-based user space and reach an interactive shell.
+
+### Current Bring-up
+
+- Static BusyBox `1.36.1`, built with the RV64IMA musl toolchain.
+- Configuration: `linux/busybox/configs/.config`; init: `linux/busybox/init`.
+- Interactive serial shell uses `setsid` and `cttyhack` for job control.
+- Run `make -C emulator run-linux-emulator-busybox`.
 
 ### User-Space Image
 
@@ -833,10 +855,7 @@ Run a minimal BusyBox-based user space and reach an interactive shell.
 
 ### Verification
 
-- Add a noninteractive boot test that waits for a shell-ready marker.
-- Run a small scripted command sequence and verify its output.
 - Test clean shutdown.
-- Preserve the full serial log on failure.
 
 ### Completion Criteria
 
@@ -845,80 +864,9 @@ Run a minimal BusyBox-based user space and reach an interactive shell.
 - A serial shell is available.
 - Basic BusyBox commands execute successfully.
 - Shutdown or reboot works.
-- The full boot-to-shell flow is automated.
 
 ### Deliverable
 
 **v1.3 — Linux and BusyBox shell**
 
 ---
-
-# Phase 7 — Emulator Reference Model
-
-## Milestone 13: Differential Reference Infrastructure
-
-### Goals
-
-Stabilize the emulator as a deterministic architectural reference model for the future RTL implementation.
-
-### Architectural Trace
-
-- Define a stable machine-readable commit-trace format containing:
-  - Retired program counter.
-  - Retired instruction.
-  - Current privilege mode.
-  - Integer-register writes.
-  - Architectural CSR writes.
-  - Committed memory writes.
-  - Trap and interrupt events.
-  - Optional load results when useful for debugging.
-- Ensure trace output reflects committed architectural state rather than internal implementation details.
-- Version the trace format so later changes are explicit.
-
-### Deterministic Execution
-
-- Make timer progression deterministic.
-- Make external input reproducible through scripted UART input.
-- Avoid host timing dependencies in automated tests.
-- Ensure identical inputs produce identical architectural traces.
-- Add explicit instruction or cycle limits for detecting hangs.
-
-### Differential Testing
-
-- Add a trace comparator suitable for emulator-to-RTL comparison.
-- Report the first architectural divergence with surrounding context.
-- Allow selective comparison of registers, CSRs, memory writes, traps, and privilege state.
-- Provide short reproducible workloads for differential debugging.
-
-### Regression Consolidation
-
-- Organize the existing tests into reproducible groups:
-  - ISA tests.
-  - Privileged-architecture tests.
-  - Sv39 tests.
-  - Device and interrupt tests.
-  - OpenSBI boot tests.
-  - Linux early-boot tests.
-  - BusyBox boot-to-shell tests.
-- Provide documented commands for running individual groups and the complete regression.
-- Consolidate the existing automation into continuous integration.
-- Keep long-running full-system tests separate from fast per-change checks where appropriate.
-
-### Reference-Model Validation
-
-- Verify deterministic traces across repeated runs.
-- Verify that failures preserve the required trace, serial log, and test metadata.
-- Use the emulator trace format in a small mock differential test before RTL integration begins.
-- Optionally add snapshots or checkpoints only if they materially improve full-system debugging speed.
-
-### Completion Criteria
-
-- The emulator produces stable, deterministic architectural commit traces.
-- A trace comparator identifies the first architectural mismatch.
-- ISA, privilege, virtual-memory, device, firmware, and Linux regressions are organized and reproducible.
-- The Linux boot-to-shell test can run noninteractively.
-- The emulator is ready to serve as the reference model for RTL differential testing.
-
-### Deliverable
-
-**v1.4 — RTL-ready emulator reference model**

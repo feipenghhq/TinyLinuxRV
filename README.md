@@ -21,7 +21,9 @@ RTL implementation, and FPGA platform.
 
 ## Current Status
 
-The project is currently in the emulator stage.
+### Emulator
+
+The emulator stage is complete. Linux boots to an interactive BusyBox shell.
 
 Completed:
 
@@ -34,11 +36,7 @@ Completed:
 - ✅ Supervisor and user privilege modes.
 - ✅ Sv39 virtual memory.
 - ✅ OpenSBI boot, S-mode sanity program, and SBI shutdown through syscon.
-
-Next:
-
-- Linux and BusyBox bring-up.
-- Deterministic architectural tracing for later RTL verification.
+- ✅ Linux early boot, initramfs, and an interactive BusyBox shell.
 
 See the [emulator milestone plan](docs/emulator/plans/plan.md) for the detailed
 emulator roadmap.
@@ -51,7 +49,7 @@ Initialize the test dependency and run the emulator regression:
 
 ```shell
 git submodule update --init --recursive
-make -C emulator regression
+make -C emulator run-regression
 ```
 
 See the [emulator documentation](emulator/README.md) for build requirements,
@@ -66,7 +64,7 @@ TinyLinuxRV is developed in three major stages:
 1. **Build the emulator**
    - Implement the RV64 ISA, privileged architecture, virtual memory, and devices.
    - Boot OpenSBI, Linux, and BusyBox.
-   - Stabilize the emulator as the architectural reference model for RTL.
+   - Current emulator scope is complete at the Linux/BusyBox shell checkpoint.
 
 2. **Build the RTL CPU and SoC**
    - Implement the same architectural behavior in SystemVerilog.
@@ -91,7 +89,6 @@ TinyLinuxRV is developed in three major stages:
 - ELF64 loading.
 - UART, timer, software interrupts, and external interrupts.
 - OpenSBI, Linux, and BusyBox support.
-- Deterministic architectural commit tracing.
 
 ### CPU (Planned)
 

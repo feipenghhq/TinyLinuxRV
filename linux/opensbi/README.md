@@ -62,7 +62,7 @@ OpenSBI provides three reference firmware types:
 - FW_DYNAMIC: Receives next-stage information from the previous boot stage.
 
 TinyLinuxRV currently builds FW_JUMP, with the next-stage address configured
-in `objects.mk`. The planned Linux boot flow uses separate OpenSBI and Linux
+in `objects.mk`. The Linux boot flow uses separate OpenSBI and Linux
 images.
 
 ## References
