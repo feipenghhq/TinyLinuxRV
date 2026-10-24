@@ -12,7 +12,6 @@ The TinyLinuxRV CPU implements the classic 5 stage pipeline with IF, ID, EX, MEM
 
 IF stage is responsible for fetching the instruction. It contains the following components:
 - PC
-- Skid buffer
 - Instruction Memory Control logic
 
 #### PC
@@ -22,49 +21,42 @@ IF stage is responsible for fetching the instruction. It contains the following 
 - The PC register will only be updated when IF stage is NOT stalled.
 - A PC skid buffer is added to handled the case when jump/taken branch/exception/interrupt is updating PC while stall is requested by IF stage itself.
 
-#### Skid buffer
-
-The skid buffer is used to temporarily hold the previous instruction when the pipeline is stalled.
-- When pipeline is running, it will forward the received instruction to the ID stage.
-- When pipeline is stalled, it will hold the instruction it received and forward to ID stage when pipeline is running again.
-- Skid buffer will only hold ONE instruction as the design make sure only 1 pending instruction need to be stored.
-
-Flush should not affect skid buffer. As when flush is requested, the skid buffer must be empty. (Put an assertion)
-
 #### Instruction Memory Control Logic
 
-Assuming the memory read latency is 1 (This is the normal case for BRAM in FPGA) and without any pipeline flushing:
+In our design, we use AHB-lite bus protocol as the bus to communicate with memory subsystem.
 
-- The IF stage will always read the instruction memory with address being PC.
-- The read data (instruction) should be available in the next cycle and be forwarded to ID stage directly without going through the pipeline stages by the skid buffer.
+Each AHB-lite transaction has two phases, ADDR and DATA phases. The AHB-lite transaction is also a pipelined so in ideal
+case, we can send new transaction in every cycle (if not WAIT state request by device). However, considering the memory
+controller latency we may not be able to do so in reality.
+
+The IF stage only handles the ADDR phase. There are 2 states: `IDLE` and `RUN`
+
+- During reset, IF stays at `IDLE` state.
+- After getting out of reset, we enter at `RUN` state and start to send read request to memory.
+
+To simplify the logic, **we only send read request to the memory if the IF stage is not stalled and the AHB bus is ready to accept next request `(HREADY=1)`**
+
+However, this might introduce another control hazard. We use a similar method for load/store instruction. EX stage handles the addr phase and
+mem stage handles the data phase. EX stage only send request when `HREADY=1`.
+
+This creates a **deadlock** situation: Host need to wait to for `HREADY` before sending request. Arbiter need request to determine who should get the grant.
+In order to solve the deadlock, in our design, when there is a load/store instruction, it will block the IF stage from fetching instruction
 
 #### Pipeline Stall
 
-There are 3 possible cases:
+There are 2 possible cases:
 
 - Case 1: Stall requested from IF stage
-  - If the read data is NOT available in next cycle, IF stage will stall itself and set `ID_valid` to 0
-  - A **stall requested flag** should be implemented to tell this is the NOT the first cycle of a new memory access. (Needed by flush logic)
+  - IF will wait till the AHB bus is ready to take new request.  If the bus is not ready, IF will insert bubble to ID stage.
 - Case 2: Stall requested from downstream stage.
-  - **If downstream stage is requesting stall, IF stage should NOT assert the read request again once the current request has been accepted.**
-  - A **request accepted flag** should be implemented to indicate that the current read request has been accepted. If `flag & !ID_ready` then it should not assert the read request
-  - When the instruction is available from the memory, if stall is no longer requested, skid buffer will forward it to ID stage. Otherwise skid buffer will store the instruction.
-- Case 3: Stall requested from both IF and downstream stage.
-  - This is first handled with case 2 situation, IF should wait till the stall request from downstream is resolved. If by this time the read data is available, then proceed with next instruction. Otherwise, continue as case 1.
-
-TODO: Confirm ABH wait state
 
 #### Pipeline Flush
 
-Flushing IF stage should in general invalidate the instruction received.
+When IF flush is requested, just simply flush the IF stage and pipeline register.
 
-There are 2 possible cases for pipeline flush in IF stage.
+If ID stage is still waiting for the previous instruction and stalling IF, IF should cancel stall request and flush. This is good because ID stage should also be flushed as well. (Put an assertion). When the next instruction is ready, it will be invalidated as the ID stage should already be flushed at this time (IF/ID_valid = 0)
 
-- Case 1: Flush without IF requesting stall. (stall requested flag = 0)
-  - This is the very first cycle we assert a new read request, just cancel the request.
-- Case 2: Flush while IF is stalled. (stall requested flag = 1)
-  - In this case, the read request has already been sent so we can NOT cancel it. We have to wait till this request has been completed.
-  - A **flush request flag** should be implemented to indicate that the instruction has been flushed.
+Meanwhile, since the AHB bus is busy, IF will not send a new request.
 
 ----------------------------------------
 
@@ -73,9 +65,19 @@ There are 2 possible cases for pipeline flush in IF stage.
 ![pipeline control](assets/cpu/ID.drawio.svg)
 
 ID stage is contains the following components:
+- Instruction Skid buffer
 - Instruction Decoder
 - Register file
 - Data forwarding Mux
+
+#### Skid buffer
+
+The skid buffer is used to temporarily hold the previous instruction when the pipeline is stalled.
+- When pipeline is running, it will forward the received instruction to the ID stage.
+- When pipeline is stalled, it will hold the instruction it received and forward to ID stage when pipeline is running again.
+- Skid buffer will only hold ONE instruction as the design make sure only 1 pending instruction need to be stored.
+
+Flush should not affect skid buffer. As when flush is requested, the skid buffer must be empty. (Put an assertion)
 
 #### Instruction Decoder
 
