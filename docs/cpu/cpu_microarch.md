@@ -65,19 +65,21 @@ Meanwhile, since the AHB bus is busy, IF will not send a new request.
 ![pipeline control](assets/cpu/ID.drawio.svg)
 
 ID stage is contains the following components:
+- AHB Bus Ctrl
 - Instruction Skid buffer
 - Instruction Decoder
 - Register file
 - Data forwarding Mux
 
+#### AHB Bus Ctrl
+
+- The ID stage is responsible for the Data phase of the AHB transaction.
+- When the instruction is not available, it will insert bubble into ID stage as there is no valid instruction.
+- When the instruction is ready, it will send the instruction into the skid buffer.
+
 #### Skid buffer
 
 The skid buffer is used to temporarily hold the previous instruction when the pipeline is stalled.
-- When pipeline is running, it will forward the received instruction to the ID stage.
-- When pipeline is stalled, it will hold the instruction it received and forward to ID stage when pipeline is running again.
-- Skid buffer will only hold ONE instruction as the design make sure only 1 pending instruction need to be stored.
-
-Flush should not affect skid buffer. As when flush is requested, the skid buffer must be empty. (Put an assertion)
 
 #### Instruction Decoder
 

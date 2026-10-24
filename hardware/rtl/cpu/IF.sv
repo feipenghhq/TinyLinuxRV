@@ -9,10 +9,10 @@ module IF (
     input                           clk,
     input                           rst_n,
     // pipeline control
+    output                          out_IF_valid,
+    output IF2ID_PIPE_t             out_IF_data,
+    input                           out_IF_ready,
     input                           IF_flush,
-    input                           ID_ready,
-    output                          IF_valid,
-    output IF2ID_PIPE_t             IF_out,
     // strap
     input                           strap_block_fetch_enable,
     // target pc
@@ -42,7 +42,7 @@ module IF (
     end
 
     // Only assert the read when IF is not stalled and AHB bus is ready to accept the request
-    assign instruction_read  = run && ID_ready & ~IF_flush & hready & ~(block_fetch & strap_block_fetch_enable);
+    assign instruction_read  = run && out_IF_ready & ~IF_flush & hready & ~(block_fetch & strap_block_fetch_enable);
 
     // AHBLite request
     assign memory_req.haddr = pc;
@@ -61,7 +61,7 @@ module IF (
         end
         else begin
             // flush should unblock PC update from stall request
-            if (ID_ready || IF_flush) begin
+            if (out_IF_ready || IF_flush) begin
                 if (trap) pc <= trap_pc;
                 else if (jump) pc <= jump_pc;
                 else pc <= pc + 4;
@@ -73,7 +73,7 @@ module IF (
     // Pipeline control
     // --------------------------------
 
-    assign IF_valid = memory_req.htrans[1] & hready;
-    assign IF_out.pc = pc;
+    assign out_IF_valid = memory_req.htrans[1] & hready;
+    assign out_IF_data.pc = pc;
 
 endmodule
