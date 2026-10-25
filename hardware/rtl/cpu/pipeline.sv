@@ -26,9 +26,18 @@ module pipeline #(
         if (!rst_n) begin
             out_valid <= 1'b0;
         end
-        else if (in_valid & in_ready) begin
-            out_valid <= in_valid;
-            out_data  <= in_data;
+        // if downstream is ready to receive data
+        else if (in_ready) begin
+            // if input is valid then load the input into pipeline
+            if (in_valid) begin
+                out_valid <= in_valid;
+                out_data  <= in_data;
+            end
+            // if input is not valid then clear the pipeline
+            else begin
+                out_valid <= 1'b0;
+                out_data  <= 'b0;
+            end
         end
     end
 

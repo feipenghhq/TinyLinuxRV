@@ -17,19 +17,10 @@ module decoder (
     output logic [4:0] rs1_addr,
     output logic       rs2_read,
     output logic [4:0] rs2_addr,
-
-    // ALU
-    ALU_CTRL_t      alu_ctrl,
-
-    // branch and jump
-    JUMP_CTRL_t       jump_ctrl,
-    // memory
-    MEM_CTRL_t        mem_ctrl,
-
-    // immediate
+    output ALU_CTRL_t  alu_ctrl,
+    output JUMP_CTRL_t jump_ctrl,
+    output MEM_CTRL_t  mem_ctrl,
     output logic [`XLEN-1:0] immediate,
-
-    // exception
     output logic illegal_instruction  // Illegal instruction
 );
 
@@ -102,8 +93,7 @@ module decoder (
                 rs1_read    = 1'b1;
                 rs2_read    = 1'b1;
                 rd_write    = 1'b1;
-                alu_ctrl.alu_opcode[2:0] = func3;
-                alu_ctrl.alu_opcode[3]   = func7[5];
+                alu_ctrl.alu_opcode[3:0] = ALU_OP_t'({func7[5], func3});
                 alu_ctrl.alu_32bit       = opcode[3];  // opcode[3] is set for XXXW instruction
                 // Instruction[31:25] (func7) is fixed encoding for R type instruction so we need to check them
                 illegal_instruction = ~(func7_eq_0 | func7_eq_0x20);
@@ -114,8 +104,7 @@ module decoder (
                 rs1_read = 1'b1;
                 rd_write = 1'b1;
                 alu_ctrl.alu_op2_sel_imm = 1'b1;
-                alu_ctrl.alu_opcode[2:0] = func3;
-                alu_ctrl.alu_opcode[3] = (func3 == `DEC_LOGIC_SRA) & func7[5];
+                alu_ctrl.alu_opcode[3:0] = ALU_OP_t'({(func3 == 3'b101) & func7[5], func3});
                 alu_ctrl.alu_32bit = opcode[3];  // opcode[3] is set for XXXIW instruction
                 // For 32 bit operations SLLIW, SRLIW, SRAIW, instruction[31:25] (func7) is fixed encoding
                 // For 64 bit operations SLLI, SRLI, SRAI, instruction[31:2365] is fixed encoding

@@ -31,7 +31,7 @@ typedef struct packed {
     logic [1:0]       htrans;
     logic             hwrite;
     logic [2:0]       hsize;
-    logic             hwdata;
+    logic [`XLEN-1:0] hwdata;
     logic             hsel;
 } AHBLiteReq_t;
 
@@ -76,9 +76,13 @@ typedef struct packed {
 // Encoding is same in instruction func3 field
 // bit 2 indicate signed/unsigned
 `define MEM_OP_RANGE   2:0
-`define MEM_BYTE       2'b00
-`define MEM_HALF       2'b01
-`define MEM_WORD       2'b10
+
+typedef enum logic[1:0] {
+    MEM_BYTE  = 2'b00,
+    MEM_HALF  = 2'b01,
+    MEM_WORD  = 2'b10,
+    MEM_DWORD = 2'b11
+} MEM_OP_t;
 
 // Memory Control
 typedef struct packed {
@@ -121,7 +125,35 @@ typedef struct packed {
     logic             rd_write;
     logic [4:0]       rd_addr;
     // exception
-    logic illegal_instruction;
+    logic       exception_valid;
+    logic [4:0] exception_cause;
 } ID2EX_PIPE_t;
+
+// EX/MEM
+typedef struct packed {
+    logic [`XLEN-1:0] pc;
+    logic [31:0]      instruction;
+    MEM_CTRL_t        mem_ctrl;
+    logic [2:0]       haddr;
+    logic [`XLEN-1:0] rs2_value; // for write data
+    logic             rd_write;
+    logic [4:0]       rd_addr;
+    logic [`XLEN-1:0] alu_out; // for write data
+    // exception
+    logic       exception_valid;
+    logic [4:0] exception_cause;
+} EX2MEM_PIPE_t;
+
+// MEM/WB
+typedef struct packed {
+    logic [`XLEN-1:0] pc;
+    logic [31:0]      instruction;
+    logic             rd_write;
+    logic [4:0]       rd_addr;
+    logic [`XLEN-1:0] rd_wdata;
+    // exception
+    logic       exception_valid;
+    logic [4:0] exception_cause;
+} MEM2WB_PIPE_t;
 
 `endif

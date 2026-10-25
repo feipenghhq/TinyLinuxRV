@@ -49,6 +49,7 @@ module ID (
     logic [4:0]       rs2_addr;
     logic [`XLEN-1:0] rs2_rdata;
 
+    logic             instruction_access_fault;
     logic             instruction_pre_valid;
     logic             instruction_valid;
     logic [31:0]      instruction;
@@ -118,11 +119,13 @@ module ID (
     // AHBLite Resp Control
     // ---------------------------------
 
+
     // instruction from memory is valid when:
     //  1. IF stage is valid & HREADY=1 (meaning IF has sent request and the read data is back)
     //  2. AHB-Lite response is OK (HRESP = 0)
     //  3. ID stage is not flushed
-    assign instruction_pre_valid = in_IF_valid & memory_rsp.hready & ~memory_rsp.hresp & ~ID_flush;
+    assign instruction_pre_valid    = in_IF_valid & memory_rsp.hready & ~memory_rsp.hresp & ~ID_flush;
+    assign instruction_access_fault = in_IF_valid & memory_rsp.hready &  memory_rsp.hresp & ~ID_flush;
 
     // ---------------------------------
     // Data forwarding MUX
@@ -164,6 +167,7 @@ module ID (
     // ID is valid when 1）ID stage is valid, 2) not stalled due to load_dependency
     assign out_ID_valid = ID_stage_valid & ~load_dependency;
 
+    // ctrl and data
     assign out_ID_data.pc          = in_IF_data.pc;
     assign out_ID_data.instruction = instruction;
     assign out_ID_data.immediate   = immediate;
@@ -174,6 +178,9 @@ module ID (
     assign out_ID_data.rs2_value   = final_rs2;
     assign out_ID_data.rd_write    = rd_write;
     assign out_ID_data.rd_addr     = rd_addr;
-    assign out_ID_data.illegal_instruction = illegal_instruction;
+
+    // exception
+    assign out_ID_data.exception_valid = instruction_access_fault | illegal_instruction;
+    assign out_ID_data.exception_cause = instruction_access_fault ? INST_ACCESS_FAULT : ILLEGAL_INSTRUCTION;
 
 endmodule

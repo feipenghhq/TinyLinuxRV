@@ -15,8 +15,13 @@ SRCS += $(RTL_DIR)/common/skid_buffer.sv
 SRCS += $(RTL_DIR)/cpu/pipeline.sv
 SRCS += $(RTL_DIR)/cpu/regfile.sv
 SRCS += $(RTL_DIR)/cpu/decoder.sv
+SRCS += $(RTL_DIR)/cpu/bu.sv
+SRCS += $(RTL_DIR)/cpu/alu.sv
 SRCS += $(RTL_DIR)/cpu/IF.sv
 SRCS += $(RTL_DIR)/cpu/ID.sv
+SRCS += $(RTL_DIR)/cpu/EX.sv
+SRCS += $(RTL_DIR)/cpu/MEM.sv
+SRCS += $(RTL_DIR)/cpu/WB.sv
 SRCS += $(RTL_DIR)/cpu/cpu.sv
 
 INCS += $(RTL_DIR)/include/cpu

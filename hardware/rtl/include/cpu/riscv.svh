@@ -53,42 +53,25 @@ typedef enum bit[6:0] {
 `define CORE_CSR_RS           2'b10
 `define CORE_CSR_RC           2'b11
 
-// Decoder related defines
+// ----------------------------------------------
+// Exception
+// ----------------------------------------------
 
-
-
-
-// Logic Instruction Func3
-`define DEC_LOGIC_ADD       3'b000
-`define DEC_LOGIC_SUB       3'b000
-`define DEC_LOGIC_SLL       3'b001
-`define DEC_LOGIC_SLT       3'b010
-`define DEC_LOGIC_SLTU      3'b011
-`define DEC_LOGIC_XOR       3'b100
-`define DEC_LOGIC_SRL       3'b101
-`define DEC_LOGIC_SRA       3'b101
-`define DEC_LOGIC_OR        3'b110
-`define DEC_LOGIC_AND       3'b111
-
-// Branch Instruction Func3
-`define DEC_BRANCH_BEQ      3'b000
-`define DEC_BRANCH_BNE      3'b001
-`define DEC_BRANCH_BLT      3'b100
-`define DEC_BRANCH_BGE      3'b101
-`define DEC_BRANCH_BLTU     3'b110
-`define DEC_BRANCH_BGEU     3'b111
-
-// RV32M Standard Extension
-`define DEC_RV32M_MUL       3'b000
-`define DEC_RV32M_MULH      3'b001
-`define DEC_RV32M_MULHSU    3'b010
-`define DEC_RV32M_MULHU     3'b011
-`define DEC_RV32M_DIV       3'b100
-`define DEC_RV32M_DIVU      3'b101
-`define DEC_RV32M_REM       3'b110
-`define DEC_RV32M_REMU      3'b111
-
-// MRET
-`define DEC_SYSTEM_MRET     25'b0011000000100000000000000
+typedef enum logic[4:0] {
+    INST_ADDR_MISALIGNED      = 0,
+    INST_ACCESS_FAULT         = 1,
+    ILLEGAL_INSTRUCTION       = 2,
+    BREAKPOINT                = 3,
+    LOAD_ADDR_MISALIGNED      = 4,
+    LOAD_ACCESS_FAULT         = 5,
+    STORE_AMO_ADDR_MISALIGNED = 6,
+    STORE_AMO_ACCESS_FAULT    = 7,
+    ECALL_FROM_U_MODE         = 8,
+    ECALL_FROM_S_MODE         = 9,
+    ECALL_FROM_M_MODE         = 11,
+    INST_PAGE_FAULT           = 12,
+    LOAD_PAGE_FAULT           = 13,
+    STORE_AMO_PAGE_FAULT      = 15
+} exception_code_t;
 
 `endif
