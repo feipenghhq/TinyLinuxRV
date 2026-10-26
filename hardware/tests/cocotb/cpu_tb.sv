@@ -40,8 +40,8 @@ module cpu_tb ();
     logic             data_hresp;
 
     logic             test_finish;
-    integer           test_result;
-    integer           fail_test;
+    logic [`XLEN-1:0] test_result;
+    logic [`XLEN-1:0] fail_test;
 
     // ----------------------------------------------------
     // expends the AHBLite bus so cocotb can access them
@@ -78,10 +78,10 @@ module cpu_tb ();
     // TODO: Only checked address. Need to check the data too. But AHB is 2 phase.
 
     // Test Result
-    assign test_result = integer'(u_cpu.u_ID.u_regfile.register_file[10]);
+    assign test_result = u_cpu.u_ID.u_regfile.register_file[10];
 
     // Failed test case
-    assign fail_test = integer'(u_cpu.u_ID.u_regfile.register_file[11]);
+    assign fail_test = u_cpu.u_ID.u_regfile.register_file[11];
 
     // ----------------------------------------------------
     // Instantiate DUT

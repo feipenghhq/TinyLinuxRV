@@ -5,8 +5,7 @@ SPDX-License-Identifier: MIT
 
 # Cocotb Model for AHB-Lite Bus
 
-import cocotb
-from cocotb.triggers import RisingEdge, ReadWrite
+from cocotb.triggers import ReadWrite, RisingEdge
 from cocotb_bus.bus import Bus
 
 
@@ -75,9 +74,9 @@ class AHBLiteDevice(AHBLiteBus):
             self.hready.value = 1
             # Processing Data Phase
             if self.req and self.hready.value:
-                if self.hwrite.value == 1: # write request
-                    pass
-                if self.hwrite.value == 0: # read request
+                if self.req_write == 1: # write request
+                    self.hresp.value = self._write(self.req_addr, self.hwdata.value.to_unsigned(), self.req_size);
+                if self.req_write == 0: # read request
                     self.hrdata.value, self.hresp.value = self._read(self.req_addr, self.req_size);
                 # clear previously logged addr phase
                 self.req = False

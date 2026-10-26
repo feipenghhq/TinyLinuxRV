@@ -57,17 +57,27 @@ VERILOG_INCLUDE_DIRS += $(RTL_DIR)/include/cpu
 # The Python modules which contain your testcases.
 # The current directory is included in the Python path,
 # so you can just specify the module name without the .py extension.
-COCOTB_TEST_MODULES = cpu_test
+COCOTB_TEST_MODULES ?= cpu_regression
 
 
 # Includes cocotb's Makefiles which define the build and simulation flows for each supported simulator.
 # This must be included *after* all of the variables above are defined.
 include $(shell cocotb-config --makefiles)/Makefile.sim
 
+# -----------------------------------------------------------------------------
+# Run test
+# -----------------------------------------------------------------------------
 
-# -----------------------------------------------------------------------------
-# Other commands
-# -----------------------------------------------------------------------------
+.DEFAULT_GOAL := regression
+
+run-regression:
+	@status=0; \
+	$(MAKE) sim COCOTB_TEST_MODULES=cpu_regression || status=$$?; \
+	python3 report.py; \
+	exit $$status
+
+run-test:
+	$(MAKE) sim COCOTB_TEST_MODULES=cpu_regression COCOTB_TEST_FILTER=$(TEST)
 
 openwave:
 	gtkwave dump.fst &

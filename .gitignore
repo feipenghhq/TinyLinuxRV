@@ -11,6 +11,7 @@ AGENTS.md
 # Cocotb
 __pycache__
 results.xml
+dump.fst
 
 # MISC
 *.log

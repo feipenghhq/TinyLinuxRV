@@ -7,8 +7,8 @@ SPDX-License-Identifier: MIT
 
 import cocotb
 from cocotb.clock import Clock
-from cocotb.triggers import Timer, RisingEdge, First
 from cocotb.simtime import get_sim_time
+from cocotb.triggers import ReadWrite, RisingEdge, Timer, select
 from models.AHBLiteRAM import AHBLiteRAM
 
 
@@ -23,9 +23,9 @@ class CPU:
     _CLK_PERIOD = 10
     _RST_TIME   = 20
 
-    def __init__(self, dut):
-        self.inst_ram  = AHBLiteRAM(dut, 8, 0x80000000, 128, 'inst')
-        self.data_ram  = AHBLiteRAM(dut, 8, 0x80000000, 128, 'data')
+    def __init__(self, dut, ram_size=128):
+        self.inst_ram  = AHBLiteRAM(dut, 4, 0x80000000, ram_size, 'inst')
+        self.data_ram  = AHBLiteRAM(dut, 8, 0x80000000, ram_size, 'data')
         self.dut = dut
         self.finish = False
         self._init_cpu()
@@ -50,16 +50,15 @@ class CPU:
 
     def _check_result_rv_test(self):
         if not self.finish:
-            cocotb.log.error("Test TIMEOUT!")
             raise ValueError("Test TIMEOUT!")
         else:
             if self.dut.test_result.value == 0:
-                cocotb.log.error("Test PASS!")
+                cocotb.log.info("Test PASS!")
             else:
-                cocotb.log.info("Test FAIL!")
+                cocotb.log.error(f"Failed test case :{self.dut.fail_test.value.to_unsigned()}")
                 raise ValueError("Test FAIL!")
 
-    async def run(self, timeout=10000):
+    async def run(self, timeout=1000):
         # Initialize
         self._init_cpu()
         self.dut.rst_n.value = 0
@@ -76,8 +75,14 @@ class CPU:
 
         # de-assert reset
         await Timer(CPU._RST_TIME, unit='ns')
+        await ReadWrite()
         self.dut.rst_n.value = 1
 
         # wait till test complete
-        await First(monitor_finish, monitor_timeout)
+        await select(monitor_finish, monitor_timeout)
         self._check_result_rv_test()
+
+    def close(self):
+        # release resource
+        self.inst_ram.close()
+        self.data_ram.close()
