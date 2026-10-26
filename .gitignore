@@ -8,8 +8,11 @@ emulator/rvemu
 # AI
 AGENTS.md
 
+# Cocotb
+__pycache__
+results.xml
+
 # MISC
 *.log
 .vscode
-
 local

@@ -25,6 +25,7 @@ module pipeline #(
     always_ff @(posedge clk, negedge rst_n) begin
         if (!rst_n) begin
             out_valid <= 1'b0;
+            out_data  <= 'b0;
         end
         // if downstream is ready to receive data
         else if (in_ready) begin

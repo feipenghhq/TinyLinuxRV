@@ -48,6 +48,8 @@ module EX (
     logic             mem_request_raw;
     logic             mem_request;
 
+    logic             EX_stall;
+
     // ---------------------------------
     // Main components
     // ---------------------------------
@@ -142,7 +144,9 @@ module EX (
     // Pipeline Control
     // ---------------------------------
 
-    assign in_ID_ready = out_EX_ready & (mem_request_raw & ~hready);
+    assign EX_stall = mem_request_raw & ~hready;
+
+    assign in_ID_ready = out_EX_ready & ~EX_stall;
 
     assign out_EX_valid = in_ID_valid & ~EX_flush;
 
