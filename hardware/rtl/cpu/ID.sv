@@ -53,6 +53,8 @@ module ID (
     logic             instruction_pre_valid;
     logic             instruction_valid;
     logic [31:0]      instruction;
+    logic [31:0]      instruction_buffer;
+    logic [31:0]      instruction_post;
     logic             illegal_instruction;
     logic [`XLEN-1:0] immediate;
 
@@ -67,6 +69,7 @@ module ID (
 
     logic             load_dependency;
     logic             ID_stage_valid;
+    logic             ID_stage_stalled;
 
     // ---------------------------------
     // Main components
@@ -89,7 +92,7 @@ module ID (
 
     // decoder
     decoder u_decoder(
-        .instruction (instruction),
+        .instruction (instruction_post),
         .rd_write    (rd_write),
         .rd_addr     (rd_addr),
         .rs1_read    (rs1_read),
@@ -119,13 +122,18 @@ module ID (
     // AHBLite Resp Control
     // ---------------------------------
 
-
     // instruction from memory is valid when:
     //  1. IF stage is valid & HREADY=1 (meaning IF has sent request and the read data is back)
     //  2. AHB-Lite response is OK (HRESP = 0)
     //  3. ID stage is not flushed
     assign instruction_pre_valid    = in_IF_valid & memory_rsp.hready & ~memory_rsp.hresp & ~ID_flush;
     assign instruction_access_fault = in_IF_valid & memory_rsp.hready &  memory_rsp.hresp & ~ID_flush;
+
+    always_ff @(posedge clk) begin
+        ID_stage_stalled <= in_IF_valid & ~in_IF_ready;
+        if (!ID_stage_stalled) instruction_buffer <= instruction;
+    end
+    assign instruction_post = ID_stage_stalled ? instruction_buffer : instruction;
 
     // ---------------------------------
     // Data forwarding MUX
@@ -162,7 +170,11 @@ module ID (
     assign ID_stage_valid = instruction_valid & ~illegal_instruction & ~ID_flush;
 
     // ID stage is ready when 1) Instruction is valid, 2) EX stage is ready, 3) No load dependency
-    assign in_IF_ready = instruction_valid & out_ID_ready & ~load_dependency;
+    // On an ID flush, release the stall caused by waiting for the instruction memory response (HREADY=1)
+    // When ID is flushed, IF is also flushed as well, so IF/ID valid will be in cleared next cycle.
+    // IF continues inserting bubbles into ID while waiting for the HREADY=1.
+    // IF/ID valid therefore remains zero when the response arrives, and the instruction is discarded.
+    assign in_IF_ready = instruction_valid & out_ID_ready & ~load_dependency | ID_flush;
 
     // ID is valid when 1）ID stage is valid, 2) not stalled due to load_dependency
     assign out_ID_valid = ID_stage_valid & ~load_dependency;

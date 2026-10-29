@@ -1,0 +1,11 @@
+Bug fix:
+
+- IF: PC update does not match with instruction fetch. Should only update PC when run is set
+- IF: PC should not advance when HREADY=0
+- ID: instruction skid buffer does not solve the issue when ID is stalled, instruction need to be stored
+- ID: ID flush should release ID stall caused by waiting for instruction memory response (HREADY=1)
+- EX: jal/jalr stores PC+4 into RD
+- MEM: Write data need to placed into the corresponding bit position in hwdata
+- ALU: sraw, srlw is not implemented correctly. The original implementation works with 64 bit data instead of 32 bit
+- top: Add missing flush connection
+- Cocotb: Fix AHBLite timing model

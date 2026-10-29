@@ -66,16 +66,29 @@ module cpu (
 
     logic [`XLEN-1:0] MEM_hwdata;
 
-    logic               wb_rd_write;
-    logic [4:0]         wb_rd_addr;
-    logic [`XLEN-1:0]   wb_rd_wdata;
+    logic             wb_rd_write;
+    logic [4:0]       wb_rd_addr;
+    logic [`XLEN-1:0] wb_rd_wdata;
+
+    logic             IF_flush;
+    logic             ID_flush;
 
     /*AUTOWIRE*/
+
+    // ---------------------------------
+    // Glue logic for flush
+    // ---------------------------------
+    assign IF_flush = jump;
+    assign ID_flush = jump;
+
+    // ---------------------------------
+    // Pipeline Stage
+    // ---------------------------------
 
     IF u_IF (
         .clk                      (clk),
         .rst_n                    (rst_n),
-        .IF_flush                 (1'b0),
+        .IF_flush                 (IF_flush),
         .out_IF_valid             (out_IF_valid),
         .out_IF_data              (out_IF_data),
         .out_IF_ready             (out_IF_ready),
@@ -111,7 +124,7 @@ module cpu (
         .out_ID_valid (out_ID_valid),
         .out_ID_data  (out_ID_data),
         .out_ID_ready (out_ID_ready),
-        .ID_flush     (1'b0),
+        .ID_flush     (ID_flush),
         .memory_rsp   (inst_memory_rsp),
         .ex_rd_addr   (ex_rd_addr),
         .ex_rd_write  (ex_rd_write),

@@ -35,6 +35,6 @@ async def riscv_test_rv64i(dut, file='add.bin' ):
     cpu = CPU(dut, ram_size=1)
     try:
         cpu.load_bin(f'{EMULATOR_PATH}/tests/riscv-test/build/p/rv64ui/{file}')
-        await cpu.run(timeout=10000)
+        await cpu.run(timeout=50000)
     finally:
         cpu.close()

@@ -157,7 +157,8 @@ module EX (
     assign out_EX_data.rs2_value   = in_ID_data.rs2_value;
     assign out_EX_data.rd_write    = in_ID_data.rd_write;
     assign out_EX_data.rd_addr     = in_ID_data.rd_addr;
-    assign out_EX_data.alu_out     = alu_out;
+    // for jal/jalr, store pc + 4 to rd
+    assign out_EX_data.alu_out     = jump ? in_ID_data.pc + 4 : alu_out;
 
     // exception
     assign out_EX_data.exception_valid = in_ID_data.exception_valid |

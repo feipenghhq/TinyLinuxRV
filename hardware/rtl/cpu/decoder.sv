@@ -177,9 +177,8 @@ module decoder (
 
     end
 
-
     // immediate values
-    always @(*) begin
+    always_comb begin
         case (opcode)
             // In the default section
             OPCODE_LOGIC_I64, OPCODE_LOGIC_I32, OPCODE_LOAD: begin
@@ -189,23 +188,17 @@ module decoder (
                 immediate = {{52{instruction[31]}}, instruction[31:25], instruction[11:7]};
             end
             OPCODE_BRANCH: begin
-                immediate = {
-                    {52{instruction[31]}}, instruction[7], instruction[30:25], instruction[11:7]
-                };
+                immediate = {{52{instruction[31]}}, instruction[7], instruction[30:25], instruction[11:8], 1'b0};
             end
             OPCODE_JAL: begin
-                immediate = {
-                    {44{instruction[31]}},
-                    instruction[19:12],
-                    instruction[20],
-                    instruction[30:21],
-                    1'b0
-                };
+                immediate = {{44{instruction[31]}}, instruction[19:12], instruction[20], instruction[30:21], 1'b0};
             end
             OPCODE_LUI, OPCODE_AUIPC: begin
                 immediate = {{32{instruction[31]}}, instruction[31:12], 12'b0};
             end
-            default: immediate = {{52{instruction[31]}}, instruction[31:20]};
+            default: begin
+                immediate = {{52{instruction[31]}}, instruction[31:20]};
+            end
         endcase
     end
 

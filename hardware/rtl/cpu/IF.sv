@@ -61,10 +61,10 @@ module IF (
         end
         else begin
             // flush should unblock PC update from stall request
-            if (out_IF_ready || IF_flush) begin
+            if (run && (out_IF_ready || IF_flush)) begin
                 if (trap) pc <= trap_pc;
                 else if (jump) pc <= jump_pc;
-                else pc <= pc + 4;
+                else if (hready) pc <= pc + 4;
             end
         end
     end
@@ -73,7 +73,7 @@ module IF (
     // Pipeline control
     // --------------------------------
 
-    assign out_IF_valid = memory_req.htrans[1] & hready;
+    assign out_IF_valid = memory_req.htrans[1] & hready & ~IF_flush;
     assign out_IF_data.pc = pc;
 
 endmodule
