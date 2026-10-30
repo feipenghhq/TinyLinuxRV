@@ -18,6 +18,7 @@ module decoder (
     output logic       rs2_read,
     output logic [4:0] rs2_addr,
     output ALU_CTRL_t  alu_ctrl,
+    output MUL_DIV_CTRL_t  mul_div_ctrl,
     output JUMP_CTRL_t jump_ctrl,
     output MEM_CTRL_t  mem_ctrl,
     output logic [`XLEN-1:0] immediate,
@@ -34,7 +35,7 @@ module decoder (
     logic [2:0] func3;
     logic [5:0] inst31_26;
 
-    logic func7_eq_0, func7_eq_0x20;
+    logic func7_eq_0, func7_eq_1,func7_eq_0x20;
     logic func3_eq_0x1, func3_eq_0x5;
     logic inst31_26_eq_0, inst31_26_eq_0x10;
 
@@ -55,6 +56,7 @@ module decoder (
     assign inst31_26 = instruction[31:26];
 
     assign func7_eq_0    = func7 == 0;
+    assign func7_eq_1    = func7 == 1;
     assign func7_eq_0x20 = func7 == 'h20;
     assign func3_eq_0x1  = func3 == 1;
     assign func3_eq_0x5  = func3 == 5;
@@ -73,7 +75,12 @@ module decoder (
         alu_ctrl.alu_op1_sel_pc   = 1'b0;
         alu_ctrl.alu_op2_sel_imm  = 1'b0;
         alu_ctrl.alu_opcode       = ALU_ADD;
-        alu_ctrl.alu_32bit        = 1'b0;
+        alu_ctrl.alu_32bit        = opcode[3];  // opcode[3] is set for XXXW instruction
+
+        mul_div_ctrl.mul = 1'b0;
+        mul_div_ctrl.div = 1'b0;
+        mul_div_ctrl.opcode = func3[1:0];   // use the same encoding as func3[1:0]
+        mul_div_ctrl.is_32bit = opcode[3];  // opcode[3] is set for XXXW instruction;
 
         jump_ctrl.jal  = 1'b0;
         jump_ctrl.jalr = 1'b0;
@@ -93,10 +100,15 @@ module decoder (
                 rs1_read    = 1'b1;
                 rs2_read    = 1'b1;
                 rd_write    = 1'b1;
+                // ALU
                 alu_ctrl.alu_opcode[3:0] = ALU_OP_t'({func7[5], func3});
-                alu_ctrl.alu_32bit       = opcode[3];  // opcode[3] is set for XXXW instruction
+                // MUL/DIV
+                mul_div_ctrl.mul = (func3[2] == 0) & func7_eq_1;
+                mul_div_ctrl.div = (func3[2] == 1) & func7_eq_1;
+                mul_div_ctrl.opcode = func3[1:0]; // use the same encoding as func3[1:0]
                 // Instruction[31:25] (func7) is fixed encoding for R type instruction so we need to check them
-                illegal_instruction = ~(func7_eq_0 | func7_eq_0x20);
+                illegal_instruction = ~(func7_eq_0 | func7_eq_0x20 | func7_eq_1) |
+                                       (func7_eq_1 & opcode[3] & (func3 == 3'b001 | func3 == 3'b010 | func3 == 3'b011));
             end
 
             // Logic I Type instruction
@@ -109,8 +121,8 @@ module decoder (
                 // For 32 bit operations SLLIW, SRLIW, SRAIW, instruction[31:25] (func7) is fixed encoding
                 // For 64 bit operations SLLI, SRLI, SRAI, instruction[31:2365] is fixed encoding
                 // So we need to check them
-                illegal_instruction = alu_ctrl.alu_32bit ? (func3_eq_0x1 & ~func7_eq_0 | func3_eq_0x5 & ~(func7_eq_0 | func7_eq_0x20))      // SLLIW, SRLIW, SRAIW
-                                    : (func3_eq_0x1 & ~inst31_26_eq_0 | func3_eq_0x5 & ~(inst31_26_eq_0 | inst31_26_eq_0x10));  // SLLI, SRLI, SRAI
+                illegal_instruction = alu_ctrl.alu_32bit ? (func3_eq_0x1 & ~func7_eq_0 | func3_eq_0x5 & ~(func7_eq_0 | func7_eq_0x20)) // SLLIW, SRLIW, SRAIW
+                                    : (func3_eq_0x1 & ~inst31_26_eq_0 | func3_eq_0x5 & ~(inst31_26_eq_0 | inst31_26_eq_0x10)); // SLLI, SRLI, SRAI
             end
 
             // LUI

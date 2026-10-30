@@ -37,6 +37,7 @@ module ID (
 );
 
     ALU_CTRL_t        alu_ctrl;
+    MUL_DIV_CTRL_t    mul_div_ctrl;
     MEM_CTRL_t        mem_ctrl;
     JUMP_CTRL_t       jump_ctrl;
 
@@ -100,6 +101,7 @@ module ID (
         .rs2_read    (rs2_read),
         .rs2_addr    (rs2_addr),
         .alu_ctrl    (alu_ctrl),
+        .mul_div_ctrl(mul_div_ctrl),
         .jump_ctrl   (jump_ctrl),
         .mem_ctrl    (mem_ctrl),
         .immediate   (immediate),
@@ -184,6 +186,7 @@ module ID (
     assign out_ID_data.instruction = instruction;
     assign out_ID_data.immediate   = immediate;
     assign out_ID_data.alu_ctrl    = alu_ctrl;
+    assign out_ID_data.mul_div_ctrl = mul_div_ctrl;
     assign out_ID_data.mem_ctrl    = mem_ctrl;
     assign out_ID_data.jump_ctrl   = jump_ctrl;
     assign out_ID_data.rs1_value   = final_rs1;

@@ -152,6 +152,8 @@ module cpu (
     );
 
     EX u_EX (
+        .clk          (clk),
+        .rst_n        (rst_n),
         // pipeline control
         .in_ID_valid  (ID_EX_valid),
         .in_ID_data   (ID_EX_data),

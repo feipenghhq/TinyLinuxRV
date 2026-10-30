@@ -25,7 +25,7 @@ class CPU:
 
     def __init__(self, dut, ram_size=128):
         self.inst_ram  = AHBLiteRAM(dut, 4, 0x80000000, ram_size, 'inst')
-        self.data_ram  = AHBLiteRAM(dut, 8, 0x80000000, ram_size, 'data')
+        self.data_ram  = AHBLiteRAM(dut, 8, 0x80000000, ram_size, 'data', from_ram=self.inst_ram)
         self.dut = dut
         self.finish = False
         self._init_cpu()

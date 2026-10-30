@@ -72,6 +72,15 @@ typedef struct packed {
     logic    alu_32bit;         // indicate 32 bit operation (XXXW)
 } ALU_CTRL_t;
 
+// MUL/DIV Control
+typedef struct packed {
+    logic       mul;
+    logic       div;
+    logic [1:0] opcode;
+    logic       is_32bit; // indicate 32 bit operation (XXXW)
+} MUL_DIV_CTRL_t;
+
+
 // Memory opcode
 // Encoding is same in instruction func3 field
 // bit 2 indicate signed/unsigned
@@ -118,6 +127,7 @@ typedef struct packed {
     logic [31:0]      instruction;
     logic [`XLEN-1:0] immediate;
     ALU_CTRL_t        alu_ctrl;
+    MUL_DIV_CTRL_t    mul_div_ctrl;
     MEM_CTRL_t        mem_ctrl;
     JUMP_CTRL_t       jump_ctrl;
     logic [`XLEN-1:0] rs1_value;

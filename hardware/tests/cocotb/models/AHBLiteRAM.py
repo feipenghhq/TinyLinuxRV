@@ -13,7 +13,7 @@ from .AHBLite import AHBLiteBus, AHBLiteDevice
 
 class AHBLiteRAM(AHBLiteDevice):
 
-    def __init__(self, dut, nbytes, base_addr, size, name, signals=AHBLiteBus._SIGNALS, clock = None, bus_separator='_'):
+    def __init__(self, dut, nbytes, base_addr, size, name, signals=AHBLiteBus._SIGNALS, from_ram = None, clock = None, bus_separator='_'):
         """
         Args:
             dut (_type_): Cocotb DUT
@@ -26,14 +26,23 @@ class AHBLiteRAM(AHBLiteDevice):
             bus_separator (str, optional): separator between prefix and bus signal. Defaults to '_'.
         """
         super().__init__(dut, nbytes, base_addr, name, signals, clock, bus_separator=bus_separator)
-        self.ram_size = size * 1024 * 1024;
-        self.ram = bytearray(self.ram_size)
-
+        if from_ram:
+            self.ram_size = from_ram.get_ram_size()
+            self.ram = from_ram.get_ram()
+        else:
+            self.ram_size = size * 1024 * 1024;
+            self.ram = bytearray(self.ram_size)
 
     def close(self):
         """Release the ram
         """
         self.ram = None
+
+    def get_ram(self):
+        return self.ram
+
+    def get_ram_size(self):
+        return self.ram_size
 
     def load_bin(self, file_name):
         cocotb.log.info(f"Loading binary file: {file_name}")

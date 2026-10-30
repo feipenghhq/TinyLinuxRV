@@ -25,16 +25,23 @@ EMULATOR_PATH = f'{REPO_PATH}/emulator'
 async def sanity(dut, file='rv64i.bin' ):
     cpu = CPU(dut, ram_size=1)
     cpu.load_bin(f'{EMULATOR_PATH}/tests/sanity/build/{file}')
-    await cpu.run()
+    await cpu.run(timeout=50000)
 
-rv64ui = Path(f"{REPO_PATH}/third-party/riscv-tests/isa/rv64ui")
-@cocotb.parametrize(
-    file=[cocotb.Param(f"{f.stem}.bin", f.stem) for f in rv64ui.rglob("*.S")]
-)
-async def riscv_test_rv64i(dut, file='add.bin' ):
+async def riscv_tests(dut, timeout=50000, file="", env="", isa=""):
     cpu = CPU(dut, ram_size=1)
     try:
-        cpu.load_bin(f'{EMULATOR_PATH}/tests/riscv-test/build/p/rv64ui/{file}')
-        await cpu.run(timeout=50000)
+        cpu.load_bin(f'{EMULATOR_PATH}/tests/riscv-test/build/{env}/{isa}/{file}')
+        await cpu.run(timeout=timeout)
     finally:
         cpu.close()
+
+rv64ui = Path(f"{REPO_PATH}/third-party/riscv-tests/isa/rv64ui")
+rv64ui_skipped = ['ma_data']
+@cocotb.parametrize(file=[cocotb.Param(f"{f.stem}.bin", f.stem) for f in rv64ui.rglob("*.S") if f.stem not in rv64ui_skipped])
+async def riscv_test_rv64i(dut, file=""):
+    await riscv_tests(dut, file=file, env="p", isa="rv64ui")
+
+rv64um = Path(f"{REPO_PATH}/third-party/riscv-tests/isa/rv64um")
+@cocotb.parametrize(file=[cocotb.Param(f"{f.stem}.bin", f.stem) for f in rv64um.rglob("*.S")])
+async def riscv_test_rv64um(dut, file=""):
+    await riscv_tests(dut, file=file, env="p", isa="rv64um")

@@ -8,6 +8,8 @@
 `include "cpu.svh"
 
 module EX (
+    input                clk,
+    input                rst_n,
     // pipeline control
     input                in_ID_valid,
     input ID2EX_PIPE_t   in_ID_data,
@@ -37,6 +39,12 @@ module EX (
     logic [`XLEN-1:0] alu_op2;
     logic [`XLEN-1:0] alu_out;
 
+    logic [`XLEN-1:0] mul_out;
+    logic             mul_stall;
+
+    logic [`XLEN-1:0] div_out;
+    logic             div_stall;
+
     logic instr_addr_misaligned;
 
     logic mem_addr_misaligned;
@@ -60,6 +68,31 @@ module EX (
         .alu_opcode (in_ID_data.alu_ctrl.alu_opcode),
         .alu_32bit  (in_ID_data.alu_ctrl.alu_32bit),
         .alu_out    (alu_out)
+    );
+
+    multiplier u_multiplier (
+        .clk      (clk),
+        .rst_n    (rst_n),
+        .req      (in_ID_data.mul_div_ctrl.mul),
+        .opcode   (in_ID_data.mul_div_ctrl.opcode),
+        .is_32bit (in_ID_data.mul_div_ctrl.is_32bit),
+        .a        (alu_op1),      // rs0
+        .b        (alu_op2),      // rs2
+        .o        (mul_out),      // rd
+        .stall    (mul_stall)
+    );
+
+    divider u_divider (
+        .clk      (clk),
+        .rst_n    (rst_n),
+        .flush    (1'b0),         // FIXME: Need to add flush
+        .req      (in_ID_data.mul_div_ctrl.div),
+        .opcode   (in_ID_data.mul_div_ctrl.opcode),
+        .is_32bit (in_ID_data.mul_div_ctrl.is_32bit),
+        .a        (alu_op1),      // rs0
+        .b        (alu_op2),      // rs2
+        .o        (div_out),      // rd
+        .stall    (div_stall)
     );
 
     bu u_bu (
@@ -138,13 +171,15 @@ module EX (
 
     assign ex_rd_addr  = in_ID_data.rd_addr;
     assign ex_rd_write = in_ID_data.rd_write;
-    assign ex_rd_wdata = alu_out;
+    assign ex_rd_wdata = in_ID_data.mul_div_ctrl.mul ? mul_out :
+                         in_ID_data.mul_div_ctrl.div ? div_out :
+                                                       alu_out;
 
     // ---------------------------------
     // Pipeline Control
     // ---------------------------------
 
-    assign EX_stall = mem_request_raw & ~hready;
+    assign EX_stall = mem_request_raw & ~hready | mul_stall | div_stall;
 
     assign in_ID_ready = out_EX_ready & ~EX_stall;
 
@@ -158,7 +193,7 @@ module EX (
     assign out_EX_data.rd_write    = in_ID_data.rd_write;
     assign out_EX_data.rd_addr     = in_ID_data.rd_addr;
     // for jal/jalr, store pc + 4 to rd
-    assign out_EX_data.alu_out     = jump ? in_ID_data.pc + 4 : alu_out;
+    assign out_EX_data.alu_out     = jump ? in_ID_data.pc + 4 : ex_rd_wdata;
 
     // exception
     assign out_EX_data.exception_valid = in_ID_data.exception_valid |
