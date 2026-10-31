@@ -49,11 +49,11 @@ module MEM (
     // ---------------------------------
 
     // write data is provided in DATA phase
-    assign memory_request = in_EX_data.mem_ctrl.mem_read | in_EX_data.mem_ctrl.mem_write;
+    assign memory_request = in_EX_data.mem_read | in_EX_data.mem_write;
     assign memory_stall = memory_request & ~memory_rsp.hready;
 
-    assign load_access_fault = in_EX_data.mem_ctrl.mem_read & memory_rsp.hready & memory_rsp.hresp;
-    assign store_access_fault = in_EX_data.mem_ctrl.mem_write & memory_rsp.hready & memory_rsp.hresp;
+    assign load_access_fault = in_EX_data.mem_read & memory_rsp.hready & memory_rsp.hresp;
+    assign store_access_fault = in_EX_data.mem_write & memory_rsp.hready & memory_rsp.hresp;
     ;
 
 
@@ -67,7 +67,7 @@ module MEM (
     // 100  LBU
     // 101  LHU
     // opcode[2] is zero for signed extension
-    assign sign_ext       = ~in_EX_data.mem_ctrl.mem_opcode[2];
+    assign sign_ext       = ~in_EX_data.mem_opcode[2];
     assign sign_bit_final = sign_bit & sign_ext;
 
     // We assume that the memory does not align the read data with the address.
@@ -75,7 +75,7 @@ module MEM (
     always_comb begin
         sign_bit = 0;
         MEM_hwdata = 'b0;
-        case (in_EX_data.mem_ctrl.mem_opcode[1:0])
+        case (in_EX_data.mem_opcode[1:0])
             MEM_DWORD: begin
                 mem_rdata  = memory_rsp.hrdata;
                 MEM_hwdata = in_EX_data.rs2_value;
@@ -172,7 +172,7 @@ module MEM (
     // Other logic
     // ---------------------------------
 
-    assign rd_wdata = in_EX_data.mem_ctrl.mem_read ? mem_rdata : in_EX_data.alu_out;
+    assign rd_wdata = in_EX_data.mem_read ? mem_rdata : in_EX_data.alu_out;
 
     assign mem_rd_addr = in_EX_data.rd_addr;
     assign mem_rd_write = in_EX_data.rd_write;

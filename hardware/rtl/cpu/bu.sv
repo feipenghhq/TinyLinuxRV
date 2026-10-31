@@ -9,11 +9,14 @@
 
 module bu (
     input              EX_flush,
-    input JUMP_CTRL_t  jump_ctrl,
-    input  [`XLEN-1:0] rs1_value,
-    input  [`XLEN-1:0] rs2_value,
-    input  [`XLEN-1:0] immediate,
-    input  [`XLEN-1:0] pc,
+    input              jal,
+    input              jalr,
+    input              branch,
+    input [2:0]        branch_opcode,
+    input [`XLEN-1:0]  rs1_value,
+    input [`XLEN-1:0]  rs2_value,
+    input [`XLEN-1:0]  immediate,
+    input [`XLEN-1:0]  pc,
     output [`XLEN-1:0] jump_pc,
     output             jump,
     output             instr_addr_misaligned
@@ -50,15 +53,15 @@ module bu (
     // - opcode[2:1] is used to distinguish BEQ/BLT/BLTU
     // - opcode[0]   is used to distinguish BEQ/BNE, BLT/BGE, BLTU/BGEU
     always @(*) begin
-        case (jump_ctrl.branch_opcode[2:1])
+        case (branch_opcode[2:1])
             2'b10:   branch_result_raw = lt_result;
             2'b11:   branch_result_raw = ltu_result;
             default: branch_result_raw = eq_result;
         endcase
     end
     // if opcode[0] is 1 we need to invert the result.
-    assign branch_result = branch_result_raw ^ jump_ctrl.branch_opcode[0];
-    assign jump_raw = ~EX_flush & branch_result & jump_ctrl.branch | jump_ctrl.jal | jump_ctrl.jalr;
+    assign branch_result = branch_result_raw ^ branch_opcode[0];
+    assign jump_raw = ~EX_flush & branch_result & branch | jal | jalr;
 
     // ---------------------------------
     // calculate the target pc address
@@ -66,7 +69,7 @@ module bu (
     // for branch instruction: PC = current pc + immediate
     // for jal instruction:    PC = current pc + immediate
     // for jalr instruction:   PC = rs1_value + immediate
-    assign jump_addr_op1 = jump_ctrl.jalr ? rs1_value : pc;
+    assign jump_addr_op1 = jalr ? rs1_value : pc;
     assign jump_addr_op2 = immediate;
     assign jump_addr_result = jump_addr_op1 + jump_addr_op2;
     // Based on the RISCV Spec, bit zero of the target pc is always zero.

@@ -41,6 +41,7 @@ VERILOG_SOURCES += $(RTL_DIR)/cpu/multiplier.sv
 VERILOG_SOURCES += $(RTL_DIR)/cpu/divider.sv
 VERILOG_SOURCES += $(RTL_DIR)/cpu/bu.sv
 VERILOG_SOURCES += $(RTL_DIR)/cpu/alu.sv
+VERILOG_SOURCES += $(RTL_DIR)/cpu/amo_alu.sv
 VERILOG_SOURCES += $(RTL_DIR)/cpu/IF.sv
 VERILOG_SOURCES += $(RTL_DIR)/cpu/ID.sv
 VERILOG_SOURCES += $(RTL_DIR)/cpu/EX.sv

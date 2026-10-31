@@ -36,10 +36,7 @@ module ID (
     input [`XLEN-1:0]   wb_rd_wdata
 );
 
-    ALU_CTRL_t        alu_ctrl;
-    MUL_DIV_CTRL_t    mul_div_ctrl;
-    MEM_CTRL_t        mem_ctrl;
-    JUMP_CTRL_t       jump_ctrl;
+    CPU_CTRL_t        cpu_ctrl;
 
     logic             rd_write;
     logic [4:0]       rd_addr;
@@ -100,10 +97,7 @@ module ID (
         .rs1_addr    (rs1_addr),
         .rs2_read    (rs2_read),
         .rs2_addr    (rs2_addr),
-        .alu_ctrl    (alu_ctrl),
-        .mul_div_ctrl(mul_div_ctrl),
-        .jump_ctrl   (jump_ctrl),
-        .mem_ctrl    (mem_ctrl),
+        .cpu_ctrl    (cpu_ctrl),
         .immediate   (immediate),
         .illegal_instruction(illegal_instruction)
     );
@@ -185,10 +179,7 @@ module ID (
     assign out_ID_data.pc          = in_IF_data.pc;
     assign out_ID_data.instruction = instruction;
     assign out_ID_data.immediate   = immediate;
-    assign out_ID_data.alu_ctrl    = alu_ctrl;
-    assign out_ID_data.mul_div_ctrl = mul_div_ctrl;
-    assign out_ID_data.mem_ctrl    = mem_ctrl;
-    assign out_ID_data.jump_ctrl   = jump_ctrl;
+    assign out_ID_data.cpu_ctrl    = cpu_ctrl;
     assign out_ID_data.rs1_value   = final_rs1;
     assign out_ID_data.rs2_value   = final_rs2;
     assign out_ID_data.rd_write    = rd_write;

@@ -45,3 +45,8 @@ rv64um = Path(f"{REPO_PATH}/third-party/riscv-tests/isa/rv64um")
 @cocotb.parametrize(file=[cocotb.Param(f"{f.stem}.bin", f.stem) for f in rv64um.rglob("*.S")])
 async def riscv_test_rv64um(dut, file=""):
     await riscv_tests(dut, file=file, env="p", isa="rv64um")
+
+rv64ua = Path(f"{REPO_PATH}/third-party/riscv-tests/isa/rv64ua")
+@cocotb.parametrize(file=[cocotb.Param(f"{f.stem}.bin", f.stem) for f in rv64ua.rglob("*.S")])
+async def riscv_test_rv64ua(dut, file=""):
+    await riscv_tests(dut, timeout=100000, file=file, env="p", isa="rv64ua")
