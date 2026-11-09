@@ -33,25 +33,14 @@ endif
 # Source Files
 # -----------------------------------------------------------------------------
 
-VERILOG_SOURCES += $(RTL_DIR)/common/skid_buffer.sv
-VERILOG_SOURCES += $(RTL_DIR)/cpu/pipeline.sv
-VERILOG_SOURCES += $(RTL_DIR)/cpu/regfile.sv
-VERILOG_SOURCES += $(RTL_DIR)/cpu/decoder.sv
-VERILOG_SOURCES += $(RTL_DIR)/cpu/multiplier.sv
-VERILOG_SOURCES += $(RTL_DIR)/cpu/divider.sv
-VERILOG_SOURCES += $(RTL_DIR)/cpu/bu.sv
-VERILOG_SOURCES += $(RTL_DIR)/cpu/alu.sv
-VERILOG_SOURCES += $(RTL_DIR)/cpu/amo_alu.sv
-VERILOG_SOURCES += $(RTL_DIR)/cpu/IF.sv
-VERILOG_SOURCES += $(RTL_DIR)/cpu/ID.sv
-VERILOG_SOURCES += $(RTL_DIR)/cpu/EX.sv
-VERILOG_SOURCES += $(RTL_DIR)/cpu/MEM.sv
-VERILOG_SOURCES += $(RTL_DIR)/cpu/WB.sv
-VERILOG_SOURCES += $(RTL_DIR)/cpu/cpu.sv
-
 VERILOG_SOURCES += $(COCOTB_DIR)/cpu_tb.sv
 
-VERILOG_INCLUDE_DIRS += $(RTL_DIR)/include/cpu
+COMPILE_ARGS += -F $(RTL_DIR)/rtl.f
+
+# Make does not discover source dependencies from Verilator's file list.
+CUSTOM_COMPILE_DEPS += $(RTL_DIR)/rtl.f \
+                      $(shell find $(RTL_DIR) -type f \( -name '*.sv' -o -name '*.svh' \))
+
 
 # -----------------------------------------------------------------------------
 # Tests

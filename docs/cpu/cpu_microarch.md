@@ -12,51 +12,55 @@ The TinyLinuxRV CPU implements the classic 5 stage pipeline with IF, ID, EX, MEM
 
 IF stage is responsible for fetching the instruction. It contains the following components:
 - PC
-- Instruction Memory Control logic
+- IFQ (Instruction Fetch Queue)
 
 #### PC
 
 - PC stands for program counter, it's the address for the next instruction to be executed.
 - In usual case, PC advance to next instruction which is `PC + 4`. However, a jump, taken branch, or exception/interrupt might alter PC to another target address.
-- The PC register will only be updated when IF stage is NOT stalled.
-- A PC skid buffer is added to handled the case when jump/taken branch/exception/interrupt is updating PC while stall is requested by IF stage itself.
 
-#### Instruction Memory Control Logic
+#### IFQ (Instruction Fetch Queue)
 
 In our design, we use AHB-lite bus protocol as the bus to communicate with memory subsystem.
 
-Each AHB-lite transaction has two phases, ADDR and DATA phases. The AHB-lite transaction is also a pipelined so in ideal
-case, we can send new transaction in every cycle (if not WAIT state request by device). However, considering the memory
-controller latency we may not be able to do so in reality.
+Each AHB-lite transaction has two phases, ADDR and DATA phases. In order to decuple the pipeline control (stall/flush)
+with AHB bus, an IFQ is designed to handle the instruction fetch from the memory.
 
-The IF stage only handles the ADDR phase. There are 2 states: `IDLE` and `RUN`
 
-- During reset, IF stays at `IDLE` state.
-- After getting out of reset, we enter at `RUN` state and start to send read request to memory.
+### Submodule: IFQ
 
-To simplify the logic, **we only send read request to the memory if the IF stage is not stalled and the AHB bus is ready to accept next request `(HREADY=1)`**
+The Instruction Fetch Queue (IFQ) is responsible for fetching instructions through the AHB-Lite interface and forwarding completed instructions to the ID stage.
 
-However, this might introduce another control hazard. We use a similar method for load/store instruction. EX stage handles the addr phase and
-mem stage handles the data phase. EX stage only send request when `HREADY=1`.
+The IFQ replaces the original IF/ID pipeline register and decouples the AHB transaction timing from downstream pipeline stall and flush control.
 
-This creates a **deadlock** situation: Host need to wait to for `HREADY` before sending request. Arbiter need request to determine who should get the grant.
-In order to solve the deadlock, in our design, when there is a load/store instruction, it will block the IF stage from fetching instruction
+The IFQ contains:
 
-#### Pipeline Stall
+- A First Word Fall Through (FWFT) FIFO storing the AHB response `{instruction, error}`.
+- A Regular FIFO storing the `PC`
+- One pending address register for an AHB address phase blocked by `HREADY=0`.
+- Kill information for outstanding requests invalidated by a flush.
 
-There are 2 possible cases:
+#### AHB Control
 
-- Case 1: Stall requested from IF stage
-  - IF will wait till the AHB bus is ready to take new request.  If the bus is not ready, IF will insert bubble to ID stage.
-- Case 2: Stall requested from downstream stage.
+The AHB control logic has two states:
 
-#### Pipeline Flush
+| State  | Description                                              |
+| ------ | -------------------------------------------------------- |
+| `INIT` | No address is currently waiting for acceptance           |
+| `WAIT` | A valid AHB address phase is being held until `HREADY=1` |
 
-When IF flush is requested, just simply flush the IF stage and pipeline register.
+State transitions:
 
-If ID stage is still waiting for the previous instruction and stalling IF, IF should cancel stall request and flush. This is good because ID stage should also be flushed as well. (Put an assertion). When the next instruction is ready, it will be invalidated as the ID stage should already be flushed at this time (IF/ID_valid = 0)
+| Current State | Next State | Condition                               |
+| ------------- | ---------- | --------------------------------------- |
+| `INIT`        | `WAIT`     | New request accepted by IFQ, `HREADY=0` |
+| `INIT`        | `INIT`     | Otherwise                               |
+| `WAIT`        | `INIT`     | `HREADY=1`                              |
+| `WAIT`        | `WAIT`     | `HREADY=0`                              |
 
-Meanwhile, since the AHB bus is busy, IF will not send a new request.
+#### Flush Logic
+
+IFQ will be flushed when IF stage is flushed. It will clear the internal FIFO and invalidate the pending AHB request that is not completed yet.
 
 ----------------------------------------
 
@@ -65,19 +69,13 @@ Meanwhile, since the AHB bus is busy, IF will not send a new request.
 ![pipeline control](assets/cpu/ID.drawio.svg)
 
 ID stage is contains the following components:
-- AHB Bus Ctrl
-- Instruction Skid buffer
+- Instruction buffer
 - Instruction Decoder
 - Register file
 - Data forwarding Mux
 
-#### AHB Bus Ctrl
 
-- The ID stage is responsible for the Data phase of the AHB transaction.
-- When the instruction is not available, it will insert bubble into ID stage as there is no valid instruction.
-- When the instruction is ready, it will send the instruction into the skid buffer.
-
-#### Skid buffer
+#### Instruction buffer
 
 The skid buffer is used to temporarily hold the previous instruction when the pipeline is stalled.
 
@@ -95,29 +93,26 @@ The skid buffer is used to temporarily hold the previous instruction when the pi
 
 #### Data forwarding Mux
 
-With 5 stage pipeline there are data hazard where junior instruction could depends on senior instruction.
+With 5 stage pipeline there are data hazard where junior instruction could depends on senior instruction:
 
-An instruction in ID stage could depends on the instruction in EX stage:
+```assembly
 
-```asm
-addi s0, t0, 1
-add  s1, s0, s0
-```
+# ID depends on EX
 
-Or in MEM stage:
+addi s0, t0, 1      # EX (rd = s0)
+add  s1, s0, s0     # ID (rs1, rs2 = s0)
 
-```asm
-addi s0, t0, 1
-ori  s2, t0, 1
-add  s1, s0, s0
-```
+# ID depends on MEM
 
-Or even both:
+addi s0, t0, 1      # MEM (rd = s0)
+ori  s2, t0, 1      # EX
+add  s1, s0, s0     # ID  (rs1, rs2 = s0)
 
-```asm
-addi s0, t0, 1
-ori  s1, t0, 1
-add  s2, s0, s1
+# ID depends on both EX and MEM
+
+addi s0, t0, 1      # MEM (rd = s0)
+ori  s1, t0, 1      # EX  (rd = s1)
+add  s2, s0, s1     # ID  (rs1 = s0, rs2 = s1)
 ```
 
 In order to resolve this issue, we can forward the result from EX and MEM stage into ID stage.
@@ -126,27 +121,27 @@ Once the instruction is decoded, the rs1 and rs2 id will be compared with the rd
 the instruction is a valid instruction that will update rd, then the future rd data will be forwarded to ID stage.
 If both EX amd MEM stage match, the data should be forwarded from EX stage
 
-#### Pipeline Stall
+#### Pipeline Stall and Flush
 
-In ID stage, there is another data dependent issue that will cause ID pipeline stall.
+ID stage could be stalled due to 2 reasons
 
-Basically when the instruction in ID stage depends on a load instruction in EX stage. For example:
+1. EX stage is stalled
+2. When the instruction in ID stage depends on a load instruction in EX stage. For example:
 
-```asm
-lw a0, 0(t0)
-addi a1, a0, 1
-```
+   ```asm
+   lw a0, 0(t0)
+   addi a1, a0, 1
+   ```
+   In this case, the data will not be available in EX stage so we have to wait till the data is available in MEM stage before we can proceed.
+   So we will need to stall the pipeline till the data is available in MEM stage.
 
-In this case, the data will not be available in EX stage so we have to wait till the data is available in MEM stage before we can proceed.
-So we will need to stall the pipeline till the data is available in MEM stage.
+A simple state machine is used to handle this. It has 2 states: `RUN` and `STALLED`.
 
-If ID is requesting to stall the pipeline, it will de-assert `ID_ready` and set `EX_valid` to 0.
+| Current State | Next State | Condition                                     |
+| ------------- | ---------- | --------------------------------------------- |
+| `RUN`         | `STALLED`  | ID need to be stalled && ID stage valid       |
+| `STALLED`     | `RUN`      | ID is flushed \|\| ID no longer being stalled |
 
-#### Pipeline Flush
-
-- If ID is to be flushed, it will set `EX_valid` to 0.
-- If ID is stalled due to load dependence, flush request will invalidate the current instruction so the stall will no longer be requested
-- Register write back still happens as that is associated with the instruction in WB stage.
 
 ----------------------------------------
 

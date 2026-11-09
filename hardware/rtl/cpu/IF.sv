@@ -6,74 +6,92 @@
 `include "cpu.svh"
 
 module IF (
-    input                           clk,
-    input                           rst_n,
-    // pipeline control
-    output                          out_IF_valid,
-    output IF2ID_PIPE_t             out_IF_data,
-    input                           out_IF_ready,
-    input                           IF_flush,
-    // strap
-    input                           strap_block_fetch_enable,
+    input clk,
+    input rst_n,
+    // To ID directly
+    output              out_IF_valid,
+    output IF2ID_PIPE_t out_IF_data,
+    input               out_IF_ready,
+    input               IF_flush,
     // target pc
-    input                           jump,
-    input               [`XLEN-1:0] jump_pc,
-    input                           trap,
-    input               [`XLEN-1:0] trap_pc,
+    input               jump,
+    input  [`XLEN-1:0]  jump_pc,
+    input               trap,
+    input  [`XLEN-1:0]  trap_pc,
     // Instruction Memory
-    input                           block_fetch,               // block instruction fetch
-    output AHBLiteReq_t             memory_req,
-    input                           hready
+    output [`XLEN-1:0]  haddr,
+    output [1:0]        htrans,
+    output              hwrite,
+    output [2:0]        hsize,
+    output [`XLEN-1:0]  hwdata,
+    output              hlock,
+    input               hready,
+    input [`XLEN-1:0]   hrdata,
+    input               hresp
 );
 
-
     logic [`XLEN-1:0] pc;
-
     logic run;
-    logic instruction_read;
-
-    // ---------------------------------
-    // Instruction memory control
-    // ---------------------------------
-
-    always_ff @(posedge clk, negedge rst_n) begin
-        if (!rst_n) run <= 1'b0;
-        else run <= 1'b1;
-    end
-
-    // Only assert the read when IF is not stalled and AHB bus is ready to accept the request
-    assign instruction_read  = run && out_IF_ready & ~IF_flush & hready & ~(block_fetch & strap_block_fetch_enable);
-
-    // AHBLite request
-    assign memory_req.haddr = pc;
-    assign memory_req.htrans = {instruction_read, 1'b0};
-    assign memory_req.hwrite = 1'b0;
-    assign memory_req.hsize = 3'b010;  // instruction is 32 bits
-    assign memory_req.hwdata = 0;
-    assign memory_req.hsel = 1'b1;
+    logic ifq_rea_valid;
+    logic ifq_req_ready;
 
     // ---------------------------------
     // PC update
-    // --------------------------------
+    // ---------------------------------
+
     always_ff @(posedge clk, negedge rst_n) begin
         if (!rst_n) begin
             pc <= `PC_RESET_VEC;
         end
         else begin
             // flush should unblock PC update from stall request
-            if (run && (out_IF_ready || IF_flush)) begin
+            if (run && (ifq_req_ready || IF_flush)) begin
                 if (trap) pc <= trap_pc;
                 else if (jump) pc <= jump_pc;
-                else if (hready) pc <= pc + 4;
+                else pc <= pc + 4;
             end
         end
     end
 
     // ---------------------------------
-    // Pipeline control
+    // IFQ control logic
+    // ---------------------------------
+
+    always_ff @(posedge clk, negedge rst_n) begin
+        if (!rst_n) begin
+            run <= 1'b0;
+        end
+        else begin
+            run <= 1'b1;
+        end
+    end
+
+    assign ifq_rea_valid = run & ~IF_flush;
+
+    // ---------------------------------
+    // IFQ
     // --------------------------------
 
-    assign out_IF_valid = memory_req.htrans[1] & hready & ~IF_flush;
-    assign out_IF_data.pc = pc;
+    ifq #(.DEPTH(2)) u_ifq (
+    .clk        (clk),
+    .rst_n      (rst_n),
+    .flush      (IF_flush),
+    .req_valid  (ifq_rea_valid),
+    .req_ready  (ifq_req_ready),
+    .req_pc     (pc),
+    .rsp_valid  (out_IF_valid),
+    .rsp_ready  (out_IF_ready),
+    .rsp_pc     (out_IF_data.pc),
+    .rsp_instruction(out_IF_data.instruction),
+    .rsp_error  (out_IF_data.inst_access_fault),
+    .haddr      (haddr),
+    .htrans     (htrans),
+    .hwrite     (hwrite),
+    .hsize      (hsize),
+    .hwdata     (hwdata),
+    .hlock      (hlock),
+    .hready     (hready),
+    .hrdata     (hrdata),
+    .hresp      (hresp));
 
 endmodule

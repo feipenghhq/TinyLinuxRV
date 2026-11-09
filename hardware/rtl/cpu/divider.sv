@@ -123,7 +123,7 @@ module divider (
     assign done = iterations == `XLEN;
 
     // flow control
-    always @(posedge clk) begin
+    always @(posedge clk, negedge rst_n) begin
         if (!rst_n)       running <= 1'b0;
         else if (flush)   running <= 1'b0;
         else if (new_req) running <= 1'b1;
@@ -145,7 +145,7 @@ module divider (
 
     assign sub_result_sign_bit = sub_result[2*`XLEN-1];
 
-    always @(posedge clk) begin
+    always @(posedge clk, negedge rst_n) begin
         if (!rst_n) begin
             quotient   <= 0;
             iterations <= 0;

@@ -80,7 +80,7 @@ class AHBLiteDevice(AHBLiteBus):
                 self.req = False
             await ReadOnly()
             # Processing Address Phase
-            if self.htrans.value == 2 and self.hsel.value == 1 and self.hready.value == 1:
+            if self.htrans.value == 2 and (self.hsel is None or self.hsel.value == 1) and self.hready.value == 1:
                 self.req       = True
                 self.req_addr  = self.haddr.value.to_unsigned()
                 self.req_write = self.hwrite.value

@@ -79,12 +79,12 @@ module multiplier (
 
     // flow control
     assign new_req = ~running & req;
-    always @(posedge clk) begin
+    always @(posedge clk, negedge rst_n) begin
         if (!rst_n) stage_valid <= 'b0;
         else stage_valid <= {stage_valid[0], new_req};
     end
 
-    always @(posedge clk) begin
+    always @(posedge clk, negedge rst_n) begin
         if (!rst_n) running <= 1'b0;
         else if (new_req) running <= 1'b1;
         else if (stage_valid[1]) running <= 1'b0;

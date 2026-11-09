@@ -19,8 +19,6 @@ module ID (
     output ID2EX_PIPE_t out_ID_data,
     input               out_ID_ready,
     input               ID_flush,
-    // AHB response
-    input AHBLiteRsp_t  memory_rsp,
     // Data forwarding logic
     input [4:0]         ex_rd_addr,
     input               ex_rd_write,
@@ -48,11 +46,9 @@ module ID (
     logic [`XLEN-1:0] rs2_rdata;
 
     logic             instruction_access_fault;
-    logic             instruction_pre_valid;
     logic             instruction_valid;
-    logic [31:0]      instruction;
     logic [31:0]      instruction_buffer;
-    logic [31:0]      instruction_post;
+    logic [31:0]      instruction;
     logic             illegal_instruction;
     logic [`XLEN-1:0] immediate;
 
@@ -67,30 +63,18 @@ module ID (
 
     logic             load_dependency;
     logic             ID_stage_valid;
-    logic             ID_stage_stalled;
+    logic             ID_stage_stall;
+
+    typedef enum logic {RUN=0, STALLED=1} state_t;
+    state_t           ID_state;
 
     // ---------------------------------
     // Main components
     // ---------------------------------
 
-    // instruction skip buffer
-    skid_buffer #(.WIDTH(32))
-    u_inst_skid_buffer(
-        .clk        (clk),
-        .rst_n      (rst_n),
-        .in_valid   (instruction_pre_valid),
-        .in_data    (memory_rsp.hrdata[31:0]),
-        /* verilator lint_off PINCONNECTEMPTY */
-        .in_ready   (),
-        /* verilator lint_on PINCONNECTEMPTY */
-        .out_valid  (instruction_valid),
-        .out_data   (instruction),
-        .out_ready  (in_IF_ready)
-    );
-
     // decoder
     decoder u_decoder(
-        .instruction (instruction_post),
+        .instruction (instruction),
         .rd_write    (rd_write),
         .rd_addr     (rd_addr),
         .rs1_read    (rs1_read),
@@ -115,21 +99,17 @@ module ID (
     );
 
     // ---------------------------------
-    // AHBLite Resp Control
+    // Fetch Instruction from IF
     // ---------------------------------
 
-    // instruction from memory is valid when:
-    //  1. IF stage is valid & HREADY=1 (meaning IF has sent request and the read data is back)
-    //  2. AHB-Lite response is OK (HRESP = 0)
-    //  3. ID stage is not flushed
-    assign instruction_pre_valid    = in_IF_valid & memory_rsp.hready & ~memory_rsp.hresp & ~ID_flush;
-    assign instruction_access_fault = in_IF_valid & memory_rsp.hready &  memory_rsp.hresp & ~ID_flush;
+    assign instruction_valid = (in_IF_valid | ID_state == STALLED) & ~ID_flush;
+    assign instruction_access_fault = in_IF_valid & ~ID_flush & in_IF_data.inst_access_fault;
 
-    always_ff @(posedge clk) begin
-        ID_stage_stalled <= in_IF_valid & ~in_IF_ready;
-        if (!ID_stage_stalled) instruction_buffer <= instruction;
+    always_ff @(posedge clk, negedge rst_n) begin
+        if (~in_IF_ready && ID_state == RUN) instruction_buffer <= in_IF_data.instruction;
     end
-    assign instruction_post = ID_stage_stalled ? instruction_buffer : instruction;
+
+    assign instruction = (ID_state == STALLED) ? instruction_buffer : in_IF_data.instruction;
 
     // ---------------------------------
     // Data forwarding MUX
@@ -158,21 +138,34 @@ module ID (
     // - We need to Stall ID stage for 1 cycle to let the memory read instruction goto the MEM stage to get the data ready
     assign load_dependency = ID_stage_valid & (rs1_match_ex | rs2_match_ex) & ex_mem_read;
 
+
     // ---------------------------------
     // Pipeline Control
     // ---------------------------------
 
-    // ID stage itself is valid when: 1) Get valid instruction, 2) Instruction is decoded successfully, 3) Not flushed
+    // ID state machine
+    always_ff @(posedge clk, negedge rst_n) begin
+        if (!rst_n) begin
+            ID_state <= RUN;
+        end
+        else begin
+            case (ID_state)
+                RUN: if (ID_stage_stall && ID_stage_valid) ID_state <= STALLED;
+                STALLED: if (ID_flush || ~ID_stage_stall) ID_state <= RUN;
+            endcase
+        end
+    end
+
+    // ID stage is valid when: 1) Get valid instruction, 2) Instruction is decoded successfully, 3) Not flushed
     assign ID_stage_valid = instruction_valid & ~illegal_instruction & ~ID_flush;
 
-    // ID stage is ready when 1) Instruction is valid, 2) EX stage is ready, 3) No load dependency
-    // On an ID flush, release the stall caused by waiting for the instruction memory response (HREADY=1)
-    // When ID is flushed, IF is also flushed as well, so IF/ID valid will be in cleared next cycle.
-    // IF continues inserting bubbles into ID while waiting for the HREADY=1.
-    // IF/ID valid therefore remains zero when the response arrives, and the instruction is discarded.
-    assign in_IF_ready = instruction_valid & out_ID_ready & ~load_dependency | ID_flush;
+    // ID need to be stalled when: 1) EX is stalled, or 2) load dependency
+    assign ID_stage_stall = ~out_ID_ready | load_dependency;
 
-    // ID is valid when 1）ID stage is valid, 2) not stalled due to load_dependency
+    // ID/IF is ready ID is not stalled
+    assign in_IF_ready = ~ID_stage_stall;
+
+    // ID/EX is valid when 1）ID stage is valid, 2) not stalled due to load_dependency
     assign out_ID_valid = ID_stage_valid & ~load_dependency;
 
     // ctrl and data

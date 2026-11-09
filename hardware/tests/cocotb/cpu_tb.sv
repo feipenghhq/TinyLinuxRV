@@ -13,9 +13,6 @@ module cpu_tb ();
 
     logic strap_block_fetch_enable;
 
-    AHBLiteReq_t inst_memory_req;
-    AHBLiteRsp_t inst_memory_rsp;
-
     AHBLiteReq_t data_memory_req;
     AHBLiteRsp_t data_memory_rsp;
 
@@ -24,7 +21,7 @@ module cpu_tb ();
     logic             inst_hwrite;
     logic [2:0]       inst_hsize;
     logic [`XLEN-1:0] inst_hwdata;
-    logic             inst_hsel;
+    logic             inst_hlock;
     logic [`XLEN-1:0] inst_hrdata;
     logic             inst_hready;
     logic             inst_hresp;
@@ -46,16 +43,6 @@ module cpu_tb ();
     // ----------------------------------------------------
     // expends the AHBLite bus so cocotb can access them
     // ----------------------------------------------------
-
-    assign inst_haddr   = inst_memory_req.haddr ;
-    assign inst_htrans  = inst_memory_req.htrans;
-    assign inst_hwrite  = inst_memory_req.hwrite;
-    assign inst_hsize   = inst_memory_req.hsize ;
-    assign inst_hwdata  = inst_memory_req.hwdata;
-    assign inst_hsel    = inst_memory_req.hsel  ;
-    assign inst_memory_rsp.hrdata = inst_hrdata;
-    assign inst_memory_rsp.hready = inst_hready;
-    assign inst_memory_rsp.hresp  = inst_hresp ;
 
     assign data_haddr   = data_memory_req.haddr ;
     assign data_htrans  = data_memory_req.htrans;

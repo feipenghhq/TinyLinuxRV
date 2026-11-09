@@ -12,16 +12,20 @@ module cpu (
 
     input strap_block_fetch_enable,
 
-    output AHBLiteReq_t inst_memory_req,
-    input  AHBLiteRsp_t inst_memory_rsp,
+    output [`XLEN-1:0] inst_haddr,
+    output [1:0]       inst_htrans,
+    output             inst_hwrite,
+    output [2:0]       inst_hsize,
+    output [`XLEN-1:0] inst_hwdata,
+    output             inst_hlock,
+    input  [`XLEN-1:0] inst_hrdata,
+    input              inst_hready,
+    input              inst_hresp,
 
     output AHBLiteReq_t data_memory_req,
     input  AHBLiteRsp_t data_memory_rsp
 );
 
-    logic        out_IF_valid;
-    logic        out_IF_ready;
-    IF2ID_PIPE_t out_IF_data;
 
     logic        IF_ID_valid;
     logic        IF_ID_ready;
@@ -89,30 +93,22 @@ module cpu (
         .clk                      (clk),
         .rst_n                    (rst_n),
         .IF_flush                 (IF_flush),
-        .out_IF_valid             (out_IF_valid),
-        .out_IF_data              (out_IF_data),
-        .out_IF_ready             (out_IF_ready),
-        .strap_block_fetch_enable (strap_block_fetch_enable),
+        .out_IF_valid             (IF_ID_valid),
+        .out_IF_data              (IF_ID_data),
+        .out_IF_ready             (IF_ID_ready),
         .jump                     (jump),
         .jump_pc                  (jump_pc),
         .trap                     (1'b0),
         .trap_pc                  (64'b0),
-        .block_fetch              (block_fetch),
-        .memory_req               (inst_memory_req),
-        .hready                   (inst_memory_rsp.hready)
-    );
-
-    pipeline #(
-        .WIDTH($bits(IF2ID_PIPE_t))
-    ) u_IF_ID_pipeline (
-        .clk       (clk),
-        .rst_n     (rst_n),
-        .in_valid  (out_IF_valid),
-        .in_ready  (out_IF_ready),
-        .in_data   (out_IF_data),
-        .out_valid (IF_ID_valid),
-        .out_ready (IF_ID_ready),
-        .out_data  (IF_ID_data)
+        .haddr                    (inst_haddr),
+        .htrans                   (inst_htrans),
+        .hwrite                   (inst_hwrite),
+        .hsize                    (inst_hsize),
+        .hwdata                   (inst_hwdata),
+        .hlock                    (inst_hlock),
+        .hready                   (inst_hready),
+        .hrdata                   (inst_hrdata),
+        .hresp                    (inst_hresp)
     );
 
     ID u_ID (
@@ -125,7 +121,6 @@ module cpu (
         .out_ID_data  (out_ID_data),
         .out_ID_ready (out_ID_ready),
         .ID_flush     (ID_flush),
-        .memory_rsp   (inst_memory_rsp),
         .ex_rd_addr   (ex_rd_addr),
         .ex_rd_write  (ex_rd_write),
         .ex_rd_wdata  (ex_rd_wdata),

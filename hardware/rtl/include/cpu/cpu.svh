@@ -110,6 +110,8 @@ typedef struct packed {
 // IF/ID
 typedef struct packed {
     logic [`XLEN-1:0] pc;
+    logic [31:0]      instruction;
+    logic             inst_access_fault;
 } IF2ID_PIPE_t;
 
 // ID/EX
