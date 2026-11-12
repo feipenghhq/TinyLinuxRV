@@ -28,6 +28,7 @@ module ID (
     input [`XLEN-1:0]   mem_rd_wdata,
     // load dependency check
     input               ex_mem_read,
+    input               ex_lr,
     // Register write back
     input               wb_rd_write,
     input [4:0]         wb_rd_addr,
@@ -130,13 +131,20 @@ module ID (
                        rs2_rdata;
 
     // ---------------------------------
-    // Load dependency check
+    // dependency check
     // ---------------------------------
 
-    // When EX stage is a Load instruction and ID stage instruction depends on the result of the load:
+    // There are several dependency requires ID stage to be stalled
+
+    // FIXME: SC will also write to the register and SC is not completed at EX stage!!!
+
+    // Case 1: When EX stage is a Load instruction and ID stage instruction depends on the result of the load:
     // - We cannot forward a result from Load instruction from EX stage to ID stage as the read data is not ready yet in EX
     // - We need to Stall ID stage for 1 cycle to let the memory read instruction goto the MEM stage to get the data ready
-    assign load_dependency = ID_stage_valid & (rs1_match_ex | rs2_match_ex) & ex_mem_read;
+    // Case 2: When LR is followed by an SC. LR completes at MEM stage so SC need to wait till LR reach
+    assign load_dependency = ID_stage_valid &
+                            ((rs1_match_ex | rs2_match_ex) & ex_mem_read |  // case 1
+                             (cpu_ctrl.sc & ex_lr));                        // case 2
 
 
     // ---------------------------------

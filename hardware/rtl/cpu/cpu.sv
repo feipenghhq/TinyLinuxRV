@@ -22,8 +22,16 @@ module cpu (
     input              inst_hready,
     input              inst_hresp,
 
-    output AHBLiteReq_t data_memory_req,
-    input  AHBLiteRsp_t data_memory_rsp
+    output [`XLEN-1:0] data_haddr,
+    output [1:0]       data_htrans,
+    output             data_hwrite,
+    output [2:0]       data_hsize,
+    output [`XLEN-1:0] data_hwdata,
+    output             data_hsel,
+    output             data_hlock,
+    input  [`XLEN-1:0] data_hrdata,
+    input              data_hready,
+    input              data_hresp
 );
 
 
@@ -62,13 +70,32 @@ module cpu (
     logic             ex_rd_write;
     logic [`XLEN-1:0] ex_rd_wdata;
     logic             ex_mem_read;
-    logic             block_fetch;
+    logic             ex_lr;
 
     logic [4:0]       mem_rd_addr;
     logic             mem_rd_write;
     logic [`XLEN-1:0] mem_rd_wdata;
 
-    logic [`XLEN-1:0] MEM_hwdata;
+    logic             lsu_req_read;
+    logic             lsu_req_write;
+    logic             lsu_req_lr;
+    logic             lsu_req_sc;
+    logic             lsu_req_amo;
+    logic             lsu_req_ready;
+    logic [`XLEN-1:0] lsu_req_addr;
+    logic [`XLEN-1:0] lsu_req_wdata;
+    logic [2:0]       lsu_req_mem_opcode;
+    logic [4:0]       lsu_req_amo_opcode;
+    logic             lsu_req_is32bit;
+
+    logic             lsu_rsp_valid;
+    logic [`XLEN-1:0] lsu_rsp_data;
+    logic             load_access_fault;
+    logic             store_amo_access_fault;
+    logic             sc_check_pass;
+    logic             load_addr_misaligned;
+    logic             store_amo_addr_misaligned;
+    logic [`XLEN-1:0] amo_rdata;
 
     logic             wb_rd_write;
     logic [4:0]       wb_rd_addr;
@@ -128,6 +155,7 @@ module cpu (
         .mem_rd_write (mem_rd_write),
         .mem_rd_wdata (mem_rd_wdata),
         .ex_mem_read  (ex_mem_read),
+        .ex_lr        (ex_lr),
         .wb_rd_write  (wb_rd_write),
         .wb_rd_addr   (wb_rd_addr),
         .wb_rd_wdata  (wb_rd_wdata)
@@ -157,16 +185,28 @@ module cpu (
         .out_EX_data  (out_EX_data),
         .out_EX_ready (out_EX_ready),
         .EX_flush     (1'b0),
-        .memory_req   (data_memory_req),
-        .memory_rsp   (data_memory_rsp),
-        .MEM_hwdata   (MEM_hwdata),
+        .lsu_req_read (lsu_req_read),
+        .lsu_req_write(lsu_req_write),
+        .lsu_req_lr   (lsu_req_lr),
+        .lsu_req_sc   (lsu_req_sc),
+        .lsu_req_amo  (lsu_req_amo),
+        .lsu_req_ready(lsu_req_ready),
+        .lsu_req_addr (lsu_req_addr),
+        .lsu_req_wdata(lsu_req_wdata),
+        .lsu_req_mem_opcode(lsu_req_mem_opcode),
+        .lsu_req_amo_opcode(lsu_req_amo_opcode),
+        .lsu_req_is32bit(lsu_req_is32bit),
+        .sc_check_pass(sc_check_pass),
+        .load_addr_misaligned(load_addr_misaligned),
+        .store_amo_addr_misaligned(store_amo_addr_misaligned),
+        .amo_rdata    (amo_rdata),
         .jump_pc      (jump_pc),
         .jump         (jump),
         .ex_rd_addr   (ex_rd_addr),
         .ex_rd_write  (ex_rd_write),
         .ex_rd_wdata  (ex_rd_wdata),
         .ex_mem_read  (ex_mem_read),
-        .block_fetch  (block_fetch)
+        .ex_lr        (ex_lr)
     );
 
     pipeline #(
@@ -182,6 +222,42 @@ module cpu (
         .out_data  (EX_MEM_data)
     );
 
+    assign data_hsel = 1'b1;
+
+    // LSU spans the EX request and MEM response stages.
+    lsu u_lsu (
+        .clk                       (clk),
+        .rst_n                     (rst_n),
+        .lsu_req_read              (lsu_req_read),
+        .lsu_req_write             (lsu_req_write),
+        .lsu_req_lr                (lsu_req_lr),
+        .lsu_req_sc                (lsu_req_sc),
+        .lsu_req_amo               (lsu_req_amo),
+        .lsu_req_addr              (lsu_req_addr),
+        .lsu_req_wdata             (lsu_req_wdata),
+        .lsu_req_mem_opcode        (lsu_req_mem_opcode),
+        .lsu_req_amo_opcode        (lsu_req_amo_opcode),
+        .lsu_req_is32bit           (lsu_req_is32bit),
+        .lsu_req_ready             (lsu_req_ready),
+        .lsu_rsp_valid             (lsu_rsp_valid),
+        .lsu_rsp_data              (lsu_rsp_data),
+        .load_access_fault         (load_access_fault),
+        .store_amo_access_fault    (store_amo_access_fault),
+        .sc_check_pass             (sc_check_pass),
+        .load_addr_misaligned      (load_addr_misaligned),
+        .store_amo_addr_misaligned (store_amo_addr_misaligned),
+        .amo_rdata                 (amo_rdata),
+        .haddr                     (data_haddr),
+        .htrans                    (data_htrans),
+        .hwrite                    (data_hwrite),
+        .hsize                     (data_hsize),
+        .hwdata                    (data_hwdata),
+        .hlock                     (data_hlock),
+        .hready                    (data_hready),
+        .hrdata                    (data_hrdata),
+        .hresp                     (data_hresp)
+    );
+
     MEM u_MEM(
         .in_EX_valid   (EX_MEM_valid),
         .in_EX_data    (EX_MEM_data),
@@ -190,8 +266,10 @@ module cpu (
         .out_MEM_data  (out_MEM_data),
         .out_MEM_ready (out_MEM_ready),
         .MEM_flush     (1'b0),
-        .memory_rsp    (data_memory_rsp),
-        .MEM_hwdata    (MEM_hwdata),
+        .lsu_rsp_valid (lsu_rsp_valid),
+        .lsu_rsp_data  (lsu_rsp_data),
+        .load_access_fault(load_access_fault),
+        .store_amo_access_fault(store_amo_access_fault),
         .mem_rd_addr   (mem_rd_addr),
         .mem_rd_write  (mem_rd_write),
         .mem_rd_wdata  (mem_rd_wdata)

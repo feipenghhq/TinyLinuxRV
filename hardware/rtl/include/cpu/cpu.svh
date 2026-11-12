@@ -134,13 +134,10 @@ typedef struct packed {
     logic [`XLEN-1:0] pc;
     logic [31:0]      instruction;
     logic             mem_read;
-    logic             mem_write;
-    logic [2:0]       mem_opcode;
-    logic [2:0]       haddr;
-    logic [`XLEN-1:0] rs2_value; // for write data
+    logic             mem_access;
     logic             rd_write;
     logic [4:0]       rd_addr;
-    logic [`XLEN-1:0] alu_out; // for write data
+    logic [`XLEN-1:0] rd_wdata;
     // exception
     logic       exception_valid;
     logic [4:0] exception_cause;

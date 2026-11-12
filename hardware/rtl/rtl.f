@@ -10,6 +10,7 @@
 ./cpu/bu.sv
 ./cpu/alu.sv
 ./cpu/amo_alu.sv
+./cpu/lsu.sv
 ./cpu/ifq.sv
 ./cpu/IF.sv
 ./cpu/ID.sv

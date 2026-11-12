@@ -152,9 +152,8 @@ A simple state machine is used to handle this. It has 2 states: `RUN` and `STALL
 EX stage is contains the following components:
 - ALU (Arithmetic and Logic Unit)
 - Multiplier/Divider
-- AGU (Address generation Unit)
 - BU (Branch Unit)
-- Memory Control
+- LSU (Load Store Unit)
 
 #### ALU
 
@@ -165,42 +164,70 @@ Operand 2 can be one of the following: `RS2`, `immediate value`
 
 #### Multiplier/Divider
 
-Responsible for RV64M extension.
-
-#### AGU
-
-AGU is responsible for generating the address for memory access as well as jump and branch instruction.
-The load/store and JALR share almost the same logic for generate target address (with slight different)
-The JAL use a slightly different logic. But essentially they are both a XLEN-bit adder.
-
-We could use ALU to calculate the address but to achieve better timing, we choose to introduce a dedicated AGU to generate the address.
+Performing multiple and divide operation defined by RV64M.
 
 #### BU
 
 Branch Unit is responsible for checking the condition for branch instruction.
 
-#### Memory Control
+#### Load Store Unit
 
-The memory control is responsible for generating control signal for access data memory.
-
-TODO: The AMO instruction need to read and write memory in one instruction. Will probably need a small state machine to achieve this.
+To simplify the control logic for memory related instruction. A separate LSU is developed to handle all the instructions involving memory access. The LSU operates across EX and MEM stage. Check the `LSU` for more details
 
 #### Pipeline Stall
 
-- For divide instruction, it can't be finished within one cycle so EX will need to be stalled.
-- For a load/store instruction, if the memory does not accept the request in this cycle, EX stage will stall the pipeline till the memory is ready to accept the request.
-- Similar to IF stage, a stall requested flag will be implemented to help flush logic.
-- If this is requested, it will assert `EX_ready` to be 0 and set `MEM_valid` to 0
+Store Condition
 
-TODO: Confirm ABH wait state
+- For multiple and divide instruction, it can't be finished within one cycle and EX is stalled till the instruction completes
+- For a load/store instruction, if the AHB bus does not accept the request in this cycle, EX is stalled till the request is accepted.
 
-#### Pipeline Flush
+### Submodule: LSU
 
-Flushing EX stage should in general invalidate the instruction in this stage.
+LSU is responsible for all the memory access instruction including load, store, lr, sc, and AMO.
 
-Unlike IF stage, flushing EX stage must be requested before the memory request becomes irrevocable. This is usually the very first cycle of the EX stage.
-This is because once we send the request to memory, we can NOT revoke this request. This requirement is in general met. This will be covered by
-exception/interrupt session. (To make sure this work, the pending exception should flush all the younger pipeline stage. Interrupt is a bit tricky because  it need to know the next PC)
+The LSU operates across two stages, EX and MEM. Since the AHB bus is pipelined, it is naturally aligned with EX/MEM
+stage if there is no WAIT state and ERROR on response.
+- EX/Addr Phase: The AHB address phase will be complete at EX stage. If there are WAIT state, the EX stage will be stalled.
+- MEM/Data Phase: The AHB data phase will be completed at MEM stage. If there are WAIT state, the MEM stage will be stalled.
+
+AMO is special because it involves both memory read and memory write which is not aligned with pipelining.
+Assuming these instruction is not happening very often, for simplicity, we process AMO purely at EX stage.
+
+Exception handling:
+
+- When exception happens at request stage (EX, address is misaligned), the LSU will not access memory and EX stage should treat
+the instruction as NOP and carry the exception information to next stage.
+- When exception happens at response stage (MEM, access fault), the MEM stage should discard the result and carry the exception information.
+- When exception happens for AMO instruction, LSU will abort the instruction aand EX stage should treat the instruction as NOP and carry the exception information to next stage.
+
+#### LSU state machine
+
+![LSU_state](assets/cpu/LSU_state.drawio.svg)
+
+#### Non AMO
+
+For Non AMO instruction, the AHB control logic has two states:
+
+| State            | Description                                              |
+| ---------------- | -------------------------------------------------------- |
+| `IDLE`           | IDLE state, Waiting for new request                      |
+| `AHB_DATA`       | ADDR phase completed, waiting for DATA phase to complete |
+| `AMO_READ_DATA`  | AMO read request is held until  `HREADY=1`               |
+| `AMO_WRITE_ADDR` | AMO write request is held until  `HREADY=1`              |
+| `AMO_WRITE_DATA` | AMO write data is held until  `HREADY=1`                 |
+
+State transitions:
+
+| Current State    | Next State       | Condition                                |
+| ---------------- | ---------------- | ---------------------------------------- |
+| `IDLE`           | `AHB_DATA`       | `lsu_req_* (non-AMO) = 1` AND `hready=1` |
+| `IDLE`           | `AMO_READ_DATA`  | `lsu_req_amo = 1` AND `hready=1`         |
+| `AHB_DATA`       | `IDLE`           | `hready=1` AND `lsu_req_* = 0`           |
+| `AHB_DATA`       | `AMO_READ_DATA`  | `lsu_req_amo = 1` AND `hready=1`         |
+| `AMO_READ_DATA`  | `AMO_WRITE_ADDR` | `hready=1`                               |
+| `AMO_WRITE_ADDR` | `AMO_WRITE_DATA` | `hready=1`                               |
+| `AMO_WRITE_DATA` | `IDLE`           | `hready=1`                               |
+
 
 ----------------------------------------
 

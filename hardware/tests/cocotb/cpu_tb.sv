@@ -13,9 +13,6 @@ module cpu_tb ();
 
     logic strap_block_fetch_enable;
 
-    AHBLiteReq_t data_memory_req;
-    AHBLiteRsp_t data_memory_rsp;
-
     logic [`XLEN-1:0] inst_haddr;
     logic [1:0]       inst_htrans;
     logic             inst_hwrite;
@@ -32,6 +29,7 @@ module cpu_tb ();
     logic [2:0]       data_hsize;
     logic [`XLEN-1:0] data_hwdata;
     logic             data_hsel;
+    logic             data_hlock;
     logic [`XLEN-1:0] data_hrdata;
     logic             data_hready;
     logic             data_hresp;
@@ -39,20 +37,6 @@ module cpu_tb ();
     logic             test_finish;
     logic [`XLEN-1:0] test_result;
     logic [`XLEN-1:0] fail_test;
-
-    // ----------------------------------------------------
-    // expends the AHBLite bus so cocotb can access them
-    // ----------------------------------------------------
-
-    assign data_haddr   = data_memory_req.haddr ;
-    assign data_htrans  = data_memory_req.htrans;
-    assign data_hwrite  = data_memory_req.hwrite;
-    assign data_hsize   = data_memory_req.hsize ;
-    assign data_hwdata  = data_memory_req.hwdata;
-    assign data_hsel    = data_memory_req.hsel  ;
-    assign data_memory_rsp.hrdata = data_hrdata;
-    assign data_memory_rsp.hready = data_hready;
-    assign data_memory_rsp.hresp  = data_hresp ;
 
     // ----------------------------------------------------
     // Check test end
