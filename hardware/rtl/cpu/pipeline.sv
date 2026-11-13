@@ -20,7 +20,7 @@ module pipeline #(
     output logic [WIDTH-1:0] out_data
 );
 
-    assign in_ready = !out_valid | out_ready;
+    assign in_ready = out_ready;
 
     always_ff @(posedge clk, negedge rst_n) begin
         if (!rst_n) begin

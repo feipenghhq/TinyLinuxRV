@@ -171,7 +171,7 @@ module EX (
 
     assign in_ID_ready = out_EX_ready & ~EX_stall;
 
-    assign out_EX_valid = in_ID_valid & ~EX_flush;
+    assign out_EX_valid = in_ID_valid & ~EX_flush & ~EX_stall;
 
     assign out_EX_data.pc          = in_ID_data.pc;
     assign out_EX_data.mem_access  = lsu_req_read | lsu_req_write | lsu_req_lr | lsu_req_sc;

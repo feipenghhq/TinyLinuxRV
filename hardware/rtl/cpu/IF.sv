@@ -32,26 +32,46 @@ module IF (
 
     logic [`XLEN-1:0] pc;
     logic run;
-    logic ifq_rea_valid;
+    logic ifq_req_valid;
     logic ifq_req_ready;
+
+    logic [`XLEN-1:0] pc_in_data;
+    logic pc_in_valid;
+    logic pc_out_ready;
 
     // ---------------------------------
     // PC update
     // ---------------------------------
 
+    skid_buffer #(.WIDTH(`XLEN))
+    u_pc_skid_buffer(
+        .clk       (clk),
+        .rst_n     (rst_n),
+        .in_valid  (pc_in_valid),
+        .in_data   (pc_in_data),
+        .in_ready  (),
+        .out_valid (),
+        .out_data  (pc),
+        .out_ready (pc_out_ready)
+    );
+
     always_ff @(posedge clk, negedge rst_n) begin
         if (!rst_n) begin
-            pc <= `PC_RESET_VEC;
+            pc_in_data <= `PC_RESET_VEC;
         end
         else begin
             // flush should unblock PC update from stall request
             if (run && (ifq_req_ready || IF_flush)) begin
-                if (trap) pc <= trap_pc;
-                else if (jump) pc <= jump_pc;
-                else pc <= pc + 4;
+                if (trap)      pc_in_data <= trap_pc;
+                else if (jump) pc_in_data <= jump_pc;
+                else           pc_in_data <= pc_in_data + 4;
             end
         end
     end
+
+    assign pc_in_valid = run;
+
+    assign pc_out_ready = ifq_req_ready;
 
     // ---------------------------------
     // IFQ control logic
@@ -66,7 +86,7 @@ module IF (
         end
     end
 
-    assign ifq_rea_valid = run & ~IF_flush;
+    assign ifq_req_valid = run & ~IF_flush;
 
     // ---------------------------------
     // IFQ
@@ -76,7 +96,7 @@ module IF (
     .clk        (clk),
     .rst_n      (rst_n),
     .flush      (IF_flush),
-    .req_valid  (ifq_rea_valid),
+    .req_valid  (ifq_req_valid),
     .req_ready  (ifq_req_ready),
     .req_pc     (pc),
     .rsp_valid  (out_IF_valid),

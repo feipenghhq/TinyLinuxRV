@@ -8,6 +8,7 @@ SPDX-License-Identifier: MIT
 from cocotb.triggers import ReadOnly, ReadWrite, RisingEdge
 from cocotb_bus.bus import Bus
 
+import random
 
 class AHBLiteBus(Bus):
 
@@ -38,7 +39,7 @@ class AHBLiteBus(Bus):
 
 class AHBLiteDevice(AHBLiteBus):
 
-    def __init__(self, dut, nbytes, base_addr, name, signals=AHBLiteBus._SIGNALS, clock = None, bus_separator='_'):
+    def __init__(self, dut, nbytes, base_addr, name, signals=AHBLiteBus._SIGNALS, clock = None, random_wait=0, bus_separator='_'):
         """
         Args:
             dut (_type_): Cocotb DUT
@@ -52,6 +53,8 @@ class AHBLiteDevice(AHBLiteBus):
         super().__init__(dut, nbytes, name, signals, bus_separator=bus_separator)
         self.clock = clock if clock else dut.clk
         self.base_addr = base_addr
+        self.random_wait = random_wait
+        self.wait_time = random_wait
 
         # AHB
         self.req       = False
@@ -68,9 +71,20 @@ class AHBLiteDevice(AHBLiteBus):
         while True:
             await clkedge
             await ReadWrite()
-            # Always assert hready for now
-            self.hready.value = 1
+
+            # insert wait state
+            if self.wait_time > 0:
+                self.hready.value = 0
+                self.wait_time -= 1
+            else:
+                self.hready.value = 1
+
+                if self.wait_time == 0:
+                    #self.wait_time = random.randint(0, self.random_wait)
+                    self.wait_time = self.random_wait
+
             # Processing Data Phase
+            await ReadWrite()
             if self.req and self.hready.value:
                 if self.req_write == 1: # write request
                     self.hresp.value = self._write(self.req_addr, self.hwdata.value.to_unsigned(), self.req_size);

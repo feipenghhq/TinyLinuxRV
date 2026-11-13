@@ -35,7 +35,6 @@ module ifq #(
 
     state_t ifq_state;
 
-
     logic pc_push_valid;
     logic pc_push_ready;
     logic pc_pop_ready;
@@ -45,6 +44,7 @@ module ifq #(
     logic inst_pop_ready;
 
     logic pending_resp;
+    logic pending_flush;
     logic [`XLEN-1:0] pending_pc;
 
     // ------------------------------------------
@@ -56,6 +56,7 @@ module ifq #(
         if (!rst_n) begin
             ifq_state <= INIT;
             pending_resp <= 1'b0;
+            pending_flush <= 1'b0;
             pending_pc <= 'b0;
         end
         else begin
@@ -64,8 +65,12 @@ module ifq #(
                 WAIT: if (hready) ifq_state <= INIT;
             endcase
 
-            if (flush) pending_resp <= 1'b0;
-            if (req_valid && req_ready && hready) pending_resp <= 1'b1;
+            if (flush && ifq_state == WAIT) pending_flush <= 1'b1; // store the flush request when in wait state
+            else if (pending_flush && ifq_state == WAIT && hready) pending_flush <= 1'b0; // clear it when exit wait state
+
+            if (flush) pending_resp <= 1'b0;    // flush clear pending response
+            if (req_valid && req_ready && hready) pending_resp <= 1'b1; // new request is accepted
+            else if (ifq_state == WAIT && hready && !pending_flush) pending_resp <= 1'b1; // In wait state and request accepted
             else if (pending_resp & hready) pending_resp <= 1'b0;
 
             if (req_valid && req_ready && !hready) pending_pc <= req_pc;

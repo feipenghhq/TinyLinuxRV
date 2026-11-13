@@ -23,9 +23,9 @@ class CPU:
     _CLK_PERIOD = 10
     _RST_TIME   = 20
 
-    def __init__(self, dut, ram_size=128):
-        self.inst_ram  = AHBLiteRAM(dut, 4, 0x80000000, ram_size, 'inst')
-        self.data_ram  = AHBLiteRAM(dut, 8, 0x80000000, ram_size, 'data', from_ram=self.inst_ram)
+    def __init__(self, dut, ram_size=128, inst_random_wait=2, data_random_wait=2):
+        self.inst_ram  = AHBLiteRAM(dut, 4, 0x80000000, ram_size, 'inst', random_wait=inst_random_wait)
+        self.data_ram  = AHBLiteRAM(dut, 8, 0x80000000, ram_size, 'data', from_ram=self.inst_ram, random_wait=data_random_wait)
         self.dut = dut
         self.finish = False
         self._init_cpu()

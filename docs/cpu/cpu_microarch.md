@@ -18,6 +18,7 @@ IF stage is responsible for fetching the instruction. It contains the following 
 
 - PC stands for program counter, it's the address for the next instruction to be executed.
 - In usual case, PC advance to next instruction which is `PC + 4`. However, a jump, taken branch, or exception/interrupt might alter PC to another target address.
+- When IFQ is in wait state, PC can't accept new PC because the address need to be hold stable. A PC skid buffer is used to temporarily store the value in this case
 
 #### IFQ (Instruction Fetch Queue)
 
@@ -61,6 +62,9 @@ State transitions:
 #### Flush Logic
 
 IFQ will be flushed when IF stage is flushed. It will clear the internal FIFO and invalidate the pending AHB request that is not completed yet.
+
+- When IFQ is in `INIT` state, flush will just cancel the request.
+- When IFQ is in `WAIT` state, a flush indicator will tell the control logic to ignore the pending AHB response while the AHB request is still completed which is required by the AHB protocol.
 
 ----------------------------------------
 
