@@ -54,7 +54,7 @@ class AHBLiteDevice(AHBLiteBus):
         self.clock = clock if clock else dut.clk
         self.base_addr = base_addr
         self.random_wait = random_wait
-        self.wait_time = random_wait
+        self.wait_time = random.randint(0, self.random_wait)
 
         # AHB
         self.req       = False
@@ -78,10 +78,7 @@ class AHBLiteDevice(AHBLiteBus):
                 self.wait_time -= 1
             else:
                 self.hready.value = 1
-
-                if self.wait_time == 0:
-                    #self.wait_time = random.randint(0, self.random_wait)
-                    self.wait_time = self.random_wait
+                self.wait_time = random.randint(0, self.random_wait)
 
             # Processing Data Phase
             await ReadWrite()
@@ -92,8 +89,9 @@ class AHBLiteDevice(AHBLiteBus):
                     self.hrdata.value, self.hresp.value = self._read(self.req_addr, self.req_size);
                 # clear previously logged addr phase
                 self.req = False
-            await ReadOnly()
+
             # Processing Address Phase
+            await ReadOnly()
             if self.htrans.value == 2 and (self.hsel is None or self.hsel.value == 1) and self.hready.value == 1:
                 self.req       = True
                 self.req_addr  = self.haddr.value.to_unsigned()

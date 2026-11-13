@@ -65,11 +65,11 @@ module ifq #(
                 WAIT: if (hready) ifq_state <= INIT;
             endcase
 
-            if (flush && ifq_state == WAIT) pending_flush <= 1'b1; // store the flush request when in wait state
-            else if (pending_flush && ifq_state == WAIT && hready) pending_flush <= 1'b0; // clear it when exit wait state
+            if (pending_flush && hready) pending_flush <= 1'b0; // clear pending flush when the next response comes
+            else if (flush && ifq_state == WAIT && !hready) pending_flush <= 1'b1; // store the flush request when in wait state and is still waiting
 
             if (flush) pending_resp <= 1'b0;    // flush clear pending response
-            if (req_valid && req_ready && hready) pending_resp <= 1'b1; // new request is accepted
+            else if (req_valid && req_ready && hready) pending_resp <= 1'b1; // new request is accepted
             else if (ifq_state == WAIT && hready && !pending_flush) pending_resp <= 1'b1; // In wait state and request accepted
             else if (pending_resp & hready) pending_resp <= 1'b0;
 

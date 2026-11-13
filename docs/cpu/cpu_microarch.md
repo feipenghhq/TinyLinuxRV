@@ -18,7 +18,10 @@ IF stage is responsible for fetching the instruction. It contains the following 
 
 - PC stands for program counter, it's the address for the next instruction to be executed.
 - In usual case, PC advance to next instruction which is `PC + 4`. However, a jump, taken branch, or exception/interrupt might alter PC to another target address.
+
+Corner cases:
 - When IFQ is in wait state, PC can't accept new PC because the address need to be hold stable. A PC skid buffer is used to temporarily store the value in this case
+- When IF is stalled by ID stage while a flush is requested, IF should not take this flush. This is because in this case, the stall request is from a later stage (e.g. MEM) and the flush request is from a stage before the stall request (e.g. EX). For example, EX is a `jal` instruction while MEM is a `ld` waiting for response. IF should hold till the stall is cleared before taking the `jal`
 
 #### IFQ (Instruction Fetch Queue)
 
