@@ -57,6 +57,10 @@ module MEM (
     assign out_MEM_data.rd_addr = in_EX_data.rd_addr;
     assign out_MEM_data.rd_wdata = rd_wdata;
 
+    assign out_MEM_data.csr_read    = in_EX_data.csr_read;
+    assign out_MEM_data.csr_write   = in_EX_data.csr_write;
+    assign out_MEM_data.csr_write_opcode = in_EX_data.csr_write_opcode;
+    assign out_MEM_data.csr_address = in_EX_data.csr_address;
     // exception
     assign out_MEM_data.exception_valid = in_EX_data.exception_valid |
                                             load_access_fault | store_amo_access_fault;

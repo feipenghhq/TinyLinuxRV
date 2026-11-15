@@ -62,6 +62,8 @@ module decoder (
     assign inst31_26_eq_0    = inst31_26 == 0;
     assign inst31_26_eq_0x10 = inst31_26 == 'h10;
 
+    assign cpu_ctrl.csr_address = instruction[`DEC_CSR_ADDR_FIELD];
+
     // Decode logic
     always_comb begin
 
@@ -74,6 +76,9 @@ module decoder (
         cpu_ctrl.is_32bit = opcode[3];  // For R/I type instruction, opcode[3] indicate it's 32 bit operation
 
         cpu_ctrl.mem_opcode = func3[2:0];
+
+        cpu_ctrl.csr_read = 1'b0;
+        cpu_ctrl.csr_write = 1'b0;
 
         illegal_instruction = 1'b0;
 
@@ -197,7 +202,28 @@ module decoder (
                 // FIXME: illegal_instruction not covering all the other field
             end
 
-            // TBD: system
+            // SYSTEM
+            OPCODE_SYSTEM: begin
+
+                // CSR
+                if (func3 != 3'b000) begin
+
+                    // For CSRRW/CSRRWI, if rd=x0, then the instruction should not read the CSR
+                    cpu_ctrl.csr_read = (func3[1:0] != CSR_RW) | (rd_addr != 0);
+
+                    // For CSRRS/CSRRC, if rs1=x0, then the instruction will not write to the CSR and
+                    // shall not cause any of the side effects that might otherwise occur on a CSR write
+                    cpu_ctrl.csr_write = (func3[1:0] == CSR_RW) | ((func3[1:0] != CSR_NOP) & (rs1_addr != 0));
+                    cpu_ctrl.csr_write_opcode = func3[1:0];
+
+                    rd_write = cpu_ctrl.csr_read;
+                    rs1_read = ~func3[2];
+                    cpu_ctrl.alu_op2_sel_imm = func3[2];
+                end
+                else begin
+                    illegal_instruction = 1'b1;
+                end
+            end
 
             default: begin
                 illegal_instruction = 1'b1;

@@ -6,6 +6,19 @@
 `ifndef RISCV_H
 `define RISCV_H
 
+// ---------------------------------
+// ARCH
+// ---------------------------------
+
+// RISC-V 64 bit
+`define XLEN            64
+
+// Register Number
+`define REG_NUM         32
+
+// PC reset number
+`define PC_RESET_VEC    64'h80000000
+
 // ----------------------------------------------
 // Instructions
 // ----------------------------------------------
@@ -44,15 +57,6 @@ typedef enum bit[6:0] {
     OPCODE_AMO       = 7'b0101111,
     OPCODE_SYSTEM    = 7'b1110011
 } OPCODE_t;
-
-// CSR opcode
-// Same as Func3 encoding
-`define CORE_CSR_ADDR_RANGE   11:0
-`define CORE_CSR_OP_RANGE     1:0
-`define CORE_CSR_NOP          2'b00
-`define CORE_CSR_RW           2'b01
-`define CORE_CSR_RS           2'b10
-`define CORE_CSR_RC           2'b11
 
 // ----------------------------------------------
 // Exception

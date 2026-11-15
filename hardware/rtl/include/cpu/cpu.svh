@@ -9,20 +9,6 @@
 `include "riscv.svh"
 
 // ---------------------------------
-// ARCH
-// ---------------------------------
-
-// RISC-V 64 bit
-`define XLEN            64
-
-// Register Number
-`define REG_NUM         32
-
-// PC reset number
-`define PC_RESET_VEC    64'h80000000
-
-
-// ---------------------------------
 // AHB-Lite Bus
 // ---------------------------------
 
@@ -78,6 +64,16 @@ typedef enum logic[1:0] {
 // Same as Func3 encoding
 `define BRANCH_OP_RANGE    2:0
 
+// CSR opcode
+// Same as Func3 encoding
+typedef enum logic[1:0] {
+    CSR_NOP = 2'b00,
+    CSR_RW  = 2'b01,
+    CSR_RS  = 2'b10,
+    CSR_RC  = 2'b11
+} CSR_OP_t;
+
+
 // Shared CPU control.
 // For all instruction except for AMO
 // - opcode[2:0] = func3;
@@ -101,6 +97,10 @@ typedef struct packed {
     logic [2:0] mem_opcode;
     logic       mem_read;
     logic       mem_write;
+    logic       csr_read;
+    logic       csr_write;
+    logic [1:0] csr_write_opcode;
+    logic [11:0] csr_address;
 } CPU_CTRL_t;
 
 // ---------------------------------
@@ -138,6 +138,10 @@ typedef struct packed {
     logic             rd_write;
     logic [4:0]       rd_addr;
     logic [`XLEN-1:0] rd_wdata;
+    logic             csr_read;
+    logic             csr_write;
+    logic [1:0]       csr_write_opcode;
+    logic [11:0]      csr_address;
     // exception
     logic       exception_valid;
     logic [4:0] exception_cause;
@@ -150,6 +154,10 @@ typedef struct packed {
     logic             rd_write;
     logic [4:0]       rd_addr;
     logic [`XLEN-1:0] rd_wdata;
+    logic             csr_read;
+    logic             csr_write;
+    logic [1:0]       csr_write_opcode;
+    logic [11:0]      csr_address;
     // exception
     logic       exception_valid;
     logic [4:0] exception_cause;

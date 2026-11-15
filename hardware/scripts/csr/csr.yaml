@@ -1,0 +1,144 @@
+mstatus:
+  width: 64
+  fields:
+    sie:  {bit: 1, access: rw}
+    mie:  {bit: 3, access: rw}
+    spie: {bit: 5, access: rw}
+    mpie: {bit: 7, access: rw}
+    spp:  {bit: 8, access: rw}
+    mpp:  {bits: [12, 11], access: warl}
+    mprv: {bit: 17, access: rw}
+    sum:  {bit: 18, access: rw}
+    mxr:  {bit: 19, access: rw}
+    tvm:  {bit: 20, access: rw}
+    tw:   {bit: 21, access: rw}
+    tsr:  {bit: 22, access: rw}
+    uxl:  {bits: [33, 32], access: ro, fixed: 2}
+    sxl:  {bits: [35, 34], access: ro, fixed: 2}
+
+misa:
+  width: 64
+  fields:
+    A:   {bit: 0,  access: ro, fixed: 1}
+    I:   {bit: 8,  access: ro, fixed: 1}
+    M:   {bit: 12, access: ro, fixed: 1}
+    S:   {bit: 18, access: ro, fixed: 1}
+    U:   {bit: 20, access: ro, fixed: 1}
+    MXL: {bits: [63, 62], access: ro, fixed: 2}
+
+medeleg:
+  width: 64
+  fields:
+    instruction_address_misaligned: {bit: 0, access: rw}
+    instruction_access_fault:       {bit: 1, access: rw}
+    illegal_instruction:            {bit: 2, access: rw}
+    breakpoint:                     {bit: 3, access: rw}
+    load_address_misaligned:        {bit: 4, access: rw}
+    load_access_fault:              {bit: 5, access: rw}
+    store_amo_address_misaligned:   {bit: 6, access: rw}
+    store_amo_access_fault:         {bit: 7, access: rw}
+    ecall_u:                        {bit: 8, access: rw}
+    ecall_s:                        {bit: 9, access: rw}
+    instruction_page_fault:         {bit: 12, access: rw}
+    load_page_fault:                {bit: 13, access: rw}
+    store_amo_page_fault:           {bit: 15, access: rw}
+
+mideleg:
+  width: 64
+  fields:
+    ssip: {bit: 1,   access: rw}
+    msip: {bit: 3,   access: rw}
+    stip: {bit: 5,   access: rw}
+    mtip: {bit: 7,   access: rw}
+    seip: {bit: 9,   access: rw}
+    meip: {bit: 11,  access: rw}
+
+mie:
+  width: 64
+  fields:
+    ssip: {bit: 1,   access: rw}
+    msip: {bit: 3,   access: rw}
+    stip: {bit: 5,   access: rw}
+    mtip: {bit: 7,   access: rw}
+    seip: {bit: 9,   access: rw}
+    meip: {bit: 11,  access: rw}
+
+mtvec:
+  width: 64
+  fields:
+    mode: {bits: [1, 0], access: warl}
+    base: {bits: [63,2], access: rw}
+
+mcounteren:
+  width: 32
+  fields:
+    cy:  {bit: 0, access: rw}
+    tm:  {bit: 1, access: rw}
+    ir:  {bit: 2, access: rw}
+
+mscratch:
+  width: 64
+  fields:
+    mscratch: {bits: [63, 0], access: rw}
+
+mepc:
+  width: 64
+  fields:
+    mepc: {bits: [63, 0], access: rw}
+
+mcause:
+  width: 64
+  fields:
+    exception_code: {bits: [62, 0], access: ro}
+    is_interrupt: {bit: 63, access: ro}
+
+mtval:
+  width: 64
+  fields:
+    mtval: {bits: [63, 0], access: rw}
+
+mip:
+  width: 64
+  fields:
+    ssip: {bit: 1,   access: rw}
+    msip: {bit: 3,   access: rw}
+    stip: {bit: 5,   access: rw}
+    mtip: {bit: 7,   access: rw}
+    seip: {bit: 9,   access: rw}
+    meip: {bit: 11,  access: rw}
+
+mcountinhibit:
+  width: 32
+  fields:
+    cy:  {bit: 0, access: rw}
+    ir:  {bit: 2, access: rw}
+
+mcycle:
+  width: 64
+  fields:
+    mcycle: {bits: [63, 0], access: rw}
+
+minstret:
+  width: 64
+  fields:
+    minstret: {bits: [63, 0], access: rw}
+
+mvendorid:
+  width: 64
+  fields:
+    mvendorid: {bits: [63, 0], access: ro, fixed: 0}
+
+marchid:
+  width: 64
+  fields:
+    marchid: {bits: [63, 0], access: ro, fixed: 0}
+
+mimpid:
+  width: 64
+  fields:
+    mimpid: {bits: [63, 0], access: ro, fixed: 0}
+
+mhartid:
+  width: 64
+  fields:
+    mhartid: {bits: [63, 0], access: ro, fixed: 0}

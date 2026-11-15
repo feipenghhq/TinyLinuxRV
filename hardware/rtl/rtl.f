@@ -18,3 +18,4 @@
 ./cpu/MEM.sv
 ./cpu/WB.sv
 ./cpu/cpu.sv
+./cpu/csr.sv

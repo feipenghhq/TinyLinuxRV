@@ -178,6 +178,10 @@ module EX (
     assign out_EX_data.mem_read    = lsu_req_read | lsu_req_lr;
     assign out_EX_data.rd_write    = in_ID_data.rd_write;
     assign out_EX_data.rd_addr     = in_ID_data.rd_addr;
+    assign out_EX_data.csr_read    = in_ID_data.cpu_ctrl.csr_read;
+    assign out_EX_data.csr_write   = in_ID_data.cpu_ctrl.csr_write;
+    assign out_EX_data.csr_write_opcode = in_ID_data.cpu_ctrl.csr_write_opcode;
+    assign out_EX_data.csr_address = in_ID_data.cpu_ctrl.csr_address;
     // for jal/jalr, store pc + 4 to rd
     assign out_EX_data.rd_wdata    = jump ? in_ID_data.pc + 4 : ex_rd_wdata;
 
