@@ -1,5 +1,11 @@
+# ---------------------------------------------------------
+# Machine Trap Setup
+# ---------------------------------------------------------
+
+# 0x300
 mstatus:
   width: 64
+  access: rw
   fields:
     sie:  {bit: 1, access: rw}
     mie:  {bit: 3, access: rw}
@@ -16,8 +22,10 @@ mstatus:
     uxl:  {bits: [33, 32], access: ro, fixed: 2}
     sxl:  {bits: [35, 34], access: ro, fixed: 2}
 
+# 0x301
 misa:
   width: 64
+  access: ro # make this RO
   fields:
     A:   {bit: 0,  access: ro, fixed: 1}
     I:   {bit: 8,  access: ro, fixed: 1}
@@ -26,8 +34,10 @@ misa:
     U:   {bit: 20, access: ro, fixed: 1}
     MXL: {bits: [63, 62], access: ro, fixed: 2}
 
+# 0x302
 medeleg:
   width: 64
+  access: rw
   fields:
     instruction_address_misaligned: {bit: 0, access: rw}
     instruction_access_fault:       {bit: 1, access: rw}
@@ -43,8 +53,10 @@ medeleg:
     load_page_fault:                {bit: 13, access: rw}
     store_amo_page_fault:           {bit: 15, access: rw}
 
+# 0x303
 mideleg:
   width: 64
+  access: rw
   fields:
     ssip: {bit: 1,   access: rw}
     msip: {bit: 3,   access: rw}
@@ -53,8 +65,10 @@ mideleg:
     seip: {bit: 9,   access: rw}
     meip: {bit: 11,  access: rw}
 
+# 0x304
 mie:
   width: 64
+  access: rw
   fields:
     ssip: {bit: 1,   access: rw}
     msip: {bit: 3,   access: rw}
@@ -63,42 +77,72 @@ mie:
     seip: {bit: 9,   access: rw}
     meip: {bit: 11,  access: rw}
 
+# 0x305
 mtvec:
   width: 64
+  access: rw
   fields:
     mode: {bits: [1, 0], access: warl}
     base: {bits: [63,2], access: rw}
 
+# 0x306
 mcounteren:
   width: 32
+  access: rw
   fields:
     cy:  {bit: 0, access: rw}
     tm:  {bit: 1, access: rw}
     ir:  {bit: 2, access: rw}
 
+# ---------------------------------------------------------
+# Machine Counter Setup
+# ---------------------------------------------------------
+
+# 0x320
+mcountinhibit:
+  width: 64
+  access: rw
+  fields:
+    cy:  {bit: 0, access: rw}
+    ir:  {bit: 2, access: rw}
+
+# ---------------------------------------------------------
+# Machine Trap Handling
+# ---------------------------------------------------------
+
+# 0x340
 mscratch:
   width: 64
+  access: rw
   fields:
     mscratch: {bits: [63, 0], access: rw}
 
+# 0x341
 mepc:
   width: 64
+  access: rw
   fields:
     mepc: {bits: [63, 0], access: rw}
 
+# 0x342
 mcause:
   width: 64
+  access: rw
   fields:
-    exception_code: {bits: [62, 0], access: ro}
-    is_interrupt: {bit: 63, access: ro}
+    exception_code: {bits: [62, 0], access: rw}
+    is_interrupt: {bit: 63, access: rw}
 
+# 0x343
 mtval:
   width: 64
+  access: rw
   fields:
     mtval: {bits: [63, 0], access: rw}
 
+# 0x344
 mip:
   width: 64
+  access: rw
   fields:
     ssip: {bit: 1,   access: rw}
     msip: {bit: 3,   access: rw}
@@ -107,38 +151,187 @@ mip:
     seip: {bit: 9,   access: rw}
     meip: {bit: 11,  access: rw}
 
-mcountinhibit:
-  width: 32
-  fields:
-    cy:  {bit: 0, access: rw}
-    ir:  {bit: 2, access: rw}
+# ---------------------------------------------------------
+# Machine Counters
+# ---------------------------------------------------------
 
+# 0xB00
 mcycle:
   width: 64
+  access: rw
   fields:
     mcycle: {bits: [63, 0], access: rw}
 
+# 0xB02
 minstret:
   width: 64
+  access: rw
   fields:
     minstret: {bits: [63, 0], access: rw}
 
+# shared by CLINT. Define as placeholder
+mtime:
+  width: 64
+  access: rw
+  fields:
+    mtime: {bits: [63, 0], access: rw}
+
+# ---------------------------------------------------------
+# Machine Information
+# ---------------------------------------------------------
+# 0xF11
 mvendorid:
   width: 64
+  access: ro
   fields:
     mvendorid: {bits: [63, 0], access: ro, fixed: 0}
 
+# 0xF12
 marchid:
   width: 64
+  access: ro
   fields:
     marchid: {bits: [63, 0], access: ro, fixed: 0}
 
+# 0xF13
 mimpid:
   width: 64
+  access: ro
   fields:
     mimpid: {bits: [63, 0], access: ro, fixed: 0}
 
+# 0xF14
 mhartid:
   width: 64
+  access: ro
   fields:
     mhartid: {bits: [63, 0], access: ro, fixed: 0}
+
+
+# ---------------------------------------------------------
+# Supervisor Trap Setup
+# ---------------------------------------------------------
+
+# 0x100
+sstatus:
+  width: 64
+  access: rw
+  shadow: mstatus
+  fields:
+    sie:  {bit: 1, access: rw}
+    spie: {bit: 5, access: rw}
+    spp:  {bit: 8, access: rw}
+    sum:  {bit: 18, access: rw}
+    mxr:  {bit: 19, access: rw}
+    uxl:  {bits: [33, 32], access: ro, fixed: 2}
+
+# 0x104
+sie:
+  width: 64
+  access: rw
+  shadow: mie
+  fields:
+    ssip: {bit: 1,   access: rw}
+    stip: {bit: 5,   access: rw}
+    seip: {bit: 9,   access: rw}
+
+# 0x105
+stvec:
+  width: 64
+  access: rw
+  fields:
+    mode: {bits: [1, 0], access: warl}
+    base: {bits: [63,2], access: rw}
+
+# 0x106
+scounteren:
+  width: 64
+  access: rw
+  fields:
+    cy:  {bit: 0, access: rw}
+    tm:  {bit: 1, access: rw}
+    ir:  {bit: 2, access: rw}
+
+# ---------------------------------------------------------
+# Supervisor Trap Handling
+# ---------------------------------------------------------
+
+# 0x140
+sscratch:
+  width: 64
+  access: rw
+  fields:
+    sscratch: {bits: [63, 0], access: rw}
+
+# 0x141
+sepc:
+  width: 64
+  access: rw
+  fields:
+    sepc: {bits: [63, 0], access: rw}
+
+# 0x142
+scause:
+  width: 64
+  access: rw
+  fields:
+    exception_code: {bits: [62, 0], access: ro}
+    is_interrupt: {bit: 63, access: ro}
+
+# 0x143
+stval:
+  width: 64
+  access: rw
+  fields:
+    stval: {bits: [63, 0], access: rw}
+
+# 0x144
+sip:
+  width: 64
+  access: rw
+  shadow: mip
+  fields:
+    ssip: {bit: 1,   access: rw}
+    stip: {bit: 5,   access: rw}
+    seip: {bit: 9,   access: rw}
+
+
+# ---------------------------------------------------------
+# Supervisor Address Translation and Protection
+# ---------------------------------------------------------
+
+# 0x180
+satp:
+  width: 64
+  access: rw
+  fields:
+    ppn: {bits: [43,40], access: rw}
+    asid: {bits: [59,44], access: rw}
+    mode: {bits: [63,60], access: rw}
+
+# ---------------------------------------------------------
+# User Counters and Timers
+# ---------------------------------------------------------
+# 0xC00
+cycle:
+  width: 64
+  access: ro
+  shadow: mcycle
+  fields:
+    cycle: {bits: [63, 0], access: ro, source: mcycle}
+
+# 0xC01
+time:
+  width: 64
+  access: ro
+  shadow: mtime
+  fields:
+    _time: {bits: [63, 0], access: ro, source: mtime}
+
+# 0xC02
+instret:
+  width: 64
+  access: ro
+  shadow: minstret
+  fields:
+    instret: {bits: [63, 0], access: ro, source: minstret}

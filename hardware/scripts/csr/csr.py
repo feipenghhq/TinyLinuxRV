@@ -98,10 +98,11 @@ def gen_struct(csr_name, csr_info):
 def gen_write(csr_name, csr_info):
     """Generate the CSR write function
     """
-    csr_fields = csr_info["fields"]
-
-    # Create write logic to each field
     rtl_field = ""
+    # read write register
+    # Create write logic to each field
+    rtl_field +=  "    // CPU write field\n"
+    csr_fields = csr_info["fields"]
     for field in csr_fields:
         access = csr_fields[field]["access"]
         if "bit" in csr_fields[field]:
@@ -112,21 +113,27 @@ def gen_write(csr_name, csr_info):
         # FIXME: WARL
         if access == "rw" or access == "warl":
             rtl_field += f"    data.{field} = wdata[{range}];\n"
-
+    # Check shadow
+    if "shadow" in csr_info:
+        csr_name_final = csr_info["shadow"]
+    else:
+        csr_name_final = csr_name
     # Create write function
     rtl = \
 f"""
-function automatic {csr_name}_t {csr_name}_write(
-    input {csr_name}_t csr,
+function automatic {csr_name_final}_t {csr_name}_write(
     input [63:0] wdata
 );
-    {csr_name}_t data = csr;
+    {csr_name_final}_t data = 0;
 {rtl_field}
     return data;
 endfunction
 """
-    return rtl
-
+    access = csr_info["access"]
+    if access == "rw":
+        return rtl
+    else:
+        return ""
 
 def gen_read(csr_name, csr_info):
     """Generate the CSR read function
@@ -135,6 +142,7 @@ def gen_read(csr_name, csr_info):
 
     # Create read logic to each field
     rtl_field = ""
+
     for field in csr_fields:
         if "bit" in csr_fields[field]:
             range = csr_fields[field]["bit"]
@@ -144,15 +152,24 @@ def gen_read(csr_name, csr_info):
         # all the fields are always be able to read
         if "fixed" in csr_fields[field]:
             value = csr_fields[field]["fixed"]
-            rtl_field += f"    data[{range}] = {value};\n"
+            rtl_field += f"    data[{range}] = {value}; // Fixed: {csr_name}.{field}\n"
+        elif "source" in csr_fields[field]:
+            source = csr_fields[field]["source"]
+            rtl_field += f"    data[{range}] = csr.{source};\n"
         else:
             rtl_field += f"    data[{range}] = csr.{field};\n"
+
+    # Check shadow
+    if "shadow" in csr_info:
+        csr_name_final = csr_info["shadow"]
+    else:
+        csr_name_final = csr_name
 
     # Create read function
     rtl = \
 f"""
 function automatic logic [63:0] {csr_name}_read(
-    input {csr_name}_t csr,
+    input {csr_name_final}_t csr,
 );
     logic [63:0] data = 0;
 {rtl_field}

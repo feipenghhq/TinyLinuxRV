@@ -70,10 +70,10 @@ typedef struct packed {
 } mstatus_t;
 
 function automatic mstatus_t mstatus_write(
-    input mstatus_t csr,
     input [63:0] wdata
 );
-    mstatus_t data = csr;
+    mstatus_t data = 0;
+    // CPU write field
     data.sie = wdata[1];
     data.mie = wdata[3];
     data.spie = wdata[5];
@@ -106,8 +106,8 @@ function automatic logic [63:0] mstatus_read(
     data[20] = csr.tvm;
     data[21] = csr.tw;
     data[22] = csr.tsr;
-    data[33:32] = 2;
-    data[35:34] = 2;
+    data[33:32] = 2; // Fixed: mstatus.uxl
+    data[35:34] = 2; // Fixed: mstatus.sxl
 
     return data;
 endfunction
@@ -124,25 +124,16 @@ typedef struct packed {
     logic [1:0] MXL;
 } misa_t;
 
-function automatic misa_t misa_write(
-    input misa_t csr,
-    input [63:0] wdata
-);
-    misa_t data = csr;
-
-    return data;
-endfunction
-
 function automatic logic [63:0] misa_read(
     input misa_t csr,
 );
     logic [63:0] data = 0;
-    data[0] = 1;
-    data[8] = 1;
-    data[12] = 1;
-    data[18] = 1;
-    data[20] = 1;
-    data[63:62] = 2;
+    data[0] = 1; // Fixed: misa.A
+    data[8] = 1; // Fixed: misa.I
+    data[12] = 1; // Fixed: misa.M
+    data[18] = 1; // Fixed: misa.S
+    data[20] = 1; // Fixed: misa.U
+    data[63:62] = 2; // Fixed: misa.MXL
 
     return data;
 endfunction
@@ -167,10 +158,10 @@ typedef struct packed {
 } medeleg_t;
 
 function automatic medeleg_t medeleg_write(
-    input medeleg_t csr,
     input [63:0] wdata
 );
-    medeleg_t data = csr;
+    medeleg_t data = 0;
+    // CPU write field
     data.instruction_address_misaligned = wdata[0];
     data.instruction_access_fault = wdata[1];
     data.illegal_instruction = wdata[2];
@@ -222,10 +213,10 @@ typedef struct packed {
 } mideleg_t;
 
 function automatic mideleg_t mideleg_write(
-    input mideleg_t csr,
     input [63:0] wdata
 );
-    mideleg_t data = csr;
+    mideleg_t data = 0;
+    // CPU write field
     data.ssip = wdata[1];
     data.msip = wdata[3];
     data.stip = wdata[5];
@@ -263,10 +254,10 @@ typedef struct packed {
 } mie_t;
 
 function automatic mie_t mie_write(
-    input mie_t csr,
     input [63:0] wdata
 );
-    mie_t data = csr;
+    mie_t data = 0;
+    // CPU write field
     data.ssip = wdata[1];
     data.msip = wdata[3];
     data.stip = wdata[5];
@@ -300,10 +291,10 @@ typedef struct packed {
 } mtvec_t;
 
 function automatic mtvec_t mtvec_write(
-    input mtvec_t csr,
     input [63:0] wdata
 );
-    mtvec_t data = csr;
+    mtvec_t data = 0;
+    // CPU write field
     data.mode = wdata[1:0];
     data.base = wdata[63:2];
 
@@ -330,10 +321,10 @@ typedef struct packed {
 } mcounteren_t;
 
 function automatic mcounteren_t mcounteren_write(
-    input mcounteren_t csr,
     input [63:0] wdata
 );
-    mcounteren_t data = csr;
+    mcounteren_t data = 0;
+    // CPU write field
     data.cy = wdata[0];
     data.tm = wdata[1];
     data.ir = wdata[2];
@@ -353,6 +344,35 @@ function automatic logic [63:0] mcounteren_read(
 endfunction
 
 // --------------------------
+// mcountinhibit
+// --------------------------
+typedef struct packed {
+    logic cy;
+    logic ir;
+} mcountinhibit_t;
+
+function automatic mcountinhibit_t mcountinhibit_write(
+    input [63:0] wdata
+);
+    mcountinhibit_t data = 0;
+    // CPU write field
+    data.cy = wdata[0];
+    data.ir = wdata[2];
+
+    return data;
+endfunction
+
+function automatic logic [63:0] mcountinhibit_read(
+    input mcountinhibit_t csr,
+);
+    logic [63:0] data = 0;
+    data[0] = csr.cy;
+    data[2] = csr.ir;
+
+    return data;
+endfunction
+
+// --------------------------
 // mscratch
 // --------------------------
 typedef struct packed {
@@ -360,10 +380,10 @@ typedef struct packed {
 } mscratch_t;
 
 function automatic mscratch_t mscratch_write(
-    input mscratch_t csr,
     input [63:0] wdata
 );
-    mscratch_t data = csr;
+    mscratch_t data = 0;
+    // CPU write field
     data.mscratch = wdata[63:0];
 
     return data;
@@ -386,10 +406,10 @@ typedef struct packed {
 } mepc_t;
 
 function automatic mepc_t mepc_write(
-    input mepc_t csr,
     input [63:0] wdata
 );
-    mepc_t data = csr;
+    mepc_t data = 0;
+    // CPU write field
     data.mepc = wdata[63:0];
 
     return data;
@@ -413,10 +433,12 @@ typedef struct packed {
 } mcause_t;
 
 function automatic mcause_t mcause_write(
-    input mcause_t csr,
     input [63:0] wdata
 );
-    mcause_t data = csr;
+    mcause_t data = 0;
+    // CPU write field
+    data.exception_code = wdata[62:0];
+    data.is_interrupt = wdata[63];
 
     return data;
 endfunction
@@ -439,10 +461,10 @@ typedef struct packed {
 } mtval_t;
 
 function automatic mtval_t mtval_write(
-    input mtval_t csr,
     input [63:0] wdata
 );
-    mtval_t data = csr;
+    mtval_t data = 0;
+    // CPU write field
     data.mtval = wdata[63:0];
 
     return data;
@@ -470,10 +492,10 @@ typedef struct packed {
 } mip_t;
 
 function automatic mip_t mip_write(
-    input mip_t csr,
     input [63:0] wdata
 );
-    mip_t data = csr;
+    mip_t data = 0;
+    // CPU write field
     data.ssip = wdata[1];
     data.msip = wdata[3];
     data.stip = wdata[5];
@@ -499,35 +521,6 @@ function automatic logic [63:0] mip_read(
 endfunction
 
 // --------------------------
-// mcountinhibit
-// --------------------------
-typedef struct packed {
-    logic cy;
-    logic ir;
-} mcountinhibit_t;
-
-function automatic mcountinhibit_t mcountinhibit_write(
-    input mcountinhibit_t csr,
-    input [63:0] wdata
-);
-    mcountinhibit_t data = csr;
-    data.cy = wdata[0];
-    data.ir = wdata[2];
-
-    return data;
-endfunction
-
-function automatic logic [63:0] mcountinhibit_read(
-    input mcountinhibit_t csr,
-);
-    logic [63:0] data = 0;
-    data[0] = csr.cy;
-    data[2] = csr.ir;
-
-    return data;
-endfunction
-
-// --------------------------
 // mcycle
 // --------------------------
 typedef struct packed {
@@ -535,10 +528,10 @@ typedef struct packed {
 } mcycle_t;
 
 function automatic mcycle_t mcycle_write(
-    input mcycle_t csr,
     input [63:0] wdata
 );
-    mcycle_t data = csr;
+    mcycle_t data = 0;
+    // CPU write field
     data.mcycle = wdata[63:0];
 
     return data;
@@ -561,10 +554,10 @@ typedef struct packed {
 } minstret_t;
 
 function automatic minstret_t minstret_write(
-    input minstret_t csr,
     input [63:0] wdata
 );
-    minstret_t data = csr;
+    minstret_t data = 0;
+    // CPU write field
     data.minstret = wdata[63:0];
 
     return data;
@@ -580,26 +573,43 @@ function automatic logic [63:0] minstret_read(
 endfunction
 
 // --------------------------
+// mtime
+// --------------------------
+typedef struct packed {
+    logic [63:0] mtime;
+} mtime_t;
+
+function automatic mtime_t mtime_write(
+    input [63:0] wdata
+);
+    mtime_t data = 0;
+    // CPU write field
+    data.mtime = wdata[63:0];
+
+    return data;
+endfunction
+
+function automatic logic [63:0] mtime_read(
+    input mtime_t csr,
+);
+    logic [63:0] data = 0;
+    data[63:0] = csr.mtime;
+
+    return data;
+endfunction
+
+// --------------------------
 // mvendorid
 // --------------------------
 typedef struct packed {
     logic [63:0] mvendorid;
 } mvendorid_t;
 
-function automatic mvendorid_t mvendorid_write(
-    input mvendorid_t csr,
-    input [63:0] wdata
-);
-    mvendorid_t data = csr;
-
-    return data;
-endfunction
-
 function automatic logic [63:0] mvendorid_read(
     input mvendorid_t csr,
 );
     logic [63:0] data = 0;
-    data[63:0] = 0;
+    data[63:0] = 0; // Fixed: mvendorid.mvendorid
 
     return data;
 endfunction
@@ -611,20 +621,11 @@ typedef struct packed {
     logic [63:0] marchid;
 } marchid_t;
 
-function automatic marchid_t marchid_write(
-    input marchid_t csr,
-    input [63:0] wdata
-);
-    marchid_t data = csr;
-
-    return data;
-endfunction
-
 function automatic logic [63:0] marchid_read(
     input marchid_t csr,
 );
     logic [63:0] data = 0;
-    data[63:0] = 0;
+    data[63:0] = 0; // Fixed: marchid.marchid
 
     return data;
 endfunction
@@ -636,20 +637,11 @@ typedef struct packed {
     logic [63:0] mimpid;
 } mimpid_t;
 
-function automatic mimpid_t mimpid_write(
-    input mimpid_t csr,
-    input [63:0] wdata
-);
-    mimpid_t data = csr;
-
-    return data;
-endfunction
-
 function automatic logic [63:0] mimpid_read(
     input mimpid_t csr,
 );
     logic [63:0] data = 0;
-    data[63:0] = 0;
+    data[63:0] = 0; // Fixed: mimpid.mimpid
 
     return data;
 endfunction
@@ -661,20 +653,361 @@ typedef struct packed {
     logic [63:0] mhartid;
 } mhartid_t;
 
-function automatic mhartid_t mhartid_write(
-    input mhartid_t csr,
-    input [63:0] wdata
-);
-    mhartid_t data = csr;
-
-    return data;
-endfunction
-
 function automatic logic [63:0] mhartid_read(
     input mhartid_t csr,
 );
     logic [63:0] data = 0;
-    data[63:0] = 0;
+    data[63:0] = 0; // Fixed: mhartid.mhartid
+
+    return data;
+endfunction
+
+// --------------------------
+// sstatus
+// --------------------------
+typedef struct packed {
+    logic sie;
+    logic spie;
+    logic spp;
+    logic sum;
+    logic mxr;
+    logic [1:0] uxl;
+} sstatus_t;
+
+function automatic mstatus_t sstatus_write(
+    input [63:0] wdata
+);
+    mstatus_t data = 0;
+    // CPU write field
+    data.sie = wdata[1];
+    data.spie = wdata[5];
+    data.spp = wdata[8];
+    data.sum = wdata[18];
+    data.mxr = wdata[19];
+
+    return data;
+endfunction
+
+function automatic logic [63:0] sstatus_read(
+    input mstatus_t csr,
+);
+    logic [63:0] data = 0;
+    data[1] = csr.sie;
+    data[5] = csr.spie;
+    data[8] = csr.spp;
+    data[18] = csr.sum;
+    data[19] = csr.mxr;
+    data[33:32] = 2; // Fixed: sstatus.uxl
+
+    return data;
+endfunction
+
+// --------------------------
+// sie
+// --------------------------
+typedef struct packed {
+    logic ssip;
+    logic stip;
+    logic seip;
+} sie_t;
+
+function automatic mie_t sie_write(
+    input [63:0] wdata
+);
+    mie_t data = 0;
+    // CPU write field
+    data.ssip = wdata[1];
+    data.stip = wdata[5];
+    data.seip = wdata[9];
+
+    return data;
+endfunction
+
+function automatic logic [63:0] sie_read(
+    input mie_t csr,
+);
+    logic [63:0] data = 0;
+    data[1] = csr.ssip;
+    data[5] = csr.stip;
+    data[9] = csr.seip;
+
+    return data;
+endfunction
+
+// --------------------------
+// stvec
+// --------------------------
+typedef struct packed {
+    logic [1:0] mode;
+    logic [61:0] base;
+} stvec_t;
+
+function automatic stvec_t stvec_write(
+    input [63:0] wdata
+);
+    stvec_t data = 0;
+    // CPU write field
+    data.mode = wdata[1:0];
+    data.base = wdata[63:2];
+
+    return data;
+endfunction
+
+function automatic logic [63:0] stvec_read(
+    input stvec_t csr,
+);
+    logic [63:0] data = 0;
+    data[1:0] = csr.mode;
+    data[63:2] = csr.base;
+
+    return data;
+endfunction
+
+// --------------------------
+// scounteren
+// --------------------------
+typedef struct packed {
+    logic cy;
+    logic tm;
+    logic ir;
+} scounteren_t;
+
+function automatic scounteren_t scounteren_write(
+    input [63:0] wdata
+);
+    scounteren_t data = 0;
+    // CPU write field
+    data.cy = wdata[0];
+    data.tm = wdata[1];
+    data.ir = wdata[2];
+
+    return data;
+endfunction
+
+function automatic logic [63:0] scounteren_read(
+    input scounteren_t csr,
+);
+    logic [63:0] data = 0;
+    data[0] = csr.cy;
+    data[1] = csr.tm;
+    data[2] = csr.ir;
+
+    return data;
+endfunction
+
+// --------------------------
+// sscratch
+// --------------------------
+typedef struct packed {
+    logic [63:0] sscratch;
+} sscratch_t;
+
+function automatic sscratch_t sscratch_write(
+    input [63:0] wdata
+);
+    sscratch_t data = 0;
+    // CPU write field
+    data.sscratch = wdata[63:0];
+
+    return data;
+endfunction
+
+function automatic logic [63:0] sscratch_read(
+    input sscratch_t csr,
+);
+    logic [63:0] data = 0;
+    data[63:0] = csr.sscratch;
+
+    return data;
+endfunction
+
+// --------------------------
+// sepc
+// --------------------------
+typedef struct packed {
+    logic [63:0] sepc;
+} sepc_t;
+
+function automatic sepc_t sepc_write(
+    input [63:0] wdata
+);
+    sepc_t data = 0;
+    // CPU write field
+    data.sepc = wdata[63:0];
+
+    return data;
+endfunction
+
+function automatic logic [63:0] sepc_read(
+    input sepc_t csr,
+);
+    logic [63:0] data = 0;
+    data[63:0] = csr.sepc;
+
+    return data;
+endfunction
+
+// --------------------------
+// scause
+// --------------------------
+typedef struct packed {
+    logic [62:0] exception_code;
+    logic is_interrupt;
+} scause_t;
+
+function automatic scause_t scause_write(
+    input [63:0] wdata
+);
+    scause_t data = 0;
+    // CPU write field
+
+    return data;
+endfunction
+
+function automatic logic [63:0] scause_read(
+    input scause_t csr,
+);
+    logic [63:0] data = 0;
+    data[62:0] = csr.exception_code;
+    data[63] = csr.is_interrupt;
+
+    return data;
+endfunction
+
+// --------------------------
+// stval
+// --------------------------
+typedef struct packed {
+    logic [63:0] stval;
+} stval_t;
+
+function automatic stval_t stval_write(
+    input [63:0] wdata
+);
+    stval_t data = 0;
+    // CPU write field
+    data.stval = wdata[63:0];
+
+    return data;
+endfunction
+
+function automatic logic [63:0] stval_read(
+    input stval_t csr,
+);
+    logic [63:0] data = 0;
+    data[63:0] = csr.stval;
+
+    return data;
+endfunction
+
+// --------------------------
+// sip
+// --------------------------
+typedef struct packed {
+    logic ssip;
+    logic stip;
+    logic seip;
+} sip_t;
+
+function automatic mip_t sip_write(
+    input [63:0] wdata
+);
+    mip_t data = 0;
+    // CPU write field
+    data.ssip = wdata[1];
+    data.stip = wdata[5];
+    data.seip = wdata[9];
+
+    return data;
+endfunction
+
+function automatic logic [63:0] sip_read(
+    input mip_t csr,
+);
+    logic [63:0] data = 0;
+    data[1] = csr.ssip;
+    data[5] = csr.stip;
+    data[9] = csr.seip;
+
+    return data;
+endfunction
+
+// --------------------------
+// satp
+// --------------------------
+typedef struct packed {
+    logic [3:0] ppn;
+    logic [15:0] asid;
+    logic [3:0] mode;
+} satp_t;
+
+function automatic satp_t satp_write(
+    input [63:0] wdata
+);
+    satp_t data = 0;
+    // CPU write field
+    data.ppn = wdata[43:40];
+    data.asid = wdata[59:44];
+    data.mode = wdata[63:60];
+
+    return data;
+endfunction
+
+function automatic logic [63:0] satp_read(
+    input satp_t csr,
+);
+    logic [63:0] data = 0;
+    data[43:40] = csr.ppn;
+    data[59:44] = csr.asid;
+    data[63:60] = csr.mode;
+
+    return data;
+endfunction
+
+// --------------------------
+// cycle
+// --------------------------
+typedef struct packed {
+    logic [63:0] cycle;
+} cycle_t;
+
+function automatic logic [63:0] cycle_read(
+    input mcycle_t csr,
+);
+    logic [63:0] data = 0;
+    data[63:0] = csr.mcycle;
+
+    return data;
+endfunction
+
+// --------------------------
+// time
+// --------------------------
+typedef struct packed {
+    logic [63:0] _time;
+} time_t;
+
+function automatic logic [63:0] time_read(
+    input mtime_t csr,
+);
+    logic [63:0] data = 0;
+    data[63:0] = csr.mtime;
+
+    return data;
+endfunction
+
+// --------------------------
+// instret
+// --------------------------
+typedef struct packed {
+    logic [63:0] instret;
+} instret_t;
+
+function automatic logic [63:0] instret_read(
+    input minstret_t csr,
+);
+    logic [63:0] data = 0;
+    data[63:0] = csr.minstret;
 
     return data;
 endfunction
