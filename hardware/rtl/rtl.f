@@ -12,10 +12,12 @@
 ./cpu/amo_alu.sv
 ./cpu/lsu.sv
 ./cpu/ifq.sv
+./cpu/csr.sv
+./cpu/trap_ctrl.sv
 ./cpu/IF.sv
 ./cpu/ID.sv
 ./cpu/EX.sv
 ./cpu/MEM.sv
 ./cpu/WB.sv
 ./cpu/cpu.sv
-./cpu/csr.sv
+

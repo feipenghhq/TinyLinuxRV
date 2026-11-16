@@ -19,6 +19,13 @@
 // PC reset number
 `define PC_RESET_VEC    64'h80000000
 
+// Privilege
+typedef enum logic [1:0] {
+    PRIV_M = 3,
+    PRIV_S = 1,
+    PRIV_U = 0
+} priv_t;
+
 // ----------------------------------------------
 // Instructions
 // ----------------------------------------------
