@@ -10,6 +10,7 @@ module pipeline #(
 ) (
     input                    clk,
     input                    rst_n,
+    input                    flush,
     // pipeline input
     input                    in_valid,
     output                   in_ready,
@@ -26,6 +27,10 @@ module pipeline #(
         if (!rst_n) begin
             out_valid <= 1'b0;
             out_data  <= 'b0;
+        end
+        else if (flush) begin
+            out_valid <= 1'b0;
+            out_data <= '0;
         end
         // if downstream is ready to receive data
         else if (in_ready) begin

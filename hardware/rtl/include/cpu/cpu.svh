@@ -85,7 +85,7 @@ typedef struct packed {
     logic       is_32bit;
     logic       alu_op1_sel_zero;
     logic       alu_op1_sel_pc;
-    logic       alu_op2_sel_imm;
+    logic       use_immediate;
     logic       mul;
     logic       div;
     logic       jal;
@@ -101,6 +101,8 @@ typedef struct packed {
     logic       csr_write;
     logic [1:0] csr_write_opcode;
     logic [11:0] csr_address;
+    logic       mret;
+    logic       sret;
 } CPU_CTRL_t;
 
 // ---------------------------------
@@ -142,6 +144,9 @@ typedef struct packed {
     logic             csr_write;
     logic [1:0]       csr_write_opcode;
     logic [11:0]      csr_address;
+    logic [`XLEN-1:0] csr_wdata;
+    logic             mret;
+    logic             sret;
     // exception
     logic       exception_valid;
     logic [4:0] exception_cause;
@@ -158,6 +163,9 @@ typedef struct packed {
     logic             csr_write;
     logic [1:0]       csr_write_opcode;
     logic [11:0]      csr_address;
+    logic [`XLEN-1:0] csr_wdata;
+    logic             mret;
+    logic             sret;
     // exception
     logic       exception_valid;
     logic [4:0] exception_cause;

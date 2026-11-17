@@ -61,7 +61,7 @@ module bu (
     end
     // if opcode[0] is 1 we need to invert the result.
     assign branch_result = branch_result_raw ^ branch_opcode[0];
-    assign jump_raw = ~EX_flush & branch_result & branch | jal | jalr;
+    assign jump_raw = ~EX_flush & ((branch_result & branch) | jal | jalr);
 
     // ---------------------------------
     // calculate the target pc address

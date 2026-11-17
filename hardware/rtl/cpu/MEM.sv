@@ -16,6 +16,7 @@ module MEM (
     output MEM2WB_PIPE_t out_MEM_data,
     input                out_MEM_ready,
     input                MEM_flush,
+    output               EX_flush,
     // LSU response
     input                lsu_rsp_valid,
     input [`XLEN-1:0]    lsu_rsp_data,
@@ -24,7 +25,8 @@ module MEM (
     // Data forwarding logic
     output [4:0]         mem_rd_addr,
     output               mem_rd_write,
-    output [`XLEN-1:0]   mem_rd_wdata
+    output [`XLEN-1:0]   mem_rd_wdata,
+    output               mem_csr
 );
 
     logic             MEM_stall;
@@ -41,6 +43,8 @@ module MEM (
     assign mem_rd_write = in_EX_data.rd_write;
     assign mem_rd_wdata = rd_wdata;
 
+    assign mem_csr =  ~MEM_flush & (in_EX_data.csr_read | in_EX_data.csr_write);
+
     // ---------------------------------
     // Pipeline Control
     // ---------------------------------
@@ -50,6 +54,8 @@ module MEM (
     assign in_EX_ready = out_MEM_ready & ~MEM_stall;
 
     assign out_MEM_valid = in_EX_valid & ~MEM_flush & ~MEM_stall;
+
+    assign EX_flush = MEM_flush | out_MEM_data.exception_valid;
 
     assign out_MEM_data.pc = in_EX_data.pc;
     assign out_MEM_data.instruction = in_EX_data.instruction;
@@ -61,12 +67,14 @@ module MEM (
     assign out_MEM_data.csr_write   = in_EX_data.csr_write;
     assign out_MEM_data.csr_write_opcode = in_EX_data.csr_write_opcode;
     assign out_MEM_data.csr_address = in_EX_data.csr_address;
+    assign out_MEM_data.csr_wdata   = in_EX_data.csr_wdata;
+    assign out_MEM_data.sret        = in_EX_data.sret;
+    assign out_MEM_data.mret        = in_EX_data.mret;
     // exception
     assign out_MEM_data.exception_valid = in_EX_data.exception_valid |
                                             load_access_fault | store_amo_access_fault;
     assign out_MEM_data.exception_cause = in_EX_data.exception_valid ? in_EX_data.exception_cause :
                                             load_access_fault ? LOAD_ACCESS_FAULT :
                                                                 STORE_AMO_ACCESS_FAULT;
-
 
 endmodule

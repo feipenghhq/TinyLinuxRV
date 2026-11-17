@@ -19,6 +19,7 @@ module ID (
     output ID2EX_PIPE_t out_ID_data,
     input               out_ID_ready,
     input               ID_flush,
+    output              IF_flush,
     // Data forwarding logic
     input [4:0]         ex_rd_addr,
     input               ex_rd_write,
@@ -27,8 +28,10 @@ module ID (
     input               mem_rd_write,
     input [`XLEN-1:0]   mem_rd_wdata,
     // load dependency check
-    input               ex_mem_read,
+    input               ex_mem_read_or_sc,
     input               ex_lr,
+    input               ex_csr,
+    input               mem_csr,
     // Register write back
     input               wb_rd_write,
     input [4:0]         wb_rd_addr,
@@ -136,15 +139,16 @@ module ID (
 
     // There are several dependency requires ID stage to be stalled
 
-    // FIXME: SC will also write to the register and SC is not completed at EX stage!!!
-
     // Case 1: When EX stage is a Load instruction and ID stage instruction depends on the result of the load:
     // - We cannot forward a result from Load instruction from EX stage to ID stage as the read data is not ready yet in EX
     // - We need to Stall ID stage for 1 cycle to let the memory read instruction goto the MEM stage to get the data ready
-    // Case 2: When LR is followed by an SC. LR completes at MEM stage so SC need to wait till LR reach
+    // Case 2: When LR is followed by an SC. LR completes at MEM stage so SC need to wait till LR reach MEM stage
+    // Case 3: When EX stage is a SC instruction and ID stage instruction depends on the result of the register
+    // Case 4: CSR register access. All instructions in ID wait until the CSR instruction reaches WB.
     assign load_dependency = ID_stage_valid &
-                            ((rs1_match_ex | rs2_match_ex) & ex_mem_read |  // case 1
-                             (cpu_ctrl.sc & ex_lr));                        // case 2
+                            ((rs1_match_ex | rs2_match_ex) & ex_mem_read_or_sc // case 1, case 3
+                             | (cpu_ctrl.sc & ex_lr) | // case 2
+                             | (ex_csr | mem_csr)); // case 4
 
 
     // ---------------------------------
@@ -175,6 +179,8 @@ module ID (
 
     // ID/EX is valid when 1）ID stage is valid, 2) not stalled due to load_dependency
     assign out_ID_valid = ID_stage_valid & ~load_dependency;
+
+    assign IF_flush = ID_flush;
 
     // ctrl and data
     assign out_ID_data.pc          = in_IF_data.pc;

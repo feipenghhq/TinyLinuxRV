@@ -63,18 +63,20 @@ module cpu (
     logic         MEM_WB_ready;
     MEM2WB_PIPE_t MEM_WB_data;
 
-    logic [`XLEN-1:0] jump_pc;
+    logic [`XLEN-1:0] jump_tgt_pc;
     logic             jump;
 
     logic [4:0]       ex_rd_addr;
     logic             ex_rd_write;
     logic [`XLEN-1:0] ex_rd_wdata;
-    logic             ex_mem_read;
+    logic             ex_mem_read_or_sc;
     logic             ex_lr;
+    logic             ex_csr;
 
     logic [4:0]       mem_rd_addr;
     logic             mem_rd_write;
     logic [`XLEN-1:0] mem_rd_wdata;
+    logic             mem_csr;
 
     logic             lsu_req_read;
     logic             lsu_req_write;
@@ -101,6 +103,10 @@ module cpu (
     logic [4:0]       wb_rd_addr;
     logic [`XLEN-1:0] wb_rd_wdata;
 
+    logic             trap;
+    logic [`XLEN-1:0] trap_tgt_pc;
+    logic             MEM_flush;
+    logic             EX_flush;
     logic             IF_flush;
     logic             ID_flush;
 
@@ -109,8 +115,7 @@ module cpu (
     // ---------------------------------
     // Glue logic for flush
     // ---------------------------------
-    assign IF_flush = jump;
-    assign ID_flush = jump;
+    // Flush propagates from WB through MEM, EX, ID, and IF.
 
     // ---------------------------------
     // Pipeline Stage
@@ -124,9 +129,9 @@ module cpu (
         .out_IF_data              (IF_ID_data),
         .out_IF_ready             (IF_ID_ready),
         .jump                     (jump),
-        .jump_pc                  (jump_pc),
-        .trap                     (1'b0),
-        .trap_pc                  (64'b0),
+        .jump_tgt_pc              (jump_tgt_pc),
+        .trap                     (trap),
+        .trap_tgt_pc              (trap_tgt_pc),
         .haddr                    (inst_haddr),
         .htrans                   (inst_htrans),
         .hwrite                   (inst_hwrite),
@@ -148,14 +153,17 @@ module cpu (
         .out_ID_data  (out_ID_data),
         .out_ID_ready (out_ID_ready),
         .ID_flush     (ID_flush),
+        .IF_flush     (IF_flush),
         .ex_rd_addr   (ex_rd_addr),
         .ex_rd_write  (ex_rd_write),
         .ex_rd_wdata  (ex_rd_wdata),
         .mem_rd_addr  (mem_rd_addr),
         .mem_rd_write (mem_rd_write),
         .mem_rd_wdata (mem_rd_wdata),
-        .ex_mem_read  (ex_mem_read),
+        .ex_mem_read_or_sc  (ex_mem_read_or_sc),
         .ex_lr        (ex_lr),
+        .ex_csr       (ex_csr),
+        .mem_csr      (mem_csr),
         .wb_rd_write  (wb_rd_write),
         .wb_rd_addr   (wb_rd_addr),
         .wb_rd_wdata  (wb_rd_wdata)
@@ -164,6 +172,7 @@ module cpu (
     pipeline #(
         .WIDTH($bits(ID2EX_PIPE_t))
     ) u_ID_EX_pipeline (
+        .flush     (EX_flush),
         .clk       (clk),
         .rst_n     (rst_n),
         .in_valid  (out_ID_valid),
@@ -184,7 +193,8 @@ module cpu (
         .out_EX_valid (out_EX_valid),
         .out_EX_data  (out_EX_data),
         .out_EX_ready (out_EX_ready),
-        .EX_flush     (1'b0),
+        .EX_flush     (EX_flush),
+        .ID_flush     (ID_flush),
         .lsu_req_read (lsu_req_read),
         .lsu_req_write(lsu_req_write),
         .lsu_req_lr   (lsu_req_lr),
@@ -200,18 +210,20 @@ module cpu (
         .load_addr_misaligned(load_addr_misaligned),
         .store_amo_addr_misaligned(store_amo_addr_misaligned),
         .amo_rdata    (amo_rdata),
-        .jump_pc      (jump_pc),
+        .jump_tgt_pc  (jump_tgt_pc),
         .jump         (jump),
         .ex_rd_addr   (ex_rd_addr),
         .ex_rd_write  (ex_rd_write),
         .ex_rd_wdata  (ex_rd_wdata),
-        .ex_mem_read  (ex_mem_read),
-        .ex_lr        (ex_lr)
+        .ex_mem_read_or_sc  (ex_mem_read_or_sc),
+        .ex_lr        (ex_lr),
+        .ex_csr       (ex_csr)
     );
 
     pipeline #(
         .WIDTH($bits(EX2MEM_PIPE_t))
     ) u_EX_MEM_pipeline (
+        .flush     (MEM_flush),
         .clk       (clk),
         .rst_n     (rst_n),
         .in_valid  (out_EX_valid),
@@ -265,19 +277,22 @@ module cpu (
         .out_MEM_valid (out_MEM_valid),
         .out_MEM_data  (out_MEM_data),
         .out_MEM_ready (out_MEM_ready),
-        .MEM_flush     (1'b0),
+        .MEM_flush     (MEM_flush),
+        .EX_flush      (EX_flush),
         .lsu_rsp_valid (lsu_rsp_valid),
         .lsu_rsp_data  (lsu_rsp_data),
         .load_access_fault(load_access_fault),
         .store_amo_access_fault(store_amo_access_fault),
         .mem_rd_addr   (mem_rd_addr),
         .mem_rd_write  (mem_rd_write),
-        .mem_rd_wdata  (mem_rd_wdata)
+        .mem_rd_wdata  (mem_rd_wdata),
+        .mem_csr       (mem_csr)
     );
 
     pipeline #(
         .WIDTH($bits(MEM2WB_PIPE_t))
     ) u_MEM_WB_pipeline (
+        .flush     (MEM_flush),
         .clk       (clk),
         .rst_n     (rst_n),
         .in_valid  (out_MEM_valid),
@@ -289,9 +304,14 @@ module cpu (
     );
 
     WB u_WB (
+        .clk          (clk),
+        .rst_n        (rst_n),
         .in_MEM_valid (MEM_WB_valid),
         .in_MEM_data  (MEM_WB_data),
         .in_MEM_ready (MEM_WB_ready),
+        .MEM_flush    (MEM_flush),
+        .trap         (trap),
+        .trap_tgt_pc  (trap_tgt_pc),
         .wb_rd_write  (wb_rd_write),
         .wb_rd_addr   (wb_rd_addr),
         .wb_rd_wdata  (wb_rd_wdata)

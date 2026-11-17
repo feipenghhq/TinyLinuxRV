@@ -62,8 +62,6 @@ module decoder (
     assign inst31_26_eq_0    = inst31_26 == 0;
     assign inst31_26_eq_0x10 = inst31_26 == 'h10;
 
-    assign cpu_ctrl.csr_address = instruction[`DEC_CSR_ADDR_FIELD];
-
     // Decode logic
     always_comb begin
 
@@ -79,6 +77,8 @@ module decoder (
 
         cpu_ctrl.csr_read = 1'b0;
         cpu_ctrl.csr_write = 1'b0;
+
+        cpu_ctrl.csr_address = instruction[`DEC_CSR_ADDR_FIELD];
 
         illegal_instruction = 1'b0;
 
@@ -103,7 +103,7 @@ module decoder (
             OPCODE_LOGIC_I64, OPCODE_LOGIC_I32: begin
                 rs1_read = 1'b1;
                 rd_write = 1'b1;
-                cpu_ctrl.alu_op2_sel_imm = 1'b1;
+                cpu_ctrl.use_immediate = 1'b1;
                 cpu_ctrl.opcode[3:0] = {(func3 == 3'b101) & func7[5], func3};
                 // For 32 bit operations SLLIW, SRLIW, SRAIW, instruction[31:25] (func7) is fixed encoding
                 // For 64 bit operations SLLI, SRLI, SRAI, instruction[31:2365] is fixed encoding
@@ -115,7 +115,7 @@ module decoder (
             // LUI
             OPCODE_LUI: begin
                 cpu_ctrl.alu_op1_sel_zero = 1'b1;
-                cpu_ctrl.alu_op2_sel_imm = 1'b1;
+                cpu_ctrl.use_immediate = 1'b1;
                 cpu_ctrl.opcode[3:0] = ALU_ADD;
                 rd_write = 1'b1;
             end
@@ -123,7 +123,7 @@ module decoder (
             // AUIPC
             OPCODE_AUIPC: begin
                 cpu_ctrl.alu_op1_sel_pc = 1'b1;
-                cpu_ctrl.alu_op2_sel_imm = 1'b1;
+                cpu_ctrl.use_immediate = 1'b1;
                 cpu_ctrl.opcode[3:0] = ALU_ADD;
                 rd_write = 1'b1;
             end
@@ -207,7 +207,6 @@ module decoder (
 
                 // CSR
                 if (func3 != 3'b000) begin
-
                     // For CSRRW/CSRRWI, if rd=x0, then the instruction should not read the CSR
                     cpu_ctrl.csr_read = (func3[1:0] != CSR_RW) | (rd_addr != 0);
 
@@ -218,10 +217,12 @@ module decoder (
 
                     rd_write = cpu_ctrl.csr_read;
                     rs1_read = ~func3[2];
-                    cpu_ctrl.alu_op2_sel_imm = func3[2];
+                    cpu_ctrl.use_immediate = func3[2];
                 end
                 else begin
-                    illegal_instruction = 1'b1;
+                    if      (instruction == 32'h30200073) cpu_ctrl.mret = 1'b1;
+                    else if (instruction == 32'h10200073) cpu_ctrl.sret = 1'b1;
+                    else  illegal_instruction = 1'b1;
                 end
             end
 
@@ -251,6 +252,9 @@ module decoder (
             end
             OPCODE_LUI, OPCODE_AUIPC: begin
                 immediate = {{32{instruction[31]}}, instruction[31:12], 12'b0};
+            end
+            OPCODE_SYSTEM: begin
+                immediate = {{59'b0}, instruction[19:15]};  // for CSR instruction
             end
             default: begin
                 immediate = {{52{instruction[31]}}, instruction[31:20]};

@@ -15,9 +15,9 @@ module IF (
     input               IF_flush,
     // target pc
     input               jump,
-    input  [`XLEN-1:0]  jump_pc,
+    input  [`XLEN-1:0]  jump_tgt_pc,
     input               trap,
-    input  [`XLEN-1:0]  trap_pc,
+    input  [`XLEN-1:0]  trap_tgt_pc,
     // Instruction Memory
     output [`XLEN-1:0]  haddr,
     output [1:0]        htrans,
@@ -62,8 +62,8 @@ module IF (
         else begin
             // flush should unblock PC update from stall request
             if (run && (ifq_req_ready || IF_flush)) begin
-                if (trap)      pc_in_data <= trap_pc;
-                else if (jump) pc_in_data <= jump_pc;
+                if (trap)      pc_in_data <= trap_tgt_pc;
+                else if (jump) pc_in_data <= jump_tgt_pc;
                 else           pc_in_data <= pc_in_data + 4;
             end
         end

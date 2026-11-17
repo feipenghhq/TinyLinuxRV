@@ -46,7 +46,6 @@ typedef enum logic [1:0] {
 `define DEC_RS1_RANGE       4:0
 `define DEC_RS2_RANGE       4:0
 `define DEC_FUNC7_RANGE     6:0
-`define DEC_CSR_ADDR_FIELD  31:20
 
 // Instruction Type (OPCODE)
 typedef enum bit[6:0] {

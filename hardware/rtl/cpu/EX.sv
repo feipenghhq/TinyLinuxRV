@@ -18,6 +18,7 @@ module EX (
     output EX2MEM_PIPE_t out_EX_data,
     input                out_EX_ready,
     input                EX_flush,
+    output               ID_flush,
     // LSU request
     output               lsu_req_read,
     output               lsu_req_write,
@@ -37,15 +38,16 @@ module EX (
     // AMO read data
     input  [`XLEN-1:0]   amo_rdata,
     // Jump
-    output [`XLEN-1:0]   jump_pc,
+    output [`XLEN-1:0]   jump_tgt_pc,
     output               jump,
     // Data forwarding logic
     output [4:0]         ex_rd_addr,
     output               ex_rd_write,
     output [`XLEN-1:0]   ex_rd_wdata,
     // Load dependency check
-    output               ex_mem_read,
-    output               ex_lr
+    output               ex_mem_read_or_sc,
+    output               ex_lr,
+    output               ex_csr
 );
 
     logic [`XLEN-1:0] alu_op1;
@@ -89,7 +91,7 @@ module EX (
     divider u_divider (
         .clk      (clk),
         .rst_n    (rst_n),
-        .flush    (1'b0),         // FIXME: Need to add flush
+        .flush    (EX_flush),
         .req      (in_ID_data.cpu_ctrl.div),
         .opcode   (in_ID_data.cpu_ctrl.opcode[1:0]),
         .is_32bit (in_ID_data.cpu_ctrl.is_32bit),
@@ -109,7 +111,7 @@ module EX (
         .rs2_value  (in_ID_data.rs2_value),
         .immediate  (in_ID_data.immediate),
         .pc         (in_ID_data.pc),
-        .jump_pc    (jump_pc),
+        .jump_pc    (jump_tgt_pc),
         .jump       (jump),
         .instr_addr_misaligned(instr_addr_misaligned)
     );
@@ -122,7 +124,7 @@ module EX (
                      in_ID_data.cpu_ctrl.alu_op1_sel_pc   ? in_ID_data.pc :
                      in_ID_data.rs1_value;
 
-    assign alu_op2 = in_ID_data.cpu_ctrl.alu_op2_sel_imm ? in_ID_data.immediate :
+    assign alu_op2 = in_ID_data.cpu_ctrl.use_immediate ? in_ID_data.immediate :
                      in_ID_data.rs2_value;
 
     // ---------------------------------
@@ -150,8 +152,10 @@ module EX (
     // Data forwarding logic
     // ---------------------------------
 
-    assign ex_mem_read = in_ID_data.cpu_ctrl.mem_read | in_ID_data.cpu_ctrl.lr | in_ID_data.cpu_ctrl.amo;
+    assign ex_mem_read_or_sc = in_ID_data.cpu_ctrl.mem_read | in_ID_data.cpu_ctrl.lr |
+                               in_ID_data.cpu_ctrl.amo | in_ID_data.cpu_ctrl.sc;
     assign ex_lr = in_ID_data.cpu_ctrl.lr;
+    assign ex_csr = ~EX_flush & (in_ID_data.cpu_ctrl.csr_read | in_ID_data.cpu_ctrl.csr_write);
 
     assign ex_rd_addr  = in_ID_data.rd_addr;
     assign ex_rd_write = in_ID_data.rd_write;
@@ -173,6 +177,8 @@ module EX (
 
     assign out_EX_valid = in_ID_valid & ~EX_flush & ~EX_stall;
 
+    assign ID_flush = EX_flush | jump;
+
     assign out_EX_data.pc          = in_ID_data.pc;
     assign out_EX_data.mem_access  = lsu_req_read | lsu_req_write | lsu_req_lr | lsu_req_sc;
     assign out_EX_data.mem_read    = lsu_req_read | lsu_req_lr;
@@ -182,6 +188,9 @@ module EX (
     assign out_EX_data.csr_write   = in_ID_data.cpu_ctrl.csr_write;
     assign out_EX_data.csr_write_opcode = in_ID_data.cpu_ctrl.csr_write_opcode;
     assign out_EX_data.csr_address = in_ID_data.cpu_ctrl.csr_address;
+    assign out_EX_data.csr_wdata   = in_ID_data.cpu_ctrl.use_immediate ? in_ID_data.immediate : in_ID_data.rs1_value;
+    assign out_EX_data.sret        = in_ID_data.cpu_ctrl.sret;
+    assign out_EX_data.mret        = in_ID_data.cpu_ctrl.mret;
     // for jal/jalr, store pc + 4 to rd
     assign out_EX_data.rd_wdata    = jump ? in_ID_data.pc + 4 : ex_rd_wdata;
 
