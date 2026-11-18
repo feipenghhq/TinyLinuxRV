@@ -103,6 +103,8 @@ typedef struct packed {
     logic [11:0] csr_address;
     logic       mret;
     logic       sret;
+    logic       ecall;
+    logic       ebreak;
 } CPU_CTRL_t;
 
 // ---------------------------------
@@ -148,6 +150,8 @@ typedef struct packed {
     logic [`XLEN-1:0] csr_wdata;
     logic             mret;
     logic             sret;
+    logic             ecall;
+    logic             ebreak;
     // exception
     logic       exception_valid;
     logic [4:0] exception_cause;
@@ -168,6 +172,8 @@ typedef struct packed {
     logic [`XLEN-1:0] csr_wdata;
     logic             mret;
     logic             sret;
+    logic             ecall;
+    logic             ebreak;
     // exception
     logic       exception_valid;
     logic [4:0] exception_cause;

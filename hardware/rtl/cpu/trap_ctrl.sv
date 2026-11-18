@@ -9,7 +9,9 @@ module trap_ctrl
 (
     input               clk,
     input               rst_n,
-
+    // instruction
+    input               ecall,
+    input               ebreak,
     // exception
     input               exception_valid,
     input [4:0]         exception_cause,
@@ -51,6 +53,8 @@ module trap_ctrl
     logic [`XLEN-3:0] trap_vec_base;
     logic [1:0]       trap_vec_mode;
 
+    logic [4:0] ecall_cause;
+
     // ----------------------------------------------------
     // Handling Interrupt/Exception Entering
     // ----------------------------------------------------
@@ -84,10 +88,15 @@ module trap_ctrl
     end
 
     // 2. Handling Exception and Trap
-    assign trap_enter = exception_valid | handle_interrupt;
+    assign trap_enter = exception_valid | handle_interrupt | ecall | ebreak;
 
     // Update: trap cause (mcause/scause)
-    assign trap_cause = exception_valid ? exception_cause : interrupt_cause;
+    /* verilator lint_off WIDTHEXPAND */
+    assign ecall_cause = current_priv + 8;
+    /* verilator lint_on WIDTHEXPAND */
+    assign trap_cause = ecall  ? ecall_cause :
+                        ebreak ? BREAKPOINT:
+                        exception_valid ? exception_cause : interrupt_cause;
 
     // Update: mepc/sepc
     // since we only support only IALIGN=32, the two low bits (mepc[1:0]) are always zero.

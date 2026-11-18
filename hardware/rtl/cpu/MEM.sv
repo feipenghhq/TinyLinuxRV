@@ -55,7 +55,7 @@ module MEM (
 
     assign out_MEM_valid = in_EX_valid & ~MEM_flush & ~MEM_stall;
 
-    assign EX_flush = MEM_flush | out_MEM_data.exception_valid;
+    assign EX_flush = MEM_flush | out_MEM_data.exception_valid | in_EX_data.ecall | in_EX_data.ebreak;
 
     assign out_MEM_data.pc = in_EX_data.pc;
     assign out_MEM_data.instruction = in_EX_data.instruction;
@@ -71,6 +71,8 @@ module MEM (
     assign out_MEM_data.csr_wdata   = in_EX_data.csr_wdata;
     assign out_MEM_data.sret        = in_EX_data.sret;
     assign out_MEM_data.mret        = in_EX_data.mret;
+    assign out_MEM_data.ecall       = in_EX_data.ecall;
+    assign out_MEM_data.ebreak      = in_EX_data.ebreak;
     // exception
     assign out_MEM_data.exception_valid = in_EX_data.exception_valid |
                                             load_access_fault | store_amo_access_fault;

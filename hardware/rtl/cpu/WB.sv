@@ -104,6 +104,8 @@ module WB (
     trap_ctrl u_trap_ctrl (
         .clk              (clk),
         .rst_n            (rst_n),
+        .ecall            (in_MEM_data.ecall),
+        .ebreak           (in_MEM_data.ebreak),
         .exception_valid  (final_exception_valid),
         .exception_cause  (final_exception_cause),
         .pc               (in_MEM_data.pc),

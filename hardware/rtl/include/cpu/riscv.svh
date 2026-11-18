@@ -61,7 +61,8 @@ typedef enum bit[6:0] {
     OPCODE_AUIPC     = 7'b0010111,
     OPCODE_LUI       = 7'b0110111,
     OPCODE_AMO       = 7'b0101111,
-    OPCODE_SYSTEM    = 7'b1110011
+    OPCODE_SYSTEM    = 7'b1110011,
+    OPCODE_FENCE     = 7'b0001111
 } OPCODE_t;
 
 // ----------------------------------------------

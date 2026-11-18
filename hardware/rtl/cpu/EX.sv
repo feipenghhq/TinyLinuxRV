@@ -194,6 +194,8 @@ module EX (
     assign out_EX_data.csr_wdata   = in_ID_data.cpu_ctrl.use_immediate ? in_ID_data.immediate : in_ID_data.rs1_value;
     assign out_EX_data.sret        = in_ID_data.cpu_ctrl.sret;
     assign out_EX_data.mret        = in_ID_data.cpu_ctrl.mret;
+    assign out_EX_data.ecall       = in_ID_data.cpu_ctrl.ecall;
+    assign out_EX_data.ebreak      = in_ID_data.cpu_ctrl.ebreak;
     // for jal/jalr, store pc + 4 to rd
     assign out_EX_data.rd_wdata    = jump ? in_ID_data.pc + 4 : ex_rd_wdata;
 

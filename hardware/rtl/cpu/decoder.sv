@@ -220,10 +220,18 @@ module decoder (
                     cpu_ctrl.use_immediate = func3[2];
                 end
                 else begin
-                    if      (instruction == 32'h30200073) cpu_ctrl.mret = 1'b1;
-                    else if (instruction == 32'h10200073) cpu_ctrl.sret = 1'b1;
+                    if      (instruction == 32'h30200073) cpu_ctrl.mret   = 1'b1;
+                    else if (instruction == 32'h10200073) cpu_ctrl.sret   = 1'b1;
+                    else if (instruction == 32'h00000073) cpu_ctrl.ecall  = 1'b1;
+                    else if (instruction == 32'h00100073) cpu_ctrl.ebreak = 1'b1;
                     else  illegal_instruction = 1'b1;
                 end
+            end
+
+            // FENCE
+            OPCODE_FENCE: begin
+                if (instruction == 32'h0FF0000F) begin end // Fence: NOP
+                else  illegal_instruction = 1'b1;
             end
 
             default: begin
