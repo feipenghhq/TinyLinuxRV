@@ -50,3 +50,15 @@ rv64ua = Path(f"{REPO_PATH}/third-party/riscv-tests/isa/rv64ua")
 @cocotb.parametrize(file=[cocotb.Param(f"{f.stem}.bin", f.stem) for f in rv64ua.rglob("*.S")])
 async def riscv_test_rv64ua(dut, file=""):
     await riscv_tests(dut, timeout=1000000, file=file, env="p", isa="rv64ua")
+
+rv64mi = Path(f"{REPO_PATH}/third-party/riscv-tests/isa/rv64mi")
+rv64mi_skipped = ["pmpaddr", "breakpoint"]
+@cocotb.parametrize(file=[cocotb.Param(f"{f.stem}.bin", f.stem) for f in rv64mi.rglob("*.S") if f.stem not in rv64mi_skipped])
+async def riscv_test_rv64mi(dut, file=""):
+    await riscv_tests(dut, timeout=100000, file=file, env="p", isa="rv64mi")
+
+rv64si = Path(f"{REPO_PATH}/third-party/riscv-tests/isa/rv64si")
+rv64si_skipped = ["dirty", "icache-alias"]
+@cocotb.parametrize(file=[cocotb.Param(f"{f.stem}.bin", f.stem) for f in rv64si.rglob("*.S") if f.stem not in rv64si_skipped])
+async def riscv_test_rv64si(dut, file=""):
+    await riscv_tests(dut, timeout=100000, file=file, env="p", isa="rv64si")
