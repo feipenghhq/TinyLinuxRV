@@ -21,6 +21,9 @@ module WB (
     output [`XLEN-1:0]   trap_tgt_pc,
     // csr to id
     output               wb_csr,
+    output               mstatus_tw,
+    output               mstatus_tvm,
+    output [1:0]         current_priv,
     // Register write back
     output               wb_rd_write,
     output [4:0]         wb_rd_addr,
@@ -44,6 +47,7 @@ module WB (
     logic [`XLEN-1:0] trap_enter_vec;
     logic [`XLEN-1:0] trap_exit_vec;
     logic [4:0]       trap_cause;
+    logic             trap_interrupt;
     logic [`XLEN-1:0] trap_tval;
     logic [`XLEN-1:0] trap_pc;
     logic [1:0]       trap_priv;
@@ -55,12 +59,13 @@ module WB (
     logic [`XLEN-1:0] medeleg;
     logic [`XLEN-1:0] mideleg;
     logic [`XLEN-1:0] mtvec;
+    logic [`XLEN-1:0] stvec;
     logic [`XLEN-1:0] mepc;
+    logic [`XLEN-1:0] sepc;
     logic             mstatus_tsr;
     logic             mstatus_mie;
     logic             mstatus_sie;
     mie_t             mie;
-    logic [1:0]       current_priv;
     logic             csr_ssip;
     logic             csr_stip;
     logic             csr_seip;
@@ -223,10 +228,12 @@ module WB (
         .mideleg          (mideleg),
         .mtvec            (mtvec),
         .mepc             (mepc),
-        .stvec            ('0),
+        .sepc             (sepc),
+        .stvec            (stvec),
         .current_priv     (current_priv),
         .trap_enter       (trap_enter),
         .trap_cause       (trap_cause),
+        .trap_interrupt   (trap_interrupt),
         .trap_tval        (trap_tval),
         .trap_pc          (trap_pc),
         .trap_priv        (trap_priv),
@@ -240,6 +247,7 @@ module WB (
         .rst_n            (rst_n),
         .trap_enter       (trap_enter),
         .trap_cause       (trap_cause),
+        .trap_interrupt   (trap_interrupt),
         .trap_tval        (trap_tval),
         .trap_pc          (trap_pc),
         .trap_priv        (trap_priv),
@@ -248,8 +256,12 @@ module WB (
         .o_medeleg        (medeleg),
         .o_mideleg        (mideleg),
         .o_mtvec          (mtvec),
+        .o_stvec          (stvec),
         .o_mepc           (mepc),
+        .o_sepc           (sepc),
         .o_mstatus_tsr    (mstatus_tsr),
+        .o_mstatus_tw     (mstatus_tw),
+        .o_mstatus_tvm    (mstatus_tvm),
         .o_mstatus_mie    (mstatus_mie),
         .o_mstatus_sie    (mstatus_sie),
         .o_mie            (mie),

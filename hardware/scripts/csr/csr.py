@@ -113,18 +113,23 @@ def gen_write(csr_name, csr_info):
         # FIXME: WARL
         if access == "rw" or access == "warl":
             rtl_field += f"    data.{field} = wdata[{range}];\n"
-    # Check shadow
+    # Shadow writes preserve fields outside the writable view.
     if "shadow" in csr_info:
         csr_name_final = csr_info["shadow"]
+        func_input = f"    input {csr_name_final}_t csr,\n"
+        func_input += "    input [63:0] wdata"
+        initial_value = "csr"
     else:
         csr_name_final = csr_name
+        func_input = "    input [63:0] wdata"
+        initial_value = "0"
     # Create write function
     rtl = \
 f"""
 function automatic {csr_name_final}_t {csr_name}_write(
-    input [63:0] wdata
+{func_input}
 );
-    {csr_name_final}_t data = 0;
+    {csr_name_final}_t data = {initial_value};
 {rtl_field}
     return data;
 endfunction

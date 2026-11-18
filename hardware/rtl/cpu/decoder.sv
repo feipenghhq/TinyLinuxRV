@@ -19,7 +19,9 @@ module decoder (
     output logic [4:0] rs2_addr,
     output CPU_CTRL_t  cpu_ctrl,
     output logic [`XLEN-1:0] immediate,
-    output logic illegal_instruction  // Illegal instruction
+    output logic       wfi,
+    output logic       sfence_vma,
+    output logic       illegal_instruction
 );
 
 
@@ -77,8 +79,10 @@ module decoder (
 
         cpu_ctrl.csr_read = 1'b0;
         cpu_ctrl.csr_write = 1'b0;
-
         cpu_ctrl.csr_address = instruction[`DEC_CSR_ADDR_FIELD];
+
+        wfi = 1'b0;
+        sfence_vma = 1'b0;
 
         illegal_instruction = 1'b0;
 
@@ -224,13 +228,16 @@ module decoder (
                     else if (instruction == 32'h10200073) cpu_ctrl.sret   = 1'b1;
                     else if (instruction == 32'h00000073) cpu_ctrl.ecall  = 1'b1;
                     else if (instruction == 32'h00100073) cpu_ctrl.ebreak = 1'b1;
+                    else if (instruction == 32'h10500073) wfi = 1'b1;
+                    else if (instruction == 32'h12000073) sfence_vma = 1'b1;
                     else  illegal_instruction = 1'b1;
                 end
             end
 
             // FENCE
             OPCODE_FENCE: begin
-                if (instruction == 32'h0FF0000F) begin end // Fence: NOP
+                if      (instruction == 32'h0FF0000F) begin end // Fence: NOP
+                else if (instruction == 32'h0000100F) begin end // Fence.i: FIXME: Need this when cache is implemented
                 else  illegal_instruction = 1'b1;
             end
 

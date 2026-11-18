@@ -103,6 +103,9 @@ module cpu (
     logic [4:0]       wb_rd_addr;
     logic [`XLEN-1:0] wb_rd_wdata;
     logic             wb_csr;
+    logic             mstatus_tw;
+    logic             mstatus_tvm;
+    logic [1:0]       current_priv;
     logic             wb_int_req;
     logic [4:0]       wb_int_cause;
     logic             wb_csr_drain;
@@ -169,6 +172,9 @@ module cpu (
         .ex_csr       (ex_csr),
         .mem_csr      (mem_csr),
         .wb_csr       (wb_csr),
+        .mstatus_tw   (mstatus_tw),
+        .mstatus_tvm  (mstatus_tvm),
+        .current_priv (current_priv),
         .wb_int_req   (wb_int_req),
         .wb_int_cause (wb_int_cause),
         .wb_csr_drain (wb_csr_drain),
@@ -321,6 +327,9 @@ module cpu (
         .trap         (trap),
         .trap_tgt_pc  (trap_tgt_pc),
         .wb_csr       (wb_csr),
+        .mstatus_tw   (mstatus_tw),
+        .mstatus_tvm  (mstatus_tvm),
+        .current_priv (current_priv),
         .cpu_msip     (1'b0),
         .cpu_mtip     (1'b0),
         .cpu_meip     (1'b0),

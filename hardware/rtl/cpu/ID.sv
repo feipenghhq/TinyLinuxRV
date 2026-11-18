@@ -10,7 +10,6 @@
 module ID (
     input clk,
     input rst_n,
-
     // pipeline control
     input               in_IF_valid,
     input IF2ID_PIPE_t  in_IF_data,
@@ -40,7 +39,11 @@ module ID (
     // Register write back
     input               wb_rd_write,
     input [4:0]         wb_rd_addr,
-    input [`XLEN-1:0]   wb_rd_wdata
+    input [`XLEN-1:0]   wb_rd_wdata,
+    // MISC
+    input               mstatus_tw,
+    input               mstatus_tvm,
+    input [1:0]         current_priv
 );
 
     CPU_CTRL_t        cpu_ctrl;
@@ -77,6 +80,11 @@ module ID (
     typedef enum logic {RUN=0, STALLED=1} state_t;
     state_t           ID_state;
 
+    logic             wfi;
+    logic             wfi_illegal;
+    logic             sfence_vma;
+    logic             sfence_vma_illegal;
+
     logic             exception_valid;
     logic             interrupt_valid;
 
@@ -95,6 +103,8 @@ module ID (
         .rs2_addr    (rs2_addr),
         .cpu_ctrl    (cpu_ctrl),
         .immediate   (immediate),
+        .wfi         (wfi),
+        .sfence_vma  (sfence_vma),
         .illegal_instruction(illegal_instruction)
     );
 
@@ -200,7 +210,11 @@ module ID (
     assign out_ID_data.rd_addr     = rd_addr;
 
     // exception
-    assign exception_valid = instruction_access_fault | illegal_instruction;
+
+    assign wfi_illegal = mstatus_tw & wfi & current_priv < PRIV_M;
+    assign sfence_vma_illegal = mstatus_tvm & sfence_vma & current_priv < PRIV_M;
+
+    assign exception_valid = instruction_access_fault | illegal_instruction | wfi_illegal | sfence_vma_illegal;
     assign interrupt_valid = wb_int_req;
     assign out_ID_data.exception_valid = exception_valid;
     assign out_ID_data.interrupt_valid = interrupt_valid;

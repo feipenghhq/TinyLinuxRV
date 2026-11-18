@@ -292,8 +292,8 @@ sip:
   shadow: mip
   fields:
     ssip: {bit: 1,   access: rw}
-    stip: {bit: 5,   access: rw}
-    seip: {bit: 9,   access: rw}
+    stip: {bit: 5,   access: ro}
+    seip: {bit: 9,   access: ro}
 
 
 # ---------------------------------------------------------

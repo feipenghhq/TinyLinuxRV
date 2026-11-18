@@ -675,9 +675,10 @@ typedef struct packed {
 } sstatus_t;
 
 function automatic mstatus_t sstatus_write(
+    input mstatus_t csr,
     input [63:0] wdata
 );
-    mstatus_t data = 0;
+    mstatus_t data = csr;
     // CPU write field
     data.sie = wdata[1];
     data.spie = wdata[5];
@@ -712,9 +713,10 @@ typedef struct packed {
 } sie_t;
 
 function automatic mie_t sie_write(
+    input mie_t csr,
     input [63:0] wdata
 );
-    mie_t data = 0;
+    mie_t data = csr;
     // CPU write field
     data.ssip = wdata[1];
     data.stip = wdata[5];
@@ -910,9 +912,10 @@ typedef struct packed {
 } sip_t;
 
 function automatic mip_t sip_write(
+    input mip_t csr,
     input [63:0] wdata
 );
-    mip_t data = 0;
+    mip_t data = csr;
     // CPU write field
     data.ssip = wdata[1];
     data.stip = wdata[5];

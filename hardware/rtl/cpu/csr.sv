@@ -12,6 +12,7 @@ module csr
     // Entering trap
     input               trap_enter,
     input [4:0]         trap_cause,
+    input               trap_interrupt,
     input [`XLEN-1:0]   trap_tval,
     input [`XLEN-1:0]   trap_pc,
     input [1:0]         trap_priv,
@@ -22,8 +23,12 @@ module csr
     output [`XLEN-1:0]  o_medeleg,
     output [`XLEN-1:0]  o_mideleg,
     output [`XLEN-1:0]  o_mtvec,
+    output [`XLEN-1:0]  o_stvec,
     output [`XLEN-1:0]  o_mepc,
+    output [`XLEN-1:0]  o_sepc,
     output              o_mstatus_tsr,
+    output              o_mstatus_tw,
+    output              o_mstatus_tvm,
     output              o_mstatus_mie,
     output              o_mstatus_sie,
     output mie_t        o_mie,
@@ -109,7 +114,8 @@ module csr
             // entering trap change the privilege to trap privilege
             if (trap_enter) current_priv <= trap_priv;
             // exit trap restore privilege from mstatus.MPP field
-            else if (sret || mret) current_priv <= mstatus.mpp;
+            else if (mret) current_priv <= mstatus.mpp;
+            else if (sret) current_priv <= {1'b0, mstatus.spp};
         end
     end
 
@@ -165,7 +171,10 @@ module csr
             CSR_MCYCLE:   csr_rdata = mcycle_read(mcycle);
             CSR_MINSTRET: csr_rdata = minstret_read(minstret);
             CSR_SSTATUS:  csr_rdata = sstatus_read(mstatus);
-            CSR_SIE:      csr_rdata = sie_read(mie);
+            CSR_SIE: begin
+                // SIE only seens interrupt being delegated in mideleg
+                csr_rdata = sie_read(mie) & mideleg_read(mideleg);
+            end
             CSR_STVEC:    csr_rdata = stvec_read(stvec);
             CSR_SCOUNTEREN: csr_rdata = scounteren_read(scounteren);
             CSR_SSCRATCH: csr_rdata = sscratch_read(sscratch);
@@ -178,7 +187,10 @@ module csr
                 // SIP only sees interrupt being delegated in midelege
                 csr_rdata = csr_rdata & mideleg_read(mideleg);
             end
-            CSR_SATP:     csr_rdata = satp_read(satp);
+            CSR_SATP: begin
+                csr_rdata = satp_read(satp);
+                if (mstatus.tvm && current_priv != PRIV_M) csr_read_unimp = 1'b1;
+            end
             CSR_CYCLE: begin
                 csr_rdata = cycle_read(mcycle);
                 if (current_priv != PRIV_M && !mcounteren.cy) csr_read_unimp = 1'b1;
@@ -214,7 +226,6 @@ module csr
         if (!rst_n) begin
             medeleg <= 0;
             mideleg <= 0;
-            mie <= 0;
             mtvec <= 0;
             mcounteren <= 0;
             mcountinhibit <= 0;
@@ -222,31 +233,19 @@ module csr
             stvec <= 0;
             scounteren <= 0;
             sscratch <= 0;
-            sepc <= 0;
-            scause <= 0;
-            stval <= 0;
             satp <= 0;
         end
         else begin
             case (csr_address)
                 CSR_MEDELEG:    if (csr_write) medeleg <= medeleg_write(csr_wdata_final);
                 CSR_MIDELEG:    if (csr_write) mideleg <= mideleg_write(csr_wdata_final);
-                CSR_MIE:        if (csr_write) mie <= mie_write(csr_wdata_final);
                 CSR_MTVEC:      if (csr_write) mtvec <= mtvec_write(csr_wdata_final);
                 CSR_MCOUNTEREN: if (csr_write) mcounteren <= mcounteren_write(csr_wdata_final);
                 CSR_MCOUNTINHIBIT: if (csr_write) mcountinhibit <= mcountinhibit_write(csr_wdata_final);
                 CSR_MSCRATCH:      if (csr_write) mscratch <= mscratch_write(csr_wdata_final);
-                CSR_SSTATUS:    if (csr_write) mstatus <= sstatus_write(csr_wdata_final);
-                CSR_SIE:        if (csr_write) mie <= sie_write(csr_wdata_final);
                 CSR_STVEC:      if (csr_write) stvec <= stvec_write(csr_wdata_final);
                 CSR_SCOUNTEREN: if (csr_write) scounteren <= scounteren_write(csr_wdata_final);
                 CSR_SSCRATCH:   if (csr_write) sscratch <= sscratch_write(csr_wdata_final);
-                CSR_SEPC:       if (csr_write) sepc <= sepc_write(csr_wdata_final);
-                CSR_SCAUSE:     if (csr_write) scause <= scause_write(csr_wdata_final);
-                CSR_STVAL:      if (csr_write) stval <= sepc_write(csr_wdata_final);
-                // Only delegated SSIP is writable through sip; preserve STIP/SEIP.
-                CSR_SIP:        if (csr_write && mideleg.ssip)
-                                    mip.ssip <= csr_wdata_final[1];
                 CSR_SATP:       if (csr_write) satp <= satp_write(csr_wdata_final);
                 default: begin end
             endcase
@@ -259,14 +258,21 @@ module csr
             mepc <= 0;
             mcause <= 0;
             mtval <= 0;
+            mie <= 0;
             mip <= 0;
             mcycle <= 0;
             minstret <= 0;
+            sepc <= 0;
+            scause <= 0;
+            stval <= 0;
         end
         else begin
 
             if (csr_write && csr_address == CSR_MSTATUS) begin
                 mstatus <= mstatus_write(csr_wdata_final);
+            end
+            else if (csr_write && csr_address == CSR_SSTATUS) begin
+                mstatus <= sstatus_write(mstatus, csr_wdata_final);
             end
             else begin
                 if (trap_enter) begin
@@ -306,17 +312,21 @@ module csr
             else if (trap_enter && trap_priv == PRIV_M) mepc.mepc <= trap_pc;
 
             if (csr_write && csr_address == CSR_MCAUSE) mcause <= mcause_write(csr_wdata_final);
-            else if (trap_enter && trap_priv == PRIV_M) mcause.exception_code <= {58'b0, trap_cause};
+            else if (trap_enter && trap_priv == PRIV_M) begin
+                mcause.exception_code <= {58'b0, trap_cause};
+                mcause.is_interrupt <= trap_interrupt;
+            end
 
             if (csr_write && csr_address == CSR_MTVAL) mtval <= mtval_write(csr_wdata_final);
             else if (trap_enter && trap_priv == PRIV_M) mtval.mtval <= trap_tval;
+
+            if (csr_write && csr_address == CSR_MIE) mie <= mie_write(csr_wdata_final);
 
             if (csr_write && csr_address == CSR_MIP) mip <= mip_write(csr_wdata_final);
             else begin
                 mip.msip <= cpu_msip;
                 mip.mtip <= cpu_mtip;
                 mip.meip <= cpu_meip;
-                mip.seip <= cpu_seip;
             end
 
             if (csr_write && csr_address == CSR_MCYCLE) mcycle.mcycle <= mcycle_write(csr_wdata_final);
@@ -324,6 +334,29 @@ module csr
 
             if (csr_write && csr_address == CSR_MINSTRET) minstret <= minstret_write(csr_wdata_final);
             else if (instret) minstret.minstret <= minstret.minstret + 1'b1;
+
+            if (csr_write && csr_address == CSR_SEPC) sepc <= sepc_write(csr_wdata_final);
+            else if (trap_enter && trap_priv == PRIV_S) sepc.sepc <= trap_pc;
+
+            if (csr_write && csr_address == CSR_SCAUSE) scause <= scause_write(csr_wdata_final);
+            else if (trap_enter && trap_priv == PRIV_S) begin
+                scause.exception_code <= {58'b0, trap_cause};
+                scause.is_interrupt <= trap_interrupt;
+            end
+
+            if (csr_write && csr_address == CSR_STVAL) stval <= stval_write(csr_wdata_final);
+            else if (trap_enter && trap_priv == PRIV_S) stval.stval <= trap_tval;
+
+            if (csr_write && csr_address == CSR_SIE) begin
+                if (csr_write && mideleg.ssip) mie.ssip <= csr_wdata_final[1];
+                if (csr_write && mideleg.stip) mie.stip <= csr_wdata_final[5];
+                if (csr_write && mideleg.seip) mie.seip <= csr_wdata_final[9];
+            end
+
+            // Superviosr mode can only write to mip.ssip
+            if (csr_write && csr_address == CSR_SIP) begin
+                if (csr_write && mideleg.ssip) mip.ssip <= csr_wdata_final[1];
+            end
         end
     end
 
@@ -350,8 +383,12 @@ module csr
     assign o_medeleg = medeleg_read(medeleg);
     assign o_mideleg = mideleg_read(mideleg);
     assign o_mtvec   = mtvec_read(mtvec);
+    assign o_stvec   = stvec_read(stvec);
     assign o_mepc    = mepc_read(mepc);
+    assign o_sepc    = sepc_read(sepc);
     assign o_mstatus_tsr = mstatus.tsr;
+    assign o_mstatus_tw = mstatus.tw;
+    assign o_mstatus_tvm = mstatus.tvm;
     assign o_mstatus_mie = mstatus.mie;
     assign o_mstatus_sie = mstatus.sie;
     assign o_mie = mie;

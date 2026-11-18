@@ -31,12 +31,14 @@ module trap_ctrl
     input [`XLEN-1:0]   mtvec,
     input [`XLEN-1:0]   mepc,
     input [`XLEN-1:0]   stvec,
+    input [`XLEN-1:0]   sepc,
     input [1:0]         current_priv,
 
     // Entering trap
     output logic              trap_enter,
     output logic [`XLEN-1:0]  trap_enter_vec,
     output logic [4:0]        trap_cause,
+    output logic              trap_interrupt,
     output logic [`XLEN-1:0]  trap_tval,
     output logic [`XLEN-1:0]  trap_pc,
     output logic [1:0]        trap_priv,
@@ -54,10 +56,22 @@ module trap_ctrl
     logic [1:0]       trap_vec_mode;
 
     logic [4:0] ecall_cause;
+    logic       exception_valid_final;
+    logic [4:0] exception_cause_final;
+
 
     // ----------------------------------------------------
     // Handling Interrupt/Exception Entering
     // ----------------------------------------------------
+
+    /* verilator lint_off WIDTHEXPAND */
+    assign ecall_cause = current_priv + 8;
+    /* verilator lint_on WIDTHEXPAND */
+    assign exception_cause_final =  ecall  ? ecall_cause :
+                                    ebreak ? BREAKPOINT :
+                                    exception_cause;
+
+    assign exception_valid_final = exception_valid | ecall | ebreak;
 
     // 1. Check privilege mode for interrupt and exceptions.
     always_comb begin
@@ -78,7 +92,7 @@ module trap_ctrl
         // For exception raised in S/U mode, if the corresponding bit in medeleg is set, then it is delegated to S-mode
         // For interrupts raised in S/U mode, if the corresponding bit in mideleg is set, then it is delegated to S-mode
         if (current_priv < PRIV_M) begin
-            if (exception_valid  && medeleg[{1'b0, exception_cause}] ||
+            if (exception_valid_final  && medeleg[{1'b0, exception_cause_final}] ||
                 handle_interrupt && mideleg[{1'b0, interrupt_cause}]) begin
                 target_priv = PRIV_S;
                 target_priv_is_M = 1'b0;
@@ -88,15 +102,11 @@ module trap_ctrl
     end
 
     // 2. Handling Exception and Trap
-    assign trap_enter = exception_valid | handle_interrupt | ecall | ebreak;
+    assign trap_enter = exception_valid_final | handle_interrupt;
 
     // Update: trap cause (mcause/scause)
-    /* verilator lint_off WIDTHEXPAND */
-    assign ecall_cause = current_priv + 8;
-    /* verilator lint_on WIDTHEXPAND */
-    assign trap_cause = ecall  ? ecall_cause :
-                        ebreak ? BREAKPOINT:
-                        exception_valid ? exception_cause : interrupt_cause;
+    assign trap_cause = interrupt_valid ? interrupt_cause : exception_cause_final;
+    assign trap_interrupt = interrupt_valid;
 
     // Update: mepc/sepc
     // since we only support only IALIGN=32, the two low bits (mepc[1:0]) are always zero.
@@ -124,6 +134,6 @@ module trap_ctrl
     // ----------------------------------------------------
 
     assign trap_exit     = mret | sret;
-    assign trap_exit_vec = mepc;
+    assign trap_exit_vec = mret ? mepc : sepc;
 
 endmodule

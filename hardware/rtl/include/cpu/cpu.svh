@@ -153,6 +153,7 @@ typedef struct packed {
     logic             sret;
     logic             ecall;
     logic             ebreak;
+    logic             wfi;
     // exception
     logic       exception_valid;
     logic       interrupt_valid;
