@@ -9,23 +9,34 @@ module csr
 (
     input               clk,
     input               rst_n,
-
     // Entering trap
     input               trap_enter,
     input [4:0]         trap_cause,
     input [`XLEN-1:0]   trap_tval,
     input [`XLEN-1:0]   trap_pc,
     input [1:0]         trap_priv,
+    // Returning from trap
+    input               sret,
+    input               mret,
     // CSR state for the trap controller
     output [`XLEN-1:0]  o_medeleg,
     output [`XLEN-1:0]  o_mideleg,
     output [`XLEN-1:0]  o_mtvec,
     output [`XLEN-1:0]  o_mepc,
     output              o_mstatus_tsr,
+    output              o_mstatus_mie,
+    output              o_mstatus_sie,
+    output mie_t        o_mie,
     output logic [1:0]  current_priv,
-    // Returning from trap
-    input               sret,
-    input               mret,
+    // External Interrupt
+    input               cpu_msip,
+    input               cpu_mtip,
+    input               cpu_meip,
+    input               cpu_seip,
+    // Supervisor mode interrupt output
+    output              csr_ssip,
+    output              csr_stip,
+    output              csr_seip,
     // MISC
     input               instret, // instruction retire
     input [`XLEN-1:0]   mtime,   // from CLINT
@@ -40,13 +51,16 @@ module csr
 );
 
     logic [63:0] csr_wdata_final;
+    logic [`XLEN-1:0] csr_rmw_data;
+
+    logic cpu_seip_int;
+    logic seip_pending;
 
     logic [1:0] addr_priv;
 
     logic       csr_wrong_priv;
     logic       csr_read_unimp;
     logic       csr_write_ro;
-
 
     // Machine Trap Setup
     mstatus_t       mstatus;
@@ -113,9 +127,14 @@ module csr
     // --------------------------------
 
     always_comb begin
+        // External SEIP is visible to reads, but should not be use as read data for CSR Read-modified-write.
+        csr_rmw_data = csr_rdata;
+        if (csr_address == CSR_MIP)
+            csr_rmw_data[9] = mip.seip;
+
         case(csr_opcode)
-            CSR_RS:  csr_wdata_final = csr_rdata |  csr_wdata; // set
-            CSR_RC:  csr_wdata_final = csr_rdata & ~csr_wdata; // clear
+            CSR_RS:  csr_wdata_final = csr_rmw_data |  csr_wdata; // set
+            CSR_RC:  csr_wdata_final = csr_rmw_data & ~csr_wdata; // clear
             default: csr_wdata_final = csr_wdata;
         endcase
     end
@@ -139,7 +158,10 @@ module csr
             CSR_MEPC:     csr_rdata = mepc_read(mepc);
             CSR_MCAUSE:   csr_rdata = mcause_read(mcause);
             CSR_MTVAL:    csr_rdata = mtval_read(mtval);
-            CSR_MIP:      csr_rdata = mip_read(mip);
+            CSR_MIP: begin
+                csr_rdata = mip_read(mip);
+                csr_rdata[9] = seip_pending;
+            end
             CSR_MCYCLE:   csr_rdata = mcycle_read(mcycle);
             CSR_MINSTRET: csr_rdata = minstret_read(minstret);
             CSR_SSTATUS:  csr_rdata = sstatus_read(mstatus);
@@ -150,7 +172,12 @@ module csr
             CSR_SEPC:     csr_rdata = sepc_read(sepc);
             CSR_SCAUSE:   csr_rdata = scause_read(scause);
             CSR_STVAL:    csr_rdata = sepc_read(stval);
-            CSR_SIP:      csr_rdata = sip_read(mip);
+            CSR_SIP: begin
+                csr_rdata = sip_read(mip);
+                csr_rdata[9] = seip_pending;
+                // SIP only sees interrupt being delegated in midelege
+                csr_rdata = csr_rdata & mideleg_read(mideleg);
+            end
             CSR_SATP:     csr_rdata = satp_read(satp);
             CSR_CYCLE: begin
                 csr_rdata = cycle_read(mcycle);
@@ -217,7 +244,9 @@ module csr
                 CSR_SEPC:       if (csr_write) sepc <= sepc_write(csr_wdata_final);
                 CSR_SCAUSE:     if (csr_write) scause <= scause_write(csr_wdata_final);
                 CSR_STVAL:      if (csr_write) stval <= sepc_write(csr_wdata_final);
-                CSR_SIP:        if (csr_write) mip <= sip_write(csr_wdata_final);
+                // Only delegated SSIP is writable through sip; preserve STIP/SEIP.
+                CSR_SIP:        if (csr_write && mideleg.ssip)
+                                    mip.ssip <= csr_wdata_final[1];
                 CSR_SATP:       if (csr_write) satp <= satp_write(csr_wdata_final);
                 default: begin end
             endcase
@@ -230,6 +259,7 @@ module csr
             mepc <= 0;
             mcause <= 0;
             mtval <= 0;
+            mip <= 0;
             mcycle <= 0;
             minstret <= 0;
         end
@@ -281,6 +311,14 @@ module csr
             if (csr_write && csr_address == CSR_MTVAL) mtval <= mtval_write(csr_wdata_final);
             else if (trap_enter && trap_priv == PRIV_M) mtval.mtval <= trap_tval;
 
+            if (csr_write && csr_address == CSR_MIP) mip <= mip_write(csr_wdata_final);
+            else begin
+                mip.msip <= cpu_msip;
+                mip.mtip <= cpu_mtip;
+                mip.meip <= cpu_meip;
+                mip.seip <= cpu_seip;
+            end
+
             if (csr_write && csr_address == CSR_MCYCLE) mcycle.mcycle <= mcycle_write(csr_wdata_final);
             else mcycle.mcycle <= mcycle.mcycle + 1'b1;
 
@@ -288,6 +326,18 @@ module csr
             else if (instret) minstret.minstret <= minstret.minstret + 1'b1;
         end
     end
+
+    // --------------------------------
+    // Special handling for seip
+    // --------------------------------
+
+    always_ff @(posedge clk, negedge rst_n) begin
+        if (!rst_n) cpu_seip_int <= 1'b0;
+        else cpu_seip_int <= cpu_seip;
+    end
+
+    assign seip_pending = mip.seip | cpu_seip_int; // mip.seip stores only the software-writable bit.
+
 
     // --------------------------------
     // Check illegal instruction
@@ -302,6 +352,13 @@ module csr
     assign o_mtvec   = mtvec_read(mtvec);
     assign o_mepc    = mepc_read(mepc);
     assign o_mstatus_tsr = mstatus.tsr;
+    assign o_mstatus_mie = mstatus.mie;
+    assign o_mstatus_sie = mstatus.sie;
+    assign o_mie = mie;
 
+
+    assign csr_ssip = mip.ssip;
+    assign csr_stip = mip.stip;
+    assign csr_seip = seip_pending;
 
 endmodule

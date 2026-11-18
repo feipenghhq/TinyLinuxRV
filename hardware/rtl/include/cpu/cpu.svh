@@ -130,7 +130,8 @@ typedef struct packed {
     logic [4:0]       rd_addr;
     // exception
     logic       exception_valid;
-    logic [4:0] exception_cause;
+    logic       interrupt_valid;
+    logic [4:0] cause;
 } ID2EX_PIPE_t;
 
 // EX/MEM
@@ -154,7 +155,8 @@ typedef struct packed {
     logic             ebreak;
     // exception
     logic       exception_valid;
-    logic [4:0] exception_cause;
+    logic       interrupt_valid;
+    logic [4:0] cause;
 } EX2MEM_PIPE_t;
 
 // MEM/WB
@@ -176,7 +178,8 @@ typedef struct packed {
     logic             ebreak;
     // exception
     logic       exception_valid;
-    logic [4:0] exception_cause;
+    logic       interrupt_valid;
+    logic [4:0] cause;
 } MEM2WB_PIPE_t;
 
 `endif

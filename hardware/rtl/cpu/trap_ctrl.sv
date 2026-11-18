@@ -112,7 +112,7 @@ module trap_ctrl
         trap_enter_vec = {trap_vec_base, 2'b0};
         if (handle_interrupt && trap_vec_mode == 1)
             /* verilator lint_off WIDTHEXPAND */
-            trap_enter_vec = trap_vec_base + (interrupt_cause * 4);
+            trap_enter_vec = {trap_vec_base, 2'b0} + (interrupt_cause * 4);
             /* verilator lint_on WIDTHEXPAND */
     end
 

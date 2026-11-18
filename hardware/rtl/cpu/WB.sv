@@ -6,6 +6,7 @@
 
 
 `include "cpu.svh"
+`include "csr.svh"
 
 module WB (
     input                clk,
@@ -18,10 +19,24 @@ module WB (
     // trap
     output               trap,
     output [`XLEN-1:0]   trap_tgt_pc,
+    // csr to id
+    output               wb_csr,
     // Register write back
     output               wb_rd_write,
     output [4:0]         wb_rd_addr,
-    output [`XLEN-1:0]   wb_rd_wdata
+    output [`XLEN-1:0]   wb_rd_wdata,
+    // interrupt input
+    input                cpu_msip,
+    input                cpu_mtip,
+    input                cpu_meip,
+    input                cpu_seip,
+    // interrupt status in pipeline
+    input                ex_int_valid,
+    input                mem_int_valid,
+    // interrupt req to ID stage
+    output logic         wb_int_req,
+    output logic [4:0]   wb_int_cause,
+    output logic         wb_csr_drain
 );
 
     logic             trap_enter;
@@ -32,25 +47,39 @@ module WB (
     logic [`XLEN-1:0] trap_tval;
     logic [`XLEN-1:0] trap_pc;
     logic [1:0]       trap_priv;
-    logic [1:0]       current_priv;
+
+    logic             sret_final;
+    logic             mret_final;
+
+    logic [`XLEN-1:0] csr_rdata;
     logic [`XLEN-1:0] medeleg;
     logic [`XLEN-1:0] mideleg;
     logic [`XLEN-1:0] mtvec;
     logic [`XLEN-1:0] mepc;
     logic             mstatus_tsr;
-    logic [`XLEN-1:0] csr_rdata;
-
-    logic             sret_final;
-    logic             mret_final;
+    logic             mstatus_mie;
+    logic             mstatus_sie;
+    mie_t             mie;
+    logic [1:0]       current_priv;
+    logic             csr_ssip;
+    logic             csr_stip;
+    logic             csr_seip;
 
     logic             mret_wrong_priv;
     logic             sret_wrong_priv;
     logic             csr_illegal_instruction;
     logic             wb_exception_valid;
     logic [4:0]       wb_exception_cause;
-
     logic             final_exception_valid;
     logic [4:0]       final_exception_cause;
+
+    logic             interrupt_valid;
+    logic [4:0]       interrupt_cause;
+    logic             allow_m_interrupt;
+    logic             allow_s_interrupt;
+    logic [11:0]      interrupt_pending;
+    logic [11:0]      interrupt_enabled;
+    logic [11:0]      interrupt_eligible;
 
     // ----------------------------------------------------
     // Pipeline control
@@ -59,6 +88,7 @@ module WB (
     assign in_MEM_ready = 1'b1; // WB never stall
 
     assign MEM_flush = trap;
+    assign wb_csr = in_MEM_data.csr_read | in_MEM_data.csr_write;
 
     // ----------------------------------------------------
     // Trap control
@@ -76,7 +106,7 @@ module WB (
     assign wb_rd_wdata = in_MEM_data.csr_read ? csr_rdata : in_MEM_data.rd_wdata;
 
     // ----------------------------------------------------
-    // Illegal instruction check
+    // Illegal instruction check from WB stage
     // ----------------------------------------------------
 
     // MRET: S-mode and U-mode can't execute mret, cpu should raise illegal instruction exception in such case
@@ -95,7 +125,81 @@ module WB (
 
     // Final exception
     assign final_exception_valid = wb_exception_valid | in_MEM_data.exception_valid;
-    assign final_exception_cause = wb_exception_valid ? wb_exception_cause : in_MEM_data.exception_cause;
+    assign final_exception_cause = wb_exception_valid ? wb_exception_cause : in_MEM_data.cause;
+
+    // ----------------------------------------------------
+    // Interrupt request
+    // ----------------------------------------------------
+
+    // We log all the interrupt to MIP CSR and check the interrupt eligibility here.
+    // If the interrupt is eligible to be taken then it is send to ID stage to be accepted.
+    // If there is no CSR instruction
+    // After that, it stars to
+
+    // If the current privilege < X privilege, xIE does not need to be checked.
+    // If the target privilege  = X privilege, xIE need to be checked.
+    assign allow_m_interrupt = (current_priv < PRIV_M) | ((current_priv == PRIV_M) & mstatus_mie);
+    assign allow_s_interrupt = (current_priv < PRIV_S) | ((current_priv == PRIV_S) & mstatus_sie);
+
+    always_comb begin
+        interrupt_pending = '0;
+        interrupt_pending[3]  = cpu_msip;
+        interrupt_pending[7]  = cpu_mtip;
+        interrupt_pending[11] = cpu_meip;
+        interrupt_pending[1]  = csr_ssip;
+        interrupt_pending[5]  = csr_stip;
+        interrupt_pending[9]  = csr_seip;
+
+        interrupt_enabled = '0;
+        interrupt_enabled[3]  = mie.msip;
+        interrupt_enabled[7]  = mie.mtip;
+        interrupt_enabled[11] = mie.meip;
+        interrupt_enabled[1]  = mie.ssip;
+        interrupt_enabled[5]  = mie.stip;
+        interrupt_enabled[9]  = mie.seip;
+    end
+
+    // Each bit selects its target-mode permission using mideleg.
+    assign interrupt_eligible = interrupt_pending & interrupt_enabled &
+                                ((~mideleg[11:0] & {12{allow_m_interrupt}}) |   // M-mode only handle interrupt not delegated to S mode
+                                 ( mideleg[11:0] & {12{allow_s_interrupt}}));   // S-mode only handle interrupt delegated to S mode
+
+    assign interrupt_valid = |interrupt_eligible;
+
+    // Priority matches the emulator: MEIP > MSIP > MTIP > SEIP > SSIP > STIP.
+    always_comb begin
+        interrupt_cause = '0;
+        if      (interrupt_eligible[11]) interrupt_cause = 5'd11;
+        else if (interrupt_eligible[3])  interrupt_cause = 5'd3;
+        else if (interrupt_eligible[7])  interrupt_cause = 5'd7;
+        else if (interrupt_eligible[9])  interrupt_cause = 5'd9;
+        else if (interrupt_eligible[1])  interrupt_cause = 5'd1;
+        else if (interrupt_eligible[5])  interrupt_cause = 5'd5;
+    end
+
+    always_ff @(posedge clk, negedge rst_n) begin
+        if (!rst_n) begin
+            wb_int_req <= 1'b0;
+            wb_int_cause <= 0;
+        end
+        else begin
+            wb_int_req    <= interrupt_valid & ~ex_int_valid & ~mem_int_valid & ~in_MEM_data.interrupt_valid;
+            wb_int_cause  <= interrupt_cause;
+        end
+    end
+
+    // Additional wait cycle for pipeline drain to accommodate the registered interrupt request
+    // Because we register the interrupt request, if the last drained instruction is a CSR instruction that
+    // changed the CSR eligibility, interrupt might be disabled. We then need to cancel this interrupt.
+    // In this case, we need to wait for an additional cycle for the wb_int_req to be update.
+    always_ff @(posedge clk, negedge rst_n) begin
+        if (!rst_n) begin
+            wb_csr_drain <= 1'b0;
+        end
+        else begin
+            wb_csr_drain <= in_MEM_data.csr_read | in_MEM_data.csr_write;
+        end
+    end
 
     // ----------------------------------------------------
     // Trap and CSR module
@@ -111,8 +215,8 @@ module WB (
         .pc               (in_MEM_data.pc),
         .instruction      (in_MEM_data.instruction),
         .address          (in_MEM_data.address),
-        .interrupt_valid  (1'b0),
-        .interrupt_cause  (5'b0),
+        .interrupt_valid  (in_MEM_data.interrupt_valid),
+        .interrupt_cause  (in_MEM_data.cause),
         .sret             (sret_final),
         .mret             (mret_final),
         .medeleg          (medeleg),
@@ -139,14 +243,24 @@ module WB (
         .trap_tval        (trap_tval),
         .trap_pc          (trap_pc),
         .trap_priv        (trap_priv),
+        .sret             (sret_final),
+        .mret             (mret_final),
         .o_medeleg        (medeleg),
         .o_mideleg        (mideleg),
         .o_mtvec          (mtvec),
         .o_mepc           (mepc),
         .o_mstatus_tsr    (mstatus_tsr),
+        .o_mstatus_mie    (mstatus_mie),
+        .o_mstatus_sie    (mstatus_sie),
+        .o_mie            (mie),
         .current_priv     (current_priv),
-        .sret             (sret_final),
-        .mret             (mret_final),
+        .cpu_msip         (cpu_msip),
+        .cpu_mtip         (cpu_mtip),
+        .cpu_meip         (cpu_meip),
+        .cpu_seip         (cpu_seip),
+        .csr_ssip         (csr_ssip),
+        .csr_stip         (csr_stip),
+        .csr_seip         (csr_seip),
         .instret          (in_MEM_valid),
         .mtime            (0),
         .csr_read         (in_MEM_data.csr_read),

@@ -202,10 +202,10 @@ module EX (
     // exception
     assign out_EX_data.exception_valid = in_ID_data.exception_valid | instr_addr_misaligned |
                                         load_addr_misaligned | store_amo_addr_misaligned;
-
-    assign out_EX_data.exception_cause = in_ID_data.exception_valid ? in_ID_data.exception_cause :
-                                        instr_addr_misaligned ? INST_ADDR_MISALIGNED :
-                                        load_addr_misaligned  ? LOAD_ADDR_MISALIGNED :
-                                        STORE_AMO_ADDR_MISALIGNED;
+    assign out_EX_data.interrupt_valid = in_ID_data.interrupt_valid;
+    assign out_EX_data.cause =  instr_addr_misaligned ? INST_ADDR_MISALIGNED :
+                                load_addr_misaligned  ? LOAD_ADDR_MISALIGNED :
+                                store_amo_addr_misaligned ? STORE_AMO_ADDR_MISALIGNED :
+                                in_ID_data.cause ;
 
 endmodule

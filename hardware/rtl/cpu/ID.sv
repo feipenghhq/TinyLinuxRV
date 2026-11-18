@@ -32,6 +32,11 @@ module ID (
     input               ex_lr,
     input               ex_csr,
     input               mem_csr,
+    input               wb_csr,
+    // Interrupt request
+    input               wb_int_req,
+    input [4:0]         wb_int_cause,
+    input               wb_csr_drain,
     // Register write back
     input               wb_rd_write,
     input [4:0]         wb_rd_addr,
@@ -65,7 +70,7 @@ module ID (
     logic [`XLEN-1:0] final_rs1;
     logic [`XLEN-1:0] final_rs2;
 
-    logic             load_dependency;
+    logic             ID_stall;
     logic             ID_stage_valid;
     logic             ID_stage_stall;
 
@@ -73,6 +78,7 @@ module ID (
     state_t           ID_state;
 
     logic             exception_valid;
+    logic             interrupt_valid;
 
     // ---------------------------------
     // Main components
@@ -135,23 +141,6 @@ module ID (
                        rs2_match_mem ? mem_rd_wdata :
                        rs2_rdata;
 
-    // ---------------------------------
-    // dependency check
-    // ---------------------------------
-
-    // There are several dependency requires ID stage to be stalled
-
-    // Case 1: When EX stage is a Load instruction and ID stage instruction depends on the result of the load:
-    // - We cannot forward a result from Load instruction from EX stage to ID stage as the read data is not ready yet in EX
-    // - We need to Stall ID stage for 1 cycle to let the memory read instruction goto the MEM stage to get the data ready
-    // Case 2: When LR is followed by an SC. LR completes at MEM stage so SC need to wait till LR reach MEM stage
-    // Case 3: When EX stage is a SC instruction and ID stage instruction depends on the result of the register
-    // Case 4: CSR register access. All instructions in ID wait until the CSR instruction reaches WB.
-    assign load_dependency = ID_stage_valid &
-                            ((rs1_match_ex | rs2_match_ex) & ex_mem_read_or_sc // case 1, case 3
-                             | (cpu_ctrl.sc & ex_lr) | // case 2
-                             | (ex_csr | mem_csr)); // case 4
-
 
     // ---------------------------------
     // Pipeline Control
@@ -170,21 +159,35 @@ module ID (
         end
     end
 
+    // There are several dependency requires ID stage to be stalled
+
+    // Case 1: When EX stage is a Load instruction and ID stage instruction depends on the result of the load:
+    // - We cannot forward a result from Load instruction from EX stage to ID stage as the read data is not ready yet in EX
+    // - We need to Stall ID stage for 1 cycle to let the memory read instruction goto the MEM stage to get the data ready
+    // Case 2: When LR is followed by an SC. LR completes at MEM stage so SC need to wait till LR reach MEM stage
+    // Case 3: When EX stage is a SC instruction and ID stage instruction depends on the result of the register
+    // Case 4: CSR register access. All instructions in ID wait until the CSR instruction retires.
+    // Case 5: Interrupt pending, if the downstream has CSR instruction, then need  to wait for them (covered by case 4)
+    //         But because WB registered interrupt, it need to wait one additional cycle if previous cycle in WB is CSR
+    assign ID_stall = ID_stage_valid &
+                            ((rs1_match_ex | rs2_match_ex) & ex_mem_read_or_sc // case 1, case 3
+                             | (cpu_ctrl.sc & ex_lr) |                         // case 2
+                             | (ex_csr | mem_csr | wb_csr)                     // case 4
+                             | (wb_int_req & wb_csr_drain)                     // case 5
+                            );
     // ID stage is valid when: 1) Get valid instruction, 2) Instruction is decoded successfully, 3) Not flushed
     assign ID_stage_valid = instruction_valid & ~ID_flush;
 
     // ID need to be stalled when: 1) EX is stalled, or 2) load dependency
-    assign ID_stage_stall = ~out_ID_ready | load_dependency;
+    assign ID_stage_stall = ~out_ID_ready | ID_stall;
 
     // ID/IF is ready ID is not stalled
     assign in_IF_ready = ~ID_stage_stall;
 
-    // ID/EX is valid when 1）ID stage is valid, 2) not stalled due to load_dependency
-    assign out_ID_valid = ID_stage_valid & ~load_dependency;
+    // ID/EX is valid when 1）ID stage is valid, 2) not stalled due to ID_stall
+    assign out_ID_valid = ID_stage_valid & ~ID_stall;
 
     assign IF_flush = ID_flush;
-
-
 
     // ctrl and data
     assign out_ID_data.pc          = in_IF_data.pc;
@@ -198,7 +201,10 @@ module ID (
 
     // exception
     assign exception_valid = instruction_access_fault | illegal_instruction;
+    assign interrupt_valid = wb_int_req;
     assign out_ID_data.exception_valid = exception_valid;
-    assign out_ID_data.exception_cause = instruction_access_fault ? INST_ACCESS_FAULT : ILLEGAL_INSTRUCTION;
+    assign out_ID_data.interrupt_valid = interrupt_valid;
+    assign out_ID_data.cause = interrupt_valid ? wb_int_cause:
+                               instruction_access_fault ? INST_ACCESS_FAULT : ILLEGAL_INSTRUCTION;
 
 endmodule

@@ -102,6 +102,10 @@ module cpu (
     logic             wb_rd_write;
     logic [4:0]       wb_rd_addr;
     logic [`XLEN-1:0] wb_rd_wdata;
+    logic             wb_csr;
+    logic             wb_int_req;
+    logic [4:0]       wb_int_cause;
+    logic             wb_csr_drain;
 
     logic             trap;
     logic [`XLEN-1:0] trap_tgt_pc;
@@ -164,6 +168,10 @@ module cpu (
         .ex_lr        (ex_lr),
         .ex_csr       (ex_csr),
         .mem_csr      (mem_csr),
+        .wb_csr       (wb_csr),
+        .wb_int_req   (wb_int_req),
+        .wb_int_cause (wb_int_cause),
+        .wb_csr_drain (wb_csr_drain),
         .wb_rd_write  (wb_rd_write),
         .wb_rd_addr   (wb_rd_addr),
         .wb_rd_wdata  (wb_rd_wdata)
@@ -312,6 +320,16 @@ module cpu (
         .MEM_flush    (MEM_flush),
         .trap         (trap),
         .trap_tgt_pc  (trap_tgt_pc),
+        .wb_csr       (wb_csr),
+        .cpu_msip     (1'b0),
+        .cpu_mtip     (1'b0),
+        .cpu_meip     (1'b0),
+        .cpu_seip     (1'b0),
+        .ex_int_valid (ID_EX_data.interrupt_valid),
+        .mem_int_valid(EX_MEM_data.interrupt_valid),
+        .wb_int_req   (wb_int_req),
+        .wb_int_cause (wb_int_cause),
+        .wb_csr_drain (wb_csr_drain),
         .wb_rd_write  (wb_rd_write),
         .wb_rd_addr   (wb_rd_addr),
         .wb_rd_wdata  (wb_rd_wdata)
