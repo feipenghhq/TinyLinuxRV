@@ -135,6 +135,7 @@ typedef struct packed {
 typedef struct packed {
     logic [`XLEN-1:0] pc;
     logic [31:0]      instruction;
+    logic [`XLEN-1:0] address;
     logic             mem_read;
     logic             mem_access;
     logic             rd_write;
@@ -156,6 +157,7 @@ typedef struct packed {
 typedef struct packed {
     logic [`XLEN-1:0] pc;
     logic [31:0]      instruction;
+    logic [`XLEN-1:0] address;
     logic             rd_write;
     logic [4:0]       rd_addr;
     logic [`XLEN-1:0] rd_wdata;

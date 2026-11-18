@@ -180,7 +180,10 @@ module EX (
     assign ID_flush = EX_flush | jump;
 
     assign out_EX_data.pc          = in_ID_data.pc;
-    assign out_EX_data.mem_access  = lsu_req_read | lsu_req_write | lsu_req_lr | lsu_req_sc;
+    assign out_EX_data.instruction = in_ID_data.instruction;
+    assign out_EX_data.address     = instr_addr_misaligned ? jump_tgt_pc : lsu_req_addr;
+    assign out_EX_data.mem_access  = (lsu_req_read | lsu_req_write | lsu_req_lr | lsu_req_sc) &
+                                    ~(load_addr_misaligned |store_amo_addr_misaligned) ;
     assign out_EX_data.mem_read    = lsu_req_read | lsu_req_lr;
     assign out_EX_data.rd_write    = in_ID_data.rd_write;
     assign out_EX_data.rd_addr     = in_ID_data.rd_addr;

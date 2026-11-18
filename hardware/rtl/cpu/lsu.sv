@@ -115,8 +115,8 @@ module lsu #(
             /* verilator lint_off CASEINCOMPLETE */
             case (lsu_state)
                 IDLE: begin
-                    if (lsu_non_amo_req  &&  hready) lsu_state <= AHB_DATA;
-                    else if (lsu_req_amo &&  hready) lsu_state <= AMO_READ_DATA;
+                    if (lsu_non_amo_req  && !mem_addr_misaligned && hready) lsu_state <= AHB_DATA;
+                    else if (lsu_req_amo && !mem_addr_misaligned && hready) lsu_state <= AMO_READ_DATA;
                 end
                 AHB_DATA: begin
                     if (hready) begin
@@ -156,8 +156,8 @@ module lsu #(
     // LSU ready state:
     // 1) request is NOT an AMO and the AHB bus is ready to take the request
     // 2) request is AMO and AMO instruction complete
-    assign lsu_req_ready  = (lsu_non_amo_req && !mem_addr_misaligned && hready) ||      // 1
-                            (lsu_req_amo     && !mem_addr_misaligned && amo_complete);  // 2
+    assign lsu_req_ready  = (lsu_non_amo_req && (mem_addr_misaligned || hready)) ||      // 1
+                            (lsu_req_amo     && (mem_addr_misaligned || amo_complete));  // 2
 
 
     // register the request information for data phase

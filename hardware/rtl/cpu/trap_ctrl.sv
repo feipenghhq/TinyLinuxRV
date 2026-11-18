@@ -34,7 +34,7 @@ module trap_ctrl
     // Entering trap
     output logic              trap_enter,
     output logic [`XLEN-1:0]  trap_enter_vec,
-    output logic [`XLEN-1:0]  trap_cause,
+    output logic [4:0]        trap_cause,
     output logic [`XLEN-1:0]  trap_tval,
     output logic [`XLEN-1:0]  trap_pc,
     output logic [1:0]        trap_priv,
@@ -87,7 +87,7 @@ module trap_ctrl
     assign trap_enter = exception_valid | handle_interrupt;
 
     // Update: trap cause (mcause/scause)
-    assign trap_cause = {{`XLEN-5{1'b0}}, exception_valid ? exception_cause : interrupt_cause};
+    assign trap_cause = exception_valid ? exception_cause : interrupt_cause;
 
     // Update: mepc/sepc
     // since we only support only IALIGN=32, the two low bits (mepc[1:0]) are always zero.

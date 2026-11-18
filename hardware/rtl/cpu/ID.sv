@@ -72,6 +72,8 @@ module ID (
     typedef enum logic {RUN=0, STALLED=1} state_t;
     state_t           ID_state;
 
+    logic             exception_valid;
+
     // ---------------------------------
     // Main components
     // ---------------------------------
@@ -169,7 +171,7 @@ module ID (
     end
 
     // ID stage is valid when: 1) Get valid instruction, 2) Instruction is decoded successfully, 3) Not flushed
-    assign ID_stage_valid = instruction_valid & ~illegal_instruction & ~ID_flush;
+    assign ID_stage_valid = instruction_valid & ~ID_flush;
 
     // ID need to be stalled when: 1) EX is stalled, or 2) load dependency
     assign ID_stage_stall = ~out_ID_ready | load_dependency;
@@ -182,18 +184,21 @@ module ID (
 
     assign IF_flush = ID_flush;
 
+
+
     // ctrl and data
     assign out_ID_data.pc          = in_IF_data.pc;
     assign out_ID_data.instruction = instruction;
     assign out_ID_data.immediate   = immediate;
-    assign out_ID_data.cpu_ctrl    = cpu_ctrl;
+    assign out_ID_data.cpu_ctrl    = exception_valid ? 0: cpu_ctrl;
     assign out_ID_data.rs1_value   = final_rs1;
     assign out_ID_data.rs2_value   = final_rs2;
     assign out_ID_data.rd_write    = rd_write;
     assign out_ID_data.rd_addr     = rd_addr;
 
     // exception
-    assign out_ID_data.exception_valid = instruction_access_fault | illegal_instruction;
+    assign exception_valid = instruction_access_fault | illegal_instruction;
+    assign out_ID_data.exception_valid = exception_valid;
     assign out_ID_data.exception_cause = instruction_access_fault ? INST_ACCESS_FAULT : ILLEGAL_INSTRUCTION;
 
 endmodule

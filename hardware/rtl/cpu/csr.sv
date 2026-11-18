@@ -12,7 +12,7 @@ module csr
 
     // Entering trap
     input               trap_enter,
-    input [`XLEN-1:0]   trap_cause,
+    input [4:0]         trap_cause,
     input [`XLEN-1:0]   trap_tval,
     input [`XLEN-1:0]   trap_pc,
     input [1:0]         trap_priv,
@@ -44,7 +44,8 @@ module csr
     logic [1:0] addr_priv;
 
     logic       csr_wrong_priv;
-    logic       csr_access_unimp;
+    logic       csr_read_unimp;
+    logic       csr_write_ro;
 
 
     // Machine Trap Setup
@@ -120,10 +121,11 @@ module csr
     end
 
     // --------------------------------
-    // CSR Read Logic
+    // CSR Decode and Read Logic
     // --------------------------------
     always_comb begin
-        csr_access_unimp = 1'b0;
+        csr_read_unimp = 1'b0;
+        csr_write_ro = 1'b0;
         case(csr_address)
             CSR_MSTATUS: csr_rdata = mstatus_read(mstatus);
             CSR_MISA:    csr_rdata = misa_read(misa);
@@ -152,15 +154,18 @@ module csr
             CSR_SATP:     csr_rdata = satp_read(satp);
             CSR_CYCLE: begin
                 csr_rdata = cycle_read(mcycle);
-                if (current_priv != PRIV_M && !mcounteren.cy) csr_access_unimp = 1'b1;
+                if (current_priv != PRIV_M && !mcounteren.cy) csr_read_unimp = 1'b1;
+                if (csr_write) csr_write_ro = 1'b1;
             end
             CSR_TIME: begin
                 csr_rdata = time_read(mtime);
-                if (current_priv != PRIV_M && !mcounteren.tm) csr_access_unimp = 1'b1;
+                if (current_priv != PRIV_M && !mcounteren.tm) csr_read_unimp = 1'b1;
+                if (csr_write) csr_write_ro = 1'b1;
             end
             CSR_INSTRET: begin
                 csr_rdata = instret_read(minstret);
-                if (current_priv != PRIV_M && !mcounteren.tm) csr_access_unimp = 1'b1;
+                if (current_priv != PRIV_M && !mcounteren.tm) csr_read_unimp = 1'b1;
+                if (csr_write) csr_write_ro = 1'b1;
             end
             CSR_MVENDORID: csr_rdata = mvendorid_read(mvendorid);
             CSR_MARCHID:   csr_rdata = marchid_read(marchid);
@@ -168,7 +173,7 @@ module csr
             CSR_MHARTID:   csr_rdata = mhartid_read(mhartid);
             default: begin
                 csr_rdata = 0;
-                csr_access_unimp = 1;
+                csr_read_unimp = 1;
             end
         endcase
     end
@@ -268,26 +273,26 @@ module csr
             end
 
             if (csr_write && csr_address == CSR_MEPC) mepc <= mepc_write(csr_wdata_final);
-            else if (trap_enter && trap_priv == PRIV_M) mepc <= trap_pc;
+            else if (trap_enter && trap_priv == PRIV_M) mepc.mepc <= trap_pc;
 
             if (csr_write && csr_address == CSR_MCAUSE) mcause <= mcause_write(csr_wdata_final);
-            else if (trap_enter && trap_priv == PRIV_M) mcause <= trap_cause;
+            else if (trap_enter && trap_priv == PRIV_M) mcause.exception_code <= {58'b0, trap_cause};
 
             if (csr_write && csr_address == CSR_MTVAL) mtval <= mtval_write(csr_wdata_final);
-            else if (trap_enter && trap_priv == PRIV_M) mtval <= trap_cause;
+            else if (trap_enter && trap_priv == PRIV_M) mtval.mtval <= trap_tval;
 
-            if (csr_write && csr_address == CSR_MCYCLE) mcycle <= mcycle_write(csr_wdata_final);
-            else mcycle <= mcycle + 1'b1;
+            if (csr_write && csr_address == CSR_MCYCLE) mcycle.mcycle <= mcycle_write(csr_wdata_final);
+            else mcycle.mcycle <= mcycle.mcycle + 1'b1;
 
             if (csr_write && csr_address == CSR_MINSTRET) minstret <= minstret_write(csr_wdata_final);
-            else if (instret) minstret <= minstret + 1'b1;
+            else if (instret) minstret.minstret <= minstret.minstret + 1'b1;
         end
     end
 
     // --------------------------------
     // Check illegal instruction
     // --------------------------------
-    assign csr_illegal_instruction = (csr_read | csr_write) & (csr_wrong_priv | csr_access_unimp);
+    assign csr_illegal_instruction = (csr_read | csr_write) & (csr_wrong_priv | csr_read_unimp | csr_write_ro);
 
     // --------------------------------
     // CSR Information to other Logic

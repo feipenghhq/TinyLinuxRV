@@ -59,6 +59,7 @@ module MEM (
 
     assign out_MEM_data.pc = in_EX_data.pc;
     assign out_MEM_data.instruction = in_EX_data.instruction;
+    assign out_MEM_data.address = in_EX_data.address;
     assign out_MEM_data.rd_write = in_EX_data.rd_write;
     assign out_MEM_data.rd_addr = in_EX_data.rd_addr;
     assign out_MEM_data.rd_wdata = rd_wdata;

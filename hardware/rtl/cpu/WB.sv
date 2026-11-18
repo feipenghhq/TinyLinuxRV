@@ -28,7 +28,7 @@ module WB (
     logic             trap_exit;
     logic [`XLEN-1:0] trap_enter_vec;
     logic [`XLEN-1:0] trap_exit_vec;
-    logic [`XLEN-1:0] trap_cause;
+    logic [4:0]       trap_cause;
     logic [`XLEN-1:0] trap_tval;
     logic [`XLEN-1:0] trap_pc;
     logic [1:0]       trap_priv;
@@ -71,7 +71,7 @@ module WB (
     // Register Write back
     // ----------------------------------------------------
 
-    assign wb_rd_write = in_MEM_data.rd_write;
+    assign wb_rd_write = in_MEM_data.rd_write & ~final_exception_valid; // cancel register write if there are exception
     assign wb_rd_addr  = in_MEM_data.rd_addr;
     assign wb_rd_wdata = in_MEM_data.csr_read ? csr_rdata : in_MEM_data.rd_wdata;
 
@@ -108,7 +108,7 @@ module WB (
         .exception_cause  (final_exception_cause),
         .pc               (in_MEM_data.pc),
         .instruction      (in_MEM_data.instruction),
-        .address          ('0),
+        .address          (in_MEM_data.address),
         .interrupt_valid  (1'b0),
         .interrupt_cause  (5'b0),
         .sret             (sret_final),
