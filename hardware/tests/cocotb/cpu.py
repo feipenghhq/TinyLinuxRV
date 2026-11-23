@@ -40,13 +40,9 @@ class CPU:
             self.dut.u_cpu.u_ID.u_regfile.register_file[i].value = 0
 
     async def _check_finish(self):
-        clkedge = RisingEdge(self.dut.clk)
-        while True:
-            await clkedge
-            if self.dut.test_finish.value == 1:
-                self.finish = True
-                cocotb.log.info(f"Test Finished at {get_sim_time(unit='ns')} ns")
-                return
+        await RisingEdge(self.dut.test_finish)
+        self.finish = True
+        cocotb.log.info(f"Test Finished at {get_sim_time(unit='ns')} ns")
 
     def _check_result_rv_test(self):
         if not self.finish:

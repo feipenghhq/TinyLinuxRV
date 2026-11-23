@@ -729,6 +729,9 @@ void csr_begin_update(csr_t *csr, bool meip, bool msip, bool mtip, bool seip) {
     csr_field_set(&csr->csr_reg.mip, INT_MEIP, 1, meip);
     csr_field_set(&csr->csr_reg.mip, INT_MSIP, 1, msip);
     csr_field_set(&csr->csr_reg.mip, INT_MTIP, 1, mtip);
+    // FIXME: BUG: external SEIP overwrites the software-writable mip.SEIP bit.
+    // Keep software SEIP and external SEIP separate. Reads and interrupt checks
+    // must use their OR; CSR writes/RMW must only update the software bit.
     csr_field_set(&csr->csr_reg.mip, INT_SEIP, 1, seip);
 }
 

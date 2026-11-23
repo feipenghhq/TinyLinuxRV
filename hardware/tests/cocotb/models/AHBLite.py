@@ -67,22 +67,26 @@ class AHBLiteDevice(AHBLiteBus):
         Handling address phase
         """
         clkedge = RisingEdge(self.clock)
+        read_write = ReadWrite()
+        read_only = ReadOnly()
 
         while True:
             await clkedge
-            await ReadWrite()
+            await read_write
 
             # insert wait state
             if self.wait_time > 0:
                 self.hready.value = 0
                 self.wait_time -= 1
+                # Keep the pending request and skip phase processing while stalled.
+                continue
             else:
                 self.hready.value = 1
                 self.wait_time = random.randint(0, self.random_wait)
 
             # Processing Data Phase
-            await ReadWrite()
-            if self.req and self.hready.value:
+            await read_write
+            if self.req:
                 if self.req_write == 1: # write request
                     self.hresp.value = self._write(self.req_addr, self.hwdata.value.to_unsigned(), self.req_size);
                 if self.req_write == 0: # read request
@@ -91,8 +95,8 @@ class AHBLiteDevice(AHBLiteBus):
                 self.req = False
 
             # Processing Address Phase
-            await ReadOnly()
-            if self.htrans.value == 2 and (self.hsel is None or self.hsel.value == 1) and self.hready.value == 1:
+            await read_only
+            if self.htrans.value == 2 and (self.hsel is None or self.hsel.value == 1):
                 self.req       = True
                 self.req_addr  = self.haddr.value.to_unsigned()
                 self.req_write = self.hwrite.value

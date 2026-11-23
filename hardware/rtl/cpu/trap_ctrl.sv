@@ -105,8 +105,8 @@ module trap_ctrl
     assign trap_enter = exception_valid_final | handle_interrupt;
 
     // Update: trap cause (mcause/scause)
-    assign trap_cause = interrupt_valid ? interrupt_cause : exception_cause_final;
-    assign trap_interrupt = interrupt_valid;
+    assign trap_cause = handle_interrupt ? interrupt_cause : exception_cause_final;
+    assign trap_interrupt = handle_interrupt;
 
     // Update: mepc/sepc
     // since we only support only IALIGN=32, the two low bits (mepc[1:0]) are always zero.

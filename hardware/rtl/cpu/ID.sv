@@ -59,7 +59,6 @@ module ID (
 
     logic             instruction_access_fault;
     logic             instruction_valid;
-    logic [31:0]      instruction_buffer;
     logic [31:0]      instruction;
     logic             illegal_instruction;
     logic [`XLEN-1:0] immediate;
@@ -76,9 +75,6 @@ module ID (
     logic             ID_stall;
     logic             ID_stage_valid;
     logic             ID_stage_stall;
-
-    typedef enum logic {RUN=0, STALLED=1} state_t;
-    state_t           ID_state;
 
     logic             wfi;
     logic             wfi_illegal;
@@ -124,14 +120,10 @@ module ID (
     // Fetch Instruction from IF
     // ---------------------------------
 
-    assign instruction_valid = (in_IF_valid | ID_state == STALLED) & ~ID_flush;
+    assign instruction_valid = in_IF_valid & ~ID_flush;
     assign instruction_access_fault = in_IF_valid & ~ID_flush & in_IF_data.inst_access_fault;
 
-    always_ff @(posedge clk, negedge rst_n) begin
-        if (~in_IF_ready && ID_state == RUN) instruction_buffer <= in_IF_data.instruction;
-    end
-
-    assign instruction = (ID_state == STALLED) ? instruction_buffer : in_IF_data.instruction;
+    assign instruction =  in_IF_data.instruction;
 
     // ---------------------------------
     // Data forwarding MUX
@@ -155,19 +147,6 @@ module ID (
     // ---------------------------------
     // Pipeline Control
     // ---------------------------------
-
-    // ID state machine
-    always_ff @(posedge clk, negedge rst_n) begin
-        if (!rst_n) begin
-            ID_state <= RUN;
-        end
-        else begin
-            case (ID_state)
-                RUN: if (ID_stage_stall && ID_stage_valid) ID_state <= STALLED;
-                STALLED: if (ID_flush || ~ID_stage_stall) ID_state <= RUN;
-            endcase
-        end
-    end
 
     // There are several dependency requires ID stage to be stalled
 
@@ -203,7 +182,7 @@ module ID (
     assign out_ID_data.pc          = in_IF_data.pc;
     assign out_ID_data.instruction = instruction;
     assign out_ID_data.immediate   = immediate;
-    assign out_ID_data.cpu_ctrl    = exception_valid ? 0: cpu_ctrl;
+    assign out_ID_data.cpu_ctrl    = (exception_valid || interrupt_valid) ? 0: cpu_ctrl;
     assign out_ID_data.rs1_value   = final_rs1;
     assign out_ID_data.rs2_value   = final_rs2;
     assign out_ID_data.rd_write    = rd_write;
@@ -215,7 +194,7 @@ module ID (
     assign sfence_vma_illegal = mstatus_tvm & sfence_vma & current_priv < PRIV_M;
 
     assign exception_valid = instruction_access_fault | illegal_instruction | wfi_illegal | sfence_vma_illegal;
-    assign interrupt_valid = wb_int_req;
+    assign interrupt_valid = wb_int_req & ID_stage_valid; // interrupt is handled first in trap_ctrl so no need to check if the instruction cause exception or not
     assign out_ID_data.exception_valid = exception_valid;
     assign out_ID_data.interrupt_valid = interrupt_valid;
     assign out_ID_data.cause = interrupt_valid ? wb_int_cause:
